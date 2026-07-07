@@ -9,9 +9,9 @@ import { getBrowserClient } from "@/lib/supabase/client";
 
 export type Block = { id: string; type: "h1" | "h2" | "p" | "bullet" | "quote" | "divider"; text: string };
 
-const C = { bg: "#080809", panel: "#0e0e11", line: "#26262c", line2: "#34343c", cream: "#ece8e1", muted: "#8b867d", dim: "#56524b", red: "#e6322b", green: "#3fb97a" };
-const mono = "'JetBrains Mono', ui-monospace, monospace";
-const cond = "'Barlow Condensed','Arial Narrow',sans-serif";
+const C = { bg: "#0a1322", panel: "#101d33", line: "#24385c", line2: "#33455f", cream: "#f4f7fc", muted: "#8ea3c4", dim: "#5c7096", red: "#ffb81c", green: "#2ee06f" };
+const mono = "'Archivo', sans-serif";
+const cond = "'Oswald',sans-serif";
 
 const TYPES: { v: Block["type"]; label: string }[] = [
   { v: "h1", label: "Heading" },

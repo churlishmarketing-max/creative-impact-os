@@ -1,11 +1,11 @@
 'use client';
 /* ============================================================================
- * Churlish OS — Command Center cockpit.
- * Ported VERBATIM from the Claude Design mockup (Churlish OS.html):
- *   - logic class (state + compute) is the original DCLogic "Component", unchanged
- *   - render() is a mechanical conversion of the <x-dc> template
- *     (sc-if -> ternary, sc-for -> .map, {{ }} -> {expr}, style-hover -> <Hover>)
- * Do not redesign. Only the data layer (loadStore/saveStore) is meant to change.
+ * Creative Impact OS — Broadcast cockpit.
+ * Skin ported from the design handoff prototype (design/Creative Impact OS -
+ * Broadcast.dc.html): scorebug header, channel tabs, drive meter, bottomline
+ * ticker, GOING LIVE boot. The engine underneath (lib/store.js, API routes)
+ * is the proven Churlish OS engine — do not rewrite it. Sections 01-09 are the
+ * broadcast screens; 10-16 are the engine screens re-toned to the same tokens.
  * ========================================================================== */
 import React from 'react';
 import { store } from '@/lib/store';
@@ -40,222 +40,242 @@ function Hover({ as: Tag = 'div', baseStyle, hoverStyle, children, ...rest }) {
 
 
 class Cockpit extends React.Component {
-  GOAL = 150000;
-  SELLBY = '2026-08-31';
+  GOAL = 100000;
+  SELLBY = '2026-10-31';
   DEADLINE = '2026-12-31';
-  ONE_TITLE = 'PUBLISH THE $750 AUTHORITY DIAGNOSTIC';
-  ONE_BODY = "One page, sample report attached, in front of the cold list. Until it's live, nothing else on this screen matters.";
-  KEY = 'churlish.os.terminal.v1';
-
-  BOOT = [
-    { text: 'CHURLISH//OS  v1.4.0  — BOOTLOADER', color: 'var(--cream)' },
-    { text: '> POST .............................. OK', color: 'var(--muted)' },
-    { text: '> MOUNT /layer1  COMMAND ........... OK', color: 'var(--muted)' },
-    { text: '> MOUNT /layer2  AGENT_FLEET ....... OK', color: 'var(--muted)' },
-    { text: '> MOUNT /layer3  SOP+SALES ......... OK', color: 'var(--muted)' },
-    { text: '> MOUNT /layer4  FOUNDER_OS ........ OK', color: 'var(--muted)' },
-    { text: '> AGENT FLEET .... 6 UNITS ONLINE', color: 'var(--muted)' },
-    { text: '> LEDGER SYNC .... $150,000 TARGET LOCKED', color: 'var(--muted)' },
-    { text: '> CLOCK .......... AUG 31 / DEC 31 ARMED', color: 'var(--muted)' },
-    { text: '> ENCRYPTION ..... AES-256 // SECURE', color: 'var(--muted)' },
-    { text: '> ALL SYSTEMS NOMINAL. READY.', color: '#3fb97a' }
-  ];
+  ONE_TITLE = "Sell out August's four capture days";
+  ONE_BODY = "Free 30-minute Authority Audit as the door-opener, booked from the Charlotte cold list. Until all four slots are sold, nothing else on this board matters.";
+  KEY = 'ci.os.broadcast.v1';
+  COUNT = ['3', '2', '1'];
 
   SECTIONS = [
     { num: '01', label: 'Command', id: 'command' },
     { num: '02', label: 'Pipeline', id: 'pipeline' },
-    { num: '03', label: 'Clients', id: 'clients' },
-    { num: '04', label: 'Invoices', id: 'invoices' },
-    { num: '05', label: 'Proposals', id: 'proposals' },
-    { num: '06', label: 'Scheduling', id: 'scheduling' },
-    { num: '07', label: 'KPIs', id: 'kpis' },
-    { num: '08', label: 'Expenses', id: 'expenses' },
-    { num: '09', label: 'Diagnostic', id: 'script' },
-    { num: '10', label: 'Playbook', id: 'playbook' },
-    { num: '11', label: 'Agent Fleet', id: 'agents' },
-    { num: '12', label: 'Founder OS', id: 'founder' },
-    { num: '13', label: 'Documents', id: 'docs' },
-    { num: '14', label: 'Strategy', id: 'strategy' },
-    { num: '15', label: 'Plans', id: 'plans' },
-    { num: '16', label: 'Rookie', id: 'rookie' }
+    { num: '03', label: 'Audits', id: 'audits' },
+    { num: '04', label: 'Shoots', id: 'shoots' },
+    { num: '05', label: 'Agent Fleet', id: 'agents' },
+    { num: '06', label: 'Partners', id: 'partners' },
+    { num: '07', label: 'Documents', id: 'docs' },
+    { num: '08', label: 'Strategy', id: 'strategy' },
+    { num: '09', label: 'Plans', id: 'plans' },
+    { num: '10', label: 'Clients', id: 'clients' },
+    { num: '11', label: 'Invoices', id: 'invoices' },
+    { num: '12', label: 'Proposals', id: 'proposals' },
+    { num: '13', label: 'Scheduling', id: 'scheduling' },
+    { num: '14', label: 'KPIs', id: 'kpis' },
+    { num: '15', label: 'Expenses', id: 'expenses' },
+    { num: '16', label: 'Console', id: 'rookie' }
   ];
 
+  // Local-dev demo data only. Real (Supabase) mode starts EMPTY — the DB is the
+  // single source of truth and there is NO auto-seeding in app code.
   SEED = [
-    { name: 'Cornerstone Plumbing', offer: 'Authority Diagnostic', value: 750, stage: 'Collected' },
-    { name: 'Vela Roofing', offer: 'Ad Creative Tournament', value: 2500, stage: 'Collected' },
-    { name: 'Brightline Dental', offer: '48-Hour Tool Sprint', value: 5000, stage: 'Collected' },
-    { name: 'Maple & Co Realty', offer: 'Authority Engine', value: 3500, stage: 'Collected' },
-    { name: 'Ironside Fitness', offer: 'Authority System', value: 5000, stage: 'Collected' },
-    { name: 'Northstar HVAC', offer: 'Authority Launchpad', value: 2500, stage: 'Collected' },
-    { name: 'Harbor & Vine Law', offer: 'Authority Diagnostic', value: 750, stage: 'Collected' },
-    { name: 'Cedar Park Dental', offer: 'CRF Subscription', value: 2400, stage: 'Collected' },
-    { name: 'Atlas Moving', offer: 'Ad Creative Tournament', value: 2500, stage: 'Collected' },
-    { name: 'Summit Realty', offer: 'Authority System', value: 5000, stage: 'Collected' },
-    { name: 'Forge Athletics', offer: '48-Hour Tool Sprint', value: 5000, stage: 'Collected' },
-    { name: 'Delta Signs', offer: 'Authority Diagnostic', value: 750, stage: 'Signed' },
-    { name: 'Quill & Co', offer: 'Ad Creative Tournament', value: 2500, stage: 'Signed' },
-    { name: 'Tower Electric', offer: '48-Hour Tool Sprint', value: 5000, stage: 'Signed' },
-    { name: 'Lumen Studios', offer: 'Authority Diagnostic', value: 750, stage: 'Diagnostic Sent', date: '2026-07-01' },
-    { name: 'Riverside Roofing', offer: 'Authority Diagnostic', value: 750, stage: 'Lead', date: '2026-07-02' },
-    { name: 'Granite Law', offer: 'Authority Diagnostic', value: 750, stage: 'Diagnostic Sent', date: '2026-07-03' },
-    { name: 'Vertex HVAC', offer: 'Authority Engine', value: 3500, stage: 'Diagnostic Done', date: '2026-07-04' },
-    { name: 'Peak Dental', offer: 'Ad Creative Tournament', value: 2500, stage: 'Lead', date: '2026-07-05' },
-    { name: 'Beacon Realty', offer: 'Authority System', value: 5000, stage: 'Proposal', date: '2026-07-06' },
-    { name: 'Cobalt Realty', offer: 'Authority Diagnostic', value: 750, stage: 'Diagnostic Sent', date: '2026-07-08' },
-    { name: 'Oak & Iron', offer: 'Authority Launchpad', value: 2500, stage: 'Proposal', date: '2026-07-09' },
-    { name: 'Anchor Marine', offer: 'Authority System', value: 5000, stage: 'Diagnostic Done', date: '2026-07-10' }
+    { name: 'Elite Sales Training', offer: 'Authority Engine · MO 05', value: 7000, stage: 'Collected' },
+    { name: 'Myers Park Ortho', offer: 'Authority Engine · MO 03', value: 4500, stage: 'Collected' },
+    { name: 'NoDa Med Spa', offer: 'Story Capture Pilot', value: 2400, stage: 'Collected' },
+    { name: 'Uptown Realty Group', offer: 'Authority Engine · MO 02', value: 4500, stage: 'Collected' },
+    { name: 'South End Dental', offer: 'Authority Engine · 3-mo term', value: 4500, stage: 'Signed' },
+    { name: 'Steele Creek Roofing', offer: 'Authority Engine · 3-mo term', value: 4000, stage: 'Signed' },
+    { name: 'Queen City HVAC', offer: 'Authority Engine · 3-mo term', value: 10500, stage: 'Audit Booked', date: '2026-07-01' },
+    { name: 'SouthPark Aesthetics', offer: 'Story Capture Pilot', value: 2400, stage: 'Audit Booked', date: '2026-07-02' },
+    { name: 'Dilworth Family Dental', offer: 'Authority Engine · 3-mo term', value: 10500, stage: 'Audit Done', date: '2026-07-03' },
+    { name: 'University City Injury Law', offer: 'Authority Engine · 3-mo term', value: 12000, stage: 'Audit Done', date: '2026-07-05' },
+    { name: 'Ballantyne Law', offer: 'Authority Engine · 3-mo term', value: 12000, stage: 'Proposal', date: '2026-07-06' },
+    { name: 'Cotswold Med Spa', offer: 'Authority Engine · 3-mo term', value: 7500, stage: 'Proposal', date: '2026-07-08' },
+    { name: 'Plaza Midwood Realty', offer: 'Story Capture Pilot', value: 2400, stage: 'Lead', date: '2026-07-09' },
+    { name: 'Belmont Custom Homes', offer: 'Authority Engine · 3-mo term', value: 7500, stage: 'Lead', date: '2026-07-10' },
+    { name: 'Matthews Financial Group', offer: 'Story Capture Pilot', value: 2400, stage: 'Lead', date: '2026-07-11' },
+    { name: 'Providence Wealth', offer: 'Authority Engine · 3-mo term', value: 10500, stage: 'Lead', date: '2026-07-12' },
+    { name: 'Pineville Plumbing', offer: 'Story Capture Pilot', value: 2400, stage: 'Lead', date: '2026-07-13' }
   ];
+  STAGES = ['Lead', 'Audit Booked', 'Audit Done', 'Proposal', 'Signed', 'Collected'];
+  STAGEPROB = { 'Lead': .1, 'Audit Booked': .3, 'Audit Done': .5, 'Proposal': .7, 'Signed': .95, 'Collected': 1 };
 
-  LOGSEED = [
-    { t: '07:42', tag: 'KF', color: 'var(--red)', msg: 'sourced 18 prospects · roofing / NE metro' },
-    { t: '08:05', tag: 'BB', color: '#3fb97a', msg: 'sequence dispatched · 14 sends, 0 bounces' },
-    { t: '09:18', tag: 'BB', color: '#3fb97a', msg: 'booked call · Lumen Studios · 15:00' },
-    { t: '10:30', tag: 'RR', color: 'var(--cream)', msg: 'rendered 6 ad variants · Vela tournament' },
-    { t: '11:02', tag: 'WT', color: 'var(--muted)', msg: 'fleet audit · all units on-brand · green' },
-    { t: '12:15', tag: 'EV', color: 'var(--red)', msg: 'ledger reconciled · collected +$5,000' },
-    { t: '13:40', tag: 'KF', color: 'var(--red)', msg: 'tiered list updated · 142 active leads' }
+  // Local-dev demo shoots/deliverables (real mode loads from the DB).
+  SHOOTSEED = [
+    { id: 'sh1', date: '2026-07-09', client: 'South End Dental', kind: 'STORY CAPTURE · HALF-DAY', status: 'BOOKED' },
+    { id: 'sh2', date: '2026-07-14', client: 'Steele Creek Roofing', kind: 'STORY CAPTURE · HALF-DAY', status: 'BOOKED' },
+    { id: 'sh3', date: '2026-07-18', client: 'Elite Sales Training', kind: 'MONTHLY CAPTURE', status: 'CONFIRMED' },
+    { id: 'sh4', date: '2026-07-25', client: '', kind: 'SELL THIS DAY', status: 'OPEN' },
+    { id: 'sh5', date: '2026-08-06', client: '', kind: 'SELL THIS DAY', status: 'OPEN' },
+    { id: 'sh6', date: '2026-08-12', client: '', kind: 'SELL THIS DAY', status: 'OPEN' },
+    { id: 'sh7', date: '2026-08-20', client: '', kind: 'SELL THIS DAY', status: 'OPEN' },
+    { id: 'sh8', date: '2026-08-27', client: '', kind: 'SELL THIS DAY', status: 'OPEN' }
   ];
-
-  AMB = [
-    { tag: 'BB', color: '#3fb97a', msg: 'reply received · Granite Law · positive' },
-    { tag: 'RR', color: 'var(--cream)', msg: 'clip batch queued · short-form #31' },
-    { tag: 'WT', color: 'var(--muted)', msg: 'heartbeat · 6/6 agents responding' },
-    { tag: 'KF', color: 'var(--red)', msg: 'new prospect tier-1 · HVAC · scored 0.91' },
-    { tag: 'EV', color: 'var(--red)', msg: 'coverage check · advisory issued' },
-    { tag: 'BB', color: '#3fb97a', msg: 'follow-up scheduled · Peak Dental · +2d' }
+  DELIVSEED = [
+    { id: 'dl1', name: 'NoDa Med Spa', done: 12, meta: '34 PHOTOS · 6 ADS LIVE · REVIEW CALL JUL 29' },
+    { id: 'dl2', name: 'Uptown Realty Group', done: 8, meta: '28 PHOTOS · 4 ADS LIVE · SHOOT SHOT JUL 02' },
+    { id: 'dl3', name: 'Elite Sales Training', done: 9, meta: '22 PHOTOS · 5 ADS LIVE · CAPTURE JUL 18' },
+    { id: 'dl4', name: 'Myers Park Ortho', done: 6, meta: '18 PHOTOS · 3 ADS LIVE · EDIT IN PROGRESS' }
   ];
-
-  STAGES = ['Lead', 'Diagnostic Sent', 'Diagnostic Done', 'Proposal', 'Signed', 'Collected'];
-  STAGEPROB = { 'Lead': .1, 'Diagnostic Sent': .3, 'Diagnostic Done': .5, 'Proposal': .7, 'Signed': .95, 'Collected': 1 };
+  RUNSHEET = [
+    'T-3 days — pre-pro call: story angle, locations, shot list locked.',
+    'AM — Authority Video interview: the long-form centerpiece (60–90 min).',
+    'Midday — b-roll: the work, the team, the space, the details.',
+    'PM — brand photography session: portraits, lifestyle, product (Emmanuel).',
+    'Same week — selects + edit brief to Splice; 8–12 cuts queued; Gaffer picks ad frames.'
+  ];
 
   FLEET = [
-    { init: 'KF', name: 'Kid Flash', role: 'Lead research — sources, qualifies and tiers prospect lists from Apollo.', cad: 'Every morning', accent: 'var(--red)' },
-    { init: 'BB', name: 'Blue Beetle', role: 'Outreach — works the email + LinkedIn sequences, books the 15-minute calls.', cad: 'Daily', accent: '#3fb97a' },
-    { init: 'RR', name: 'Red Robin', role: 'Short-form + ad creative — turns footage into a wall of clips and ad variants.', cad: 'Daily', accent: 'var(--cream)' },
-    { init: 'AL', name: 'Alfred', role: 'Long-form editor brain — storyboards and animates YouTube / client video.', cad: 'Per project', accent: 'var(--cream)' },
-    { init: 'WT', name: 'Watchtower', role: 'Supervisor — verifies every agent ran clean and on-brand before it costs you.', cad: 'Midday', accent: 'var(--muted)' },
-    { init: 'EV', name: 'EVE', role: 'Executive operator — routes work and runs the goal ledger. Capped at 5 hrs/wk.', cad: 'On call', accent: 'var(--red)' }
+    { init: 'SC', ch: '1', name: 'Scout', role: 'Lead research — sources, qualifies and tiers the Charlotte prospect list.', cad: 'Every morning', accent: 'var(--gold)' },
+    { init: 'AN', ch: '2', name: 'Anchor', role: 'Outreach & booking — works the sequences, books the 30-minute audits.', cad: 'Daily', accent: 'var(--good)' },
+    { init: 'SP', ch: '3', name: 'Splice', role: 'Short-form edit — cuts every capture day into 8–12 clips per client.', cad: 'Daily', accent: 'var(--white)' },
+    { init: 'DR', ch: '4', name: 'Darkroom', role: 'Photo pipeline — culls, grades and delivers the photography sets.', cad: 'Per shoot', accent: 'var(--white)' },
+    { init: 'GF', ch: '5', name: 'Gaffer', role: 'Ads — builds and launches Meta + Google variants from winning cuts.', cad: 'Weekly', accent: 'var(--gold)' },
+    { init: 'SR', ch: '6', name: 'Showrunner', role: 'Supervisor — verifies every source ran clean and on-brand; routes work.', cad: 'Midday', accent: 'var(--muted)' }
   ];
-  LOOP = ['Kid Flash', 'Blue Beetle', 'Booked call', 'Pipeline', 'Red Robin', 'Watchtower'];
+  LOOP = ['Scout', 'Anchor', 'Booked audit', 'Pipeline', 'Splice + Gaffer', 'Showrunner'];
   OPSLIST = [
-    'Watchtower report reviewed — fleet green',
-    'Kid Flash list approved → handed to Blue Beetle',
+    'Showrunner report reviewed — fleet green',
+    'Scout list approved → handed to Anchor',
     '3 discovery calls held (the floor)',
     'New deals + stage moves logged in Pipeline',
-    'Red Robin proof asset reviewed / scheduled',
-    'Founder OS check-in done'
+    'Splice clip batch reviewed / scheduled',
+    'Partner desk check-in done — both of you'
+  ];
+  LOGSEED = [
+    { t: '07:42', tag: 'SC', color: 'var(--gold)', msg: 'sourced 14 prospects · HVAC / south CLT' },
+    { t: '08:05', tag: 'AN', color: 'var(--good)', msg: 'sequence dispatched · 16 sends, 0 bounces' },
+    { t: '09:18', tag: 'AN', color: 'var(--good)', msg: 'audit booked · SouthPark Aesthetics · THU 14:00' },
+    { t: '10:30', tag: 'SP', color: 'var(--white)', msg: 'cut 4 clips · Elite Sales Training batch' },
+    { t: '11:02', tag: 'SR', color: 'var(--muted)', msg: 'fleet audit · all sources on-brand · green' },
+    { t: '12:15', tag: 'DR', color: 'var(--white)', msg: 'graded 48 frames · Uptown Realty set' },
+    { t: '13:40', tag: 'GF', color: 'var(--gold)', msg: '2 ad variants live · NoDa Med Spa · Meta' }
+  ];
+  AMB = [
+    { tag: 'AN', color: 'var(--good)', msg: 'reply received · Ballantyne Law · positive' },
+    { tag: 'SP', color: 'var(--white)', msg: 'clip batch queued · short-form #27' },
+    { tag: 'SR', color: 'var(--muted)', msg: 'heartbeat · 6/6 sources responding' },
+    { tag: 'SC', color: 'var(--gold)', msg: 'new tier-1 prospect · dental · scored 0.92' },
+    { tag: 'GF', color: 'var(--gold)', msg: 'ad set optimized · CPL down 12%' },
+    { tag: 'AN', color: 'var(--good)', msg: 'follow-up scheduled · Providence Wealth · +2d' }
   ];
 
   LADDER = [
-    { n: 'Authority Diagnostic', p: '$750 PIF · 48 HRS', d: 'The paid first yes. A scored teardown that writes the retainer proposal for you.', accent: 'var(--red)' },
-    { n: 'Ad Creative Tournament', p: '$2,500 PIF', d: 'Variants judged overnight by persona panels. First 3 @ $1,500 (case-study exchange).', accent: 'var(--cream)' },
-    { n: '48-Hour Tool Sprint', p: '$5,000 FLAT', d: 'Interview to a working internal tool in two days. Same cold list, second offer.', accent: 'var(--red)' }
-  ];
-  SOPS = [
-    { t: 'Authority Diagnostic', p: '$750 · 48-HOUR TURNAROUND', steps: ['Take payment + intake (Pipeline → Diagnostic Sent).', 'Pull their funnel: site, ads, socials, lead path, follow-up.', 'Run the avatar + ad / funnel read; score authority 1–10.', 'Write the teardown: 3 ranked fixes, each with a dollar number.', 'Deliver PDF + 15-min walkthrough → pitch Engine / System.'], out: 'Output: scored report + a warm proposal conversation.' },
-    { t: 'Ad Creative Tournament', p: '$2,500 · FIRST 3 @ $1,500', steps: ['Intake their best customer language + current ads.', 'Generate N variants across hooks / angles.', 'Score with persona panels built from real customer voice.', 'Deliver kill list + launch list + scoreboard with reasons.', 'Hand winners to Red Robin to produce.'], out: 'Output: a ranked ad scoreboard. Re-price to $3,500 after 3 case studies.' },
-    { t: '48-Hour Tool Sprint', p: '$5,000 · 50% UPFRONT', steps: ['Interview: find the spreadsheet / group-text they live in.', 'Spec the tool in one page; confirm scope.', 'Build the working internal tool in two days.', 'Write the plain-English handoff guide.', 'Deliver + 30-min training. +$1,500/day if it grows.'], out: 'Output: a tool they actually use. Opens the retainer door.' },
-    { t: 'Renewal & Expansion', p: 'THE LEAK THE WAR ROOM FLAGGED', steps: ['Day 60: expansion conversation — show results, name the next tier.', 'Day 75: renewal motion — re-sign before the term lapses.', 'Any account quiet 14 days → renewal call that week.', 'Capture a testimonial + proof asset at every win.', 'Churn budget: ≤1 account per quarter.'], out: 'Output: protected base. One saved account = a month of diagnostics.', danger: true }
+    { n: 'Authority Audit', p: 'FREE · 30 MIN', d: 'The door-opener. No pitch slap — they walk away with a written plan either way. It pre-qualifies and starts the relationship on proof.', accent: 'var(--gold)' },
+    { n: 'Authority Engine', p: '$3,500/MO · 3-MO MIN', d: 'The core. One capture day, 8–12 clips, ads, funnel, follow-up, monthly review. Priced fixed — never discount month one.', accent: 'var(--white)' },
+    { n: 'Market Domination', p: '$6,000/MO · EXPANSION', d: 'Two capture days, multi-platform, full reporting. The day-60 expansion conversation for clients the Engine is already winning for.', accent: 'var(--gold)' }
   ];
 
   SCRIPT = [
-    { n: '01', l: 'Open / Disarm', goal: 'Lower the guard. You’re not a salesperson today — you’re the person who already knows what’s wrong.', blocks: [
-      { t: 'say', text: '“Hey [Name] — appreciate you grabbing 15 minutes. I’ll be straight: I’m not here to pitch you a retainer. I do a paid teardown of where a service business is actually leaking money and attention — and before either of us talks about working together, you should just see it. Fair?”' },
-      { t: 'note', text: 'Voss tone: late-night-FM, slow, no upward inflection. You’re the calm one. Let them talk first.' },
+    { n: '01', l: 'Open / Disarm', goal: 'Lower the guard. This is a working session, not a sales call — say so and mean it.', blocks: [
+      { t: 'say', text: '“Hey [Name] — appreciate you grabbing 30 minutes. Straight up: this isn’t a pitch. We do a working audit of where a service business is leaking attention and leads in Charlotte — and you’ll walk out of this call with a plan whether or not we ever talk again. Fair?”' },
+      { t: 'note', text: 'Calm, low, no upward inflection. You’re the person who already knows what’s wrong — not the one who needs the deal.' },
       { t: 'q', items: ['“Before I dig in — what made you take the call?” (let the real reason surface)', 'Mirror the last three words of whatever they say. Then stay quiet.'] }
     ] },
-    { n: '02', l: 'Situation', goal: 'Get the lay of the land. Facts, not pain yet — build the map you’ll diagnose against.', blocks: [
-      { t: 'q', items: ['“Walk me through how someone finds you right now — start to booked job.”', '“Roughly how many new leads a month, and where do most come from?”', '“What are you spending on marketing right now — ads, content, an agency, all of it?”', '“When someone reaches out but doesn’t buy — what happens to them?”'] },
-      { t: 'note', text: 'That last one is the trap door. Most have no answer. Don’t react — just write it down and nod.' }
+    { n: '02', l: 'Situation', goal: 'Get the lay of the land. Facts first — build the map you’ll audit against.', blocks: [
+      { t: 'q', items: ['“Walk me through how someone finds you today — start to booked job.”', '“Roughly how many new leads a month, and where do most come from?”', '“What are you spending on marketing right now — ads, content, an agency, lead services, all of it?”', '“When someone reaches out but doesn’t buy — what happens to them?”'] },
+      { t: 'note', text: 'That last one is the trap door. Most Charlotte operators have no answer. Don’t react — write it down and nod.' }
     ] },
-    { n: '03', l: 'Problem Awareness', goal: 'Make them say the problem out loud. Your job is questions; their job is realizing.', blocks: [
-      { t: 'q', items: ['“When you look at that lead-to-customer path — where do you think it’s breaking?”', '“How long has it been running like that?”', '“What have you already tried to fix it? And how’d that go?”'] },
-      { t: 'sayalt', text: '“So if I’m hearing you right — the work is good, the jobs are good, but the thing between ‘they hear about you’ and ‘they hire you’ is basically held together with hope. Is that fair, or am I overstating it?”' },
-      { t: 'note', text: 'Labeling (Voss): “It sounds like…” / “It seems like…”. Let them correct you — correction is engagement.' }
+    { n: '03', l: 'Problem Awareness', goal: 'Make them say it out loud: great reviews, invisible brand. Your job is questions; their job is realizing.', blocks: [
+      { t: 'q', items: ['“Pull up your website and your top competitor’s — honestly, could a stranger tell them apart?”', '“How long has it been running like that?”', '“What have you already tried? And how’d that go?”'] },
+      { t: 'sayalt', text: '“So if I’m hearing you right — the work is five stars, the reviews prove it, but between ‘they hear about you’ and ‘they hire you’ it’s basically held together with referrals and hope. Is that fair, or am I overstating it?”' },
+      { t: 'note', text: 'Label it: “It sounds like…” / “It seems like…”. Let them correct you — correction is engagement.' }
     ] },
-    { n: '04', l: 'Consequence', goal: 'Let the gap breathe. What does leaving it broken cost — in dollars and in their head. Don’t rush to the fix.', blocks: [
-      { t: 'q', items: ['“If nothing changes in the next 6–12 months, where does that leave you?”', '“What’s a single closed job worth to you, on average?”', '“So if even a handful of warm leads are slipping every month — you’ve got a rough number for what this is already costing, right?”'] },
-      { t: 'note', text: 'Stay silent after the cost question. The number landing in their own head does more than any slide could.' }
+    { n: '04', l: 'Consequence', goal: 'Let the gap breathe. What staying invisible costs — in dollars and in market position.', blocks: [
+      { t: 'q', items: ['“If nothing changes in the next 6–12 months, where does that leave you?”', '“What’s a single closed job worth to you, on average?”', '“So if the guy with half your skill keeps out-posting you — you’ve got a rough number for what that’s already costing, right?”'] },
+      { t: 'note', text: 'Silence after the cost question. The number landing in their own head does more than any deck could.' }
     ] },
-    { n: '05', l: 'The Diagnostic', goal: 'Present the $750 paid teardown as the obvious next step — not a sales call, a deliverable.', blocks: [
-      { t: 'say', text: '“Here’s what I’d do. Before anyone talks about a monthly anything, I run an Authority Diagnostic. It’s $750, it takes 48 hours, and you get a written, scored teardown: where your authority’s thin, where the funnel leaks, and the three highest-leverage fixes — ranked by what they’re worth. You keep it whether or not we ever work together.”' },
-      { t: 'sayalt', text: '“Think of it like a contractor who walks the job before quoting. I’m not going to guess at your business for free and call it a strategy — that’s what the cheap guys do. I’ll show you exactly what’s wrong, with a number next to it. Then you decide if you want me to fix it.”' },
-      { t: 'q', items: ['“Want me to send the sample report so you can see the format?” (always have it ready)', '“Anything you’d want me to look hardest at?”'] }
+    { n: '05', l: 'The Plan', goal: 'Deliver the audit — live. Three cracks, ranked, each with a dollar next to it. This is the deliverable.', blocks: [
+      { t: 'say', text: '“Here’s what I’m seeing — three things, in order. [Name them: positioning, content, follow-up — whatever the call surfaced.] If you fix nothing else, fix the first one. I’ll send this as a one-page plan after the call. It’s yours either way — run it yourself or hire anyone you want to run it.”' },
+      { t: 'sayalt', text: '“The way we’d run it: once a month, Emmanuel and the team come to you for a half-day shoot. One Authority Video, a full photo set, 8–12 cuts, the ads, the landing pages, the follow-up. Your job is to answer the phone. Ours is to make it ring.”' },
+      { t: 'q', items: ['“Want me to walk you through what a month actually looks like?”', '“Anything you’d want us to point the first shoot at?”'] }
     ] },
-    { n: '06', l: 'Commit', goal: 'Ask for the small yes. Calibrated questions hand them control while moving forward.', blocks: [
-      { t: 'say', text: '“So here’s the only question that matters today: do you want to keep guessing at where this is leaking — or do you want it on paper, with numbers, in 48 hours?”' },
-      { t: 'q', items: ['“How do you want to handle the $750 — card now, or invoice today?”', '“What’s the best email for the report and the receipt?”', '“If the teardown shows something worth fixing — are you the one who’d make that call, or is there someone else in it with you?”'] },
-      { t: 'note', text: 'The second they say yes: open Pipeline → add the deal at Diagnostic Sent, $750. Don’t trust your memory after the call.' }
+    { n: '06', l: 'Commit', goal: 'Ask for the small yes. Calendar, not contract — the capture day is the close.', blocks: [
+      { t: 'say', text: '“So there are two ways this goes. You take the plan and run it — genuinely fine. Or we run it for you, and the first move is getting you on the capture calendar. August has one day left — do you want it?”' },
+      { t: 'q', items: ['“Who else needs to see the plan before you’d green-light a first month?”', '“What’s the best email for the plan and the calendar hold?”'] },
+      { t: 'note', text: 'The second they say yes: Pipeline → move the deal to Proposal, hold the shoot date. Don’t trust memory after the call.' }
     ] }
   ];
   OBJECTIONS = [
-    { q: '“It’s just you? How do I know you can handle this?”', lab: 'Reframe the objection into the offer', a: '“It’s me plus a system I built that does the work a six-person team used to. That’s the whole point — you get a three-person studio’s overhead with a forty-person studio’s output, and one person who actually answers the phone. You’re not paying for a building full of account managers. You’re paying for the work.”' },
-    { q: '“$750 for a report? Just tell me what you’d charge to do it.”', lab: 'Hold the frame — the diagnostic IS the value', a: '“I could throw a number at you, but I’d be guessing — and you’d be right not to trust it. The $750 is what makes the recommendation real instead of a sales pitch. It’s also the cheapest way to find out if I’m full of it. If the teardown’s not worth more than $750 to you, you definitely shouldn’t hire me for the monthly.”' },
-    { q: '“I need to think about it.”', lab: 'Label it, then ask what’s really underneath', a: '“Totally fair — sounds like something specific is giving you pause. Usually when someone says that, it’s one of three things: the money, the timing, or they’re not sure it’ll actually be different this time. Which one’s closest?” Then handle the real one. Don’t argue the stall — find the lock.' },
-    { q: '“Can you just send me your pricing?”', lab: 'Pricing without diagnosis is how the cheap guys lose', a: '“I can — but a price list without knowing what’s actually broken in your funnel is how you end up overpaying for stuff you don’t need. That’s exactly what the $750 teardown prevents. Let me show you what’s wrong first; then the price answers itself because you’ll know what it’s fixing.”' },
-    { q: '“We tried an agency before and it didn’t work.”', lab: 'Agree, then separate yourself with proof', a: '“Good — then you already know what bad looks like, which makes this easier. Most agencies sell you content and call activity a result. I sell you a number — booked jobs, leads, dollars. The teardown will show you exactly where the last one failed you, on paper. That alone is worth the $750.”' },
-    { q: '“It’s not the right time / things are busy.”', lab: 'Use their own consequence number', a: '“That’s usually exactly when the leak is costing the most — busy means leads are coming in and slipping out while you’re heads-down on the work. The teardown takes nothing from you but a 30-minute call and 48 hours of my time. Worst case, you’ve got a scored to-do list for when things calm down.”' },
-    { q: '“Let me talk to my partner / spouse.”', lab: 'Help them sell it, set the next step', a: '“Smart — this should be a both-of-you decision. Let me send you the sample report and a two-line summary of what we covered, so you’re not relaying it from memory. Then what day this week works to get the three of us on for ten minutes?” Always pin the next calendar moment before you hang up.' }
+    { q: '“We tried an agency before and it didn’t work.”', lab: 'Agree, then separate — the out-of-state trap', a: '“Good — then you already know what bad looks like. You paid someone in Austin or Denver who couldn’t tell South End from South Charlotte, got generic ads, and three months of excuses. We’re the opposite bet: Charlotte-based, on-site every month, and you’ll see every number — cost per lead, cost per booked job. The plan I just gave you is proof of how we think. That part was free.”' },
+    { q: '“I get all my business from referrals.”', lab: 'Referrals are the ceiling, not the floor', a: '“And that’s exactly why you’re a good fit — referrals mean the work is real. But referrals got you to this revenue and they’re what’s keeping you at it. You can’t scale granny’s church friend. The Engine doesn’t replace referrals — it makes every referral check you out and find a brand instead of a business card.”' },
+    { q: '“I don’t have time for this.”', lab: 'The system is built for operators, not influencers', a: '“That’s the design constraint we built around. Your total time cost is a half-day once a month plus answering your phone. We handle pre-pro, shooting, editing, posting, ads, landing pages, follow-up. If you’ve got four hours a month, you’ve got the whole system.”' },
+    { q: '“I’m already paying Thumbtack / Angi for leads.”', lab: 'Renting vs. owning', a: '“And every month they sell that same lead to four other guys on your block, and you race to the bottom on price. That’s renting. We build the thing you own — your face, your story, your pipeline. A year from now the ad account, the content library, and the audience are yours. Thumbtack keeps theirs.”' },
+    { q: '“What does it cost?”', lab: 'Anchor to the plan, not a menu', a: '“Depends what the plan says needs fixing — that’s why we did this call first instead of sending a price list. Core engagement runs $3,500 a month with a three-month minimum, ad spend separate. If the first crack is smaller than that, I’ll tell you — a pilot shoot is a fraction of it. You’ll have exact numbers on the plan I send today.”' },
+    { q: '“I need to think about it.”', lab: 'Label it, find the real lock', a: '“Totally fair — sounds like something specific is giving you pause. Usually it’s one of three things: the money, the timing, or whether this will actually be different. Which one’s closest?” Then handle the real one. Don’t argue the stall — find the lock.' },
+    { q: '“I’m not good on camera.”', lab: 'Reframe — that’s the product, not the problem', a: '“Nobody is in minute one — that’s literally what the first half-day is for. Emmanuel has spent ten years making Charlotte business owners look like themselves, not like actors. You talk about your work the way you would to a customer; we do the rest. The awkward guy who shows up anyway beats the polished guy who doesn’t exist online — every time.”' }
   ];
 
   DOCS = [
     { cat: 'STRATEGY', items: [
-      { name: 'Churlish OS Blueprint', fmt: 'PDF', meta: 'Master spec · the whole operating system', tag: 'CORE' },
-      { name: '90-Day Sprint Plan', fmt: 'DOC', meta: '$150K signed by Aug 31, collected by Dec 31' },
-      { name: 'Positioning & Moat', fmt: 'DOC', meta: 'Become the authority · one-operator studio' }
+      { name: 'Creative Impact OS Blueprint', fmt: 'PDF', meta: 'Master spec · the whole operating system', tag: 'CORE' },
+      { name: '100K Sprint Plan', fmt: 'DOC', meta: 'Signed by Oct 31, collected by Dec 31' },
+      { name: 'Positioning: The Obvious Choice', fmt: 'DOC', meta: 'Local beats loud · the moat memo' }
     ] },
     { cat: 'SALES', items: [
-      { name: 'Diagnostic Call Script', fmt: 'DOC', meta: 'NEPQ spine + Voss · 6 steps', tag: 'LIVE' },
-      { name: 'Authority Diagnostic — Sample Report', fmt: 'PDF', meta: 'Send it before the call', tag: 'HOT' },
-      { name: 'Objection Handling', fmt: 'DOC', meta: 'The seven you’ll actually hear' },
+      { name: 'Authority Audit Call Script', fmt: 'DOC', meta: '6 segments · no pitch slap', tag: 'LIVE' },
+      { name: 'Audit Plan Template — Leave-Behind', fmt: 'PDF', meta: 'The one-pager every audit ends with', tag: 'HOT' },
+      { name: 'Objection Handling — The Seven', fmt: 'DOC', meta: 'Agency trap · referrals · camera-shy' },
       { name: 'Offer Ladder & Pricing', fmt: 'SHEET', meta: 'Fixed · never discount month one' }
     ] },
     { cat: 'BRAND', items: [
-      { name: 'Logo & Film-Strip Mark', fmt: 'SVG', meta: 'Primary + red-on-black variants' },
-      { name: 'Color & Type System', fmt: 'DOC', meta: 'Red-pure · Barlow Condensed / JetBrains' },
-      { name: 'Ad Templates — Vol. 002', fmt: 'FIG', meta: 'Save this · send to your marketing guy' }
+      { name: 'Shutter Mark & Logo Kit', fmt: 'PNG', meta: 'Hex shutter + play · dark variants' },
+      { name: 'Color & Type System', fmt: 'DOC', meta: 'Navy / gold broadcast package · Oswald + Archivo' },
+      { name: 'Broadcast Graphics Package', fmt: 'FIG', meta: 'Scorebug · lower thirds · ticker' }
     ] },
-    { cat: 'OPERATIONS', items: [
-      { name: 'Agent Fleet SOPs', fmt: 'DOC', meta: '6 units · run order + handoffs' },
-      { name: 'Cold List — Apollo Export', fmt: 'CSV', meta: '142 active leads, tiered', tag: 'LIVE' },
-      { name: 'Contract + Invoice Templates', fmt: 'DOC', meta: 'PIF / 50% upfront language' }
+    { cat: 'PRODUCTION', items: [
+      { name: 'Shoot-Day Run Sheet', fmt: 'DOC', meta: 'Half-day capture · step by step', tag: 'LIVE' },
+      { name: 'Charlotte Cold List — 128 Leads', fmt: 'CSV', meta: 'Tiered by Scout · refreshed daily', tag: 'LIVE' },
+      { name: 'Agent Fleet SOPs', fmt: 'DOC', meta: '6 sources · run order + handoffs' },
+      { name: 'Contract + Invoice Templates', fmt: 'DOC', meta: '3-mo minimum · ad spend separate' }
     ] }
   ];
+
   STRATEGY = {
-    thesis: 'Sell the first yes for $750 — not the retainer. The Authority Diagnostic is the wedge; the ladder is the climb; the agent fleet is the margin.',
+    thesis: 'Local beats loud. A Charlotte-native partner with studio output — story-driven video plus a decade of ground truth — makes good operators the obvious choice before the phone ever rings.',
     pillars: [
-      { k: 'THE WEDGE', t: 'A paid diagnostic, not a free audit', d: '$750 buys a scored teardown with a dollar on every fix. It pre-qualifies, it pays, and it writes the retainer proposal for you. Free audits attract tire-kickers — a paid first yes attracts buyers.' },
-      { k: 'THE MOAT', t: 'One operator, studio output', d: 'A six-person team’s work from a single founder plus a six-unit agent fleet. Forty-studio output at three-person overhead — and one person who actually answers the phone.' },
-      { k: 'THE TARGET', t: 'Service businesses that already work', d: 'Roofers, dentists, HVAC, law, fitness, realty — good work, broken funnel. The gap between “hear about you” and “hire you” is held together with hope. We sell the fix, with a number on it.' }
+      { k: 'THE WEDGE', t: 'A free audit that’s actually a plan', d: 'Thirty minutes, no pitch slap, and they leave with a written plan either way. It pre-qualifies buyers, builds trust on proof, and books the capture calendar — the plan sells the Engine so you don’t have to.' },
+      { k: 'THE MOAT', t: 'Charlotte-native, two operators, one system', d: 'Emmanuel’s ten years shooting this city plus Brandon’s Authority Engine. Out-of-state agencies can’t fake knowing South End from South Charlotte — and a two-operator shop can’t be commoditized like a content mill.' },
+      { k: 'THE TARGET', t: 'Service businesses that already work', d: 'Five-star reviews, broken visibility. $500K–$5M home services, dental, law, realty, financial, med spa — operators tired of renting leads from middlemen. We sell the fix with a number on it.' }
     ],
     bets: [
-      'Publish the $750 Diagnostic and put it in front of the cold list — the one thing.',
-      'Stack the ladder: Diagnostic → Tournament → Tool Sprint → retainer. Never discount month one.',
-      'Run the fleet so the funnel is founder-free — hands stay on sales and the lens.'
+      'Sell out every monthly capture day — four half-days is the whole production line.',
+      'Climb the ladder: free Audit → Authority Engine → day-60 expansion. Never discount month one.',
+      'Run the fleet so the funnel is founder-free — four hands stay on sales and the lens.'
     ],
-    antigoals: ['No free strategy calls.', 'No retainers before a paid diagnostic.', 'No bundled ad spend — always separate, $500/mo min.', 'No week-5 burnout — Founder OS is load-bearing.']
+    antigoals: [
+      'No pitch-slap calls — the audit ends with a plan, not a proposal ambush.',
+      'No out-of-market clients until Charlotte is won.',
+      'No renting leads — we build pipelines clients own, we don’t resell middleman lists.',
+      'No week-5 burnout — the Partner Desk is load-bearing.'
+    ]
   };
+
   PLANS = [
-    { n: 'P1', t: 'Publish the Wedge', when: 'THIS WEEK', d: 'Ship the $750 Authority Diagnostic page with the sample report attached. Until it’s live, nothing else on the board counts.', state: 'ACTIVE' },
-    { n: 'P2', t: 'Fill the Funnel', when: 'WEEKS 1–4', d: 'Kid Flash + Blue Beetle run the cold list. Hold the floor: 3 discovery calls a week, 2 offers out.', state: 'NEXT' },
-    { n: 'P3', t: 'Sign $150K', when: 'BY AUG 31', d: 'Diagnostics convert to proposals convert to contracts. Keep pipeline coverage ≥3× the gap, always.', state: 'QUEUED' },
-    { n: 'P4', t: 'Collect & Renew', when: 'BY DEC 31', d: 'Deliver, collect, and run the expansion play at day 60 / renewal at day 75. Protect the base.', state: 'QUEUED' }
+    { n: 'Q1', t: 'Sell Out August', when: 'THIS WEEK', d: 'Four capture days on the calendar, free Authority Audit as the door-opener, Scout’s 128-lead Charlotte list as the fuel. Until all four are sold, nothing else counts.', state: 'ACTIVE' },
+    { n: 'Q2', t: 'Fill the Funnel', when: 'WEEKS 1–4', d: 'Scout + Anchor run the cold list daily. Hold the floor: 3 discovery calls and 2 audits delivered every week, 8 clips shipped.', state: 'NEXT' },
+    { n: 'Q3', t: 'Sign $100K', when: 'BY OCT 31', d: 'Audits convert to plans convert to contracts. Keep pipeline coverage ≥3× the gap, always. Every signed client goes straight onto the capture calendar.', state: 'QUEUED' },
+    { n: 'Q4', t: 'Collect & Renew', when: 'BY DEC 31', d: 'Deliver, collect, and run the expansion play at day 60 / renewal at day 75. Protect the base — one saved account is a month of audits.', state: 'QUEUED' }
   ];
-  PLANMOVES = ['Diagnostic landing page live', 'Sample report PDF attached', 'Cold list segmented — top 50', 'Blue Beetle sequence pointed at the page', 'First 3 diagnostics pitched to the list'];
+  PLANMOVES = [
+    'August capture calendar published',
+    'Audit booking page live',
+    'Cold list segmented — top 50 Charlotte',
+    'Anchor sequence pointed at the booking page',
+    'First 5 audit invites sent'
+  ];
+
+  PARTNERS = [
+    { init: 'EB', name: 'Emmanuel Bibbs', role: 'VISUAL DIRECTOR · CLT' },
+    { init: 'BK', name: 'Brandon King', role: 'CREATIVE DIRECTOR · ENGINE' }
+  ];
 
   constructor(props) {
     super(props);
-    const booted = (() => { try { return sessionStorage.getItem('churlish_booted') === '1'; } catch (e) { return false; } })();
+    const booted = (() => { try { return sessionStorage.getItem('ci_booted_broadcast') === '1'; } catch (e) { return false; } })();
     const bootOn = (props.bootSequence ?? true) && !booted;
     const wk = this.weekKey();
     this.state = {
       booting: bootOn,
-      bootIdx: bootOn ? 0 : this.BOOT.length,
+      bootIdx: 0,
       view: 'command',
       now: Date.now(),
       // Real (Supabase) mode starts EMPTY and loads from the DB — no phantom
-      // seed deals or Friday Five numbers. The seeds are local-dev demo only.
+      // seed deals or box-score numbers. The seeds are local-dev demo only.
       deals: store.enabled ? [] : this.SEED.map((d, i) => Object.assign({ id: 'seed' + i }, d)),
+      shoots: store.enabled ? [] : this.SHOOTSEED.slice(),
+      delivs: store.enabled ? [] : this.DELIVSEED.slice(),
       clients: [],
       invoices: [],
       proposals: [],
@@ -263,10 +283,11 @@ class Cockpit extends React.Component {
       expenses: [],
       kpis: [],
       kpiEntries: {},
-      weeks: store.enabled ? {} : { [wk]: { calls: 4, proposals: 3, signed: 8250, collected: 5000, founderFree: 38, manual: { pitch: true } } },
+      weeks: store.enabled ? {} : { [wk]: { calls: 4, proposals: 2, signed: 4000, collected: 2400, manual: { invites: true, clips: 9 } } },
       ops: {},
       step: 0,
       showObj: false,
+      partner: 'EB',
       dealModal: null,
       docModal: null,
       clientModal: null,
@@ -276,13 +297,24 @@ class Cockpit extends React.Component {
       expenseModal: null,
       kpiModal: null,
       emailModal: null,
+      shootModal: null,
+      delivModal: null,
       rookieMsgs: [],
       rookieInput: '',
       rookieBusy: false,
       rookieFile: null,
       founder: {},
-      habits: [{ id: 'h1', name: '3 sales conversations', days: {} }, { id: 'h2', name: 'Move my body', days: {} }, { id: 'h3', name: 'Camera on something', days: {} }],
-      goals: [{ id: 'g1', text: '$150K collected by Dec 31', type: 'business', target: 150000, done: false }, { id: 'g2', text: 'Publish the $750 Diagnostic this week', type: 'business', target: 0, done: false }, { id: 'g3', text: 'Protect health through the sprint — no week-5 wall', type: 'life', target: 0, done: false }],
+      habits: [
+        { id: 'h1', name: '3 sales conversations', owner: 'BK', days: {} },
+        { id: 'h2', name: 'Camera on something', owner: 'EB', days: {} },
+        { id: 'h3', name: 'Move my body', owner: 'BOTH', days: {} }
+      ],
+      goals: [
+        { id: 'g1', text: '$100K collected by Dec 31', type: 'business', owner: 'BOTH', target: 100000, done: false },
+        { id: 'g2', text: 'Sell out August’s four capture days', type: 'business', owner: 'BK', target: 0, done: false },
+        { id: 'g3', text: 'Ship the 500-brands Charlotte archive reel', type: 'business', owner: 'EB', target: 0, done: false },
+        { id: 'g4', text: 'Protect health through the sprint — no week-5 wall', type: 'life', owner: 'BOTH', target: 0, done: false }
+      ],
       log: this.LOGSEED.slice(),
       toast: ''
     };
@@ -300,17 +332,16 @@ class Cockpit extends React.Component {
       }
     } catch (e) {}
     this.clock = setInterval(() => this.setState({ now: Date.now() }), 1000);
-    this.logTimer = setInterval(() => this.pushLog(), 4200);
+    this.logTimer = setInterval(() => this.pushLog(), 4600);
     window.addEventListener('keydown', this.onKey);
     if (this.state.booting) {
       this.bootTimer = setInterval(() => {
         this.setState(s => {
-          if (s.bootIdx >= this.BOOT.length) { clearInterval(this.bootTimer); return null; }
           const idx = s.bootIdx + 1;
-          if (idx >= this.BOOT.length) { clearInterval(this.bootTimer); this.autoDismiss = setTimeout(() => this.dismiss(), 5000); }
+          if (idx > this.COUNT.length) { clearInterval(this.bootTimer); this.autoDismiss = setTimeout(() => this.dismiss(), 3600); return { bootIdx: this.COUNT.length }; }
           return { bootIdx: idx };
         });
-      }, 240);
+      }, 950);
     }
   }
   componentWillUnmount() {
@@ -325,9 +356,10 @@ class Cockpit extends React.Component {
   };
   dismiss = () => {
     clearInterval(this.bootTimer); clearTimeout(this.autoDismiss);
-    try { sessionStorage.setItem('churlish_booted', '1'); } catch (e) {}
-    this.setState({ booting: false, bootIdx: this.BOOT.length });
+    try { sessionStorage.setItem('ci_booted_broadcast', '1'); } catch (e) {}
+    this.setState({ booting: false, bootIdx: this.COUNT.length });
   };
+
 
   // Data layer: load everything from the store (Supabase in real mode).
   async loadStore() {
@@ -378,6 +410,14 @@ class Cockpit extends React.Component {
         if (Array.isArray(d.kpis) && d.kpis.length) patch.kpis = d.kpis;
         if (d.kpiEntries) patch.kpiEntries = d.kpiEntries;
       }
+      // Capture days + deliverables (broadcast additions; DB is source of truth).
+      if (store.enabled) {
+        patch.shoots = Array.isArray(d.shoots) ? d.shoots : [];
+        patch.delivs = Array.isArray(d.delivs) ? d.delivs : [];
+      } else {
+        if (Array.isArray(d.shoots) && d.shoots.length) patch.shoots = d.shoots;
+        if (Array.isArray(d.delivs) && d.delivs.length) patch.delivs = d.delivs;
+      }
       this.setState(patch);
     } catch (e) { console.error('loadStore failed', e); }
   }
@@ -407,7 +447,7 @@ class Cockpit extends React.Component {
   openDeal(d) {
     this.setState({ dealModal: d
       ? { id: d.id, name: d.name, offer: d.offer, value: d.value, stage: d.stage, date: d.date || '', clientId: d.clientId || '' }
-      : { id: null, name: '', offer: 'Authority Diagnostic', value: 750, stage: 'Lead', date: '', clientId: '' } });
+      : { id: null, name: '', offer: 'Authority Engine · 3-mo term', value: 10500, stage: 'Lead', date: '', clientId: '' } });
   }
   closeDeal() { this.setState({ dealModal: null }); }
   setDealField(k, v) { this.setState(s => ({ dealModal: Object.assign({}, s.dealModal, { [k]: v }) })); }
@@ -508,7 +548,7 @@ class Cockpit extends React.Component {
     const active = clients.filter(c => c.status === 'Active').length;
     const renewals = clients.filter(c => c.renewal && dueSoon(c.renewal)).length;
     const totalLtv = clients.reduce((s, c) => s + this.clientStats(c.id).ltv, 0);
-    const statusColor = { Lead: 'var(--dim)', Active: '#3fb97a', Past: 'var(--red)' };
+    const statusColor = { Lead: 'var(--dim)', Active: 'var(--good)', Past: 'var(--red)' };
 
     const Stat = (label, val, sub, accent) => (
       <div style={{ background: "var(--panel)", border: "1px solid var(--line)", borderTop: "2px solid " + (accent || "var(--line2)"), padding: "15px 18px" }}>
@@ -519,27 +559,27 @@ class Cockpit extends React.Component {
     );
 
     return (
-      <div style={{ padding: "24px 26px 60px", maxWidth: "1240px" }}>
+      <div style={{ padding: "28px 26px 96px", maxWidth: "1240px", margin: "0 auto", width: "100%" }}>
         <div style={{ marginBottom: "6px", display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "16px" }}>
           <div>
-            <div style={{ fontSize: "10px", letterSpacing: ".26em", color: "var(--red)" }}>// 03 · THE ROSTER</div>
-            <h1 style={{ fontFamily: "var(--cond)", fontWeight: 900, fontSize: "48px", lineHeight: ".92", margin: "6px 0 0", letterSpacing: ".005em" }}>CLIENT <span style={{ display: "inline-block", background: "var(--red)", color: "#0a0707", padding: "0 12px", transform: "skewX(-7deg)" }}>ROSTER</span></h1>
+            <div style={{ fontSize: "10px", letterSpacing: ".26em", color: "var(--red)" }}>// 10 · THE ROSTER</div>
+            <h1 style={{ fontFamily: "var(--cond)", fontWeight: 900, fontSize: "48px", lineHeight: ".92", margin: "6px 0 0", letterSpacing: ".005em" }}>CLIENT <span style={{ display: "inline-block", background: "var(--red)", color: "var(--golddark)", padding: "0 12px", transform: "skewX(0deg)" }}>ROSTER</span></h1>
             <div style={{ fontSize: "12px", letterSpacing: ".04em", color: "var(--muted)", marginTop: "9px", maxWidth: "560px", lineHeight: "1.6" }}>Every client, where they sit on the ladder, and when they renew. The day-60 / day-75 play lives here — protect the base.</div>
           </div>
           <div style={{ display: "flex", gap: "10px", flexShrink: 0, marginTop: "6px" }}>
             <Hover as="button" onClick={() => { window.location.assign('/api/fb/connect'); }} title={(this.state.ops && this.state.ops.__fb) ? 'Connected: ' + this.state.ops.__fb.page_name + ' — click to reconnect' : 'Login with Facebook, pick your page, approve — leads flow in automatically'}
-              baseStyle={{ background: "transparent", border: "1px solid " + ((this.state.ops && this.state.ops.__fb) ? '#2f7d4f' : 'var(--line2)'), color: (this.state.ops && this.state.ops.__fb) ? '#3fb97a' : 'var(--muted)', fontFamily: "var(--mono)", fontWeight: "700", fontSize: "11px", letterSpacing: ".12em", padding: "10px 16px", cursor: "pointer", textTransform: "uppercase", transition: ".15s" }} hoverStyle={{ borderColor: "var(--red)", color: "var(--cream)" }}>
+              baseStyle={{ background: "transparent", border: "1px solid " + ((this.state.ops && this.state.ops.__fb) ? 'rgba(46,224,111,.5)' : 'var(--line2)'), color: (this.state.ops && this.state.ops.__fb) ? 'var(--good)' : 'var(--muted)', fontFamily: "var(--mono)", fontWeight: "700", fontSize: "11px", letterSpacing: ".12em", padding: "10px 16px", cursor: "pointer", textTransform: "uppercase", transition: ".15s" }} hoverStyle={{ borderColor: "var(--red)", color: "var(--cream)" }}>
               {(this.state.ops && this.state.ops.__fb) ? 'FB ✓ ' + (this.state.ops.__fb.page_name || 'Connected') : 'Connect Facebook'}
             </Hover>
             <Hover as="button" onClick={() => this.openIntakeSettings()} baseStyle={{ background: "transparent", border: "1px solid var(--line2)", color: "var(--muted)", fontFamily: "var(--mono)", fontWeight: "700", fontSize: "11px", letterSpacing: ".12em", padding: "10px 16px", cursor: "pointer", textTransform: "uppercase", transition: ".15s" }} hoverStyle={{ borderColor: "var(--red)", color: "var(--cream)" }}>Intake Form</Hover>
-            <Hover as="button" onClick={() => this.openClient(null)} baseStyle={{ background: "var(--red)", border: "1px solid var(--red)", color: "#0a0707", fontFamily: "var(--mono)", fontWeight: "700", fontSize: "11px", letterSpacing: ".12em", padding: "10px 16px", cursor: "pointer", textTransform: "uppercase", transition: ".15s" }} hoverStyle={{ background: "var(--red2)" }}>+ Add Client</Hover>
+            <Hover as="button" onClick={() => this.openClient(null)} baseStyle={{ background: "var(--red)", border: "1px solid var(--red)", color: "var(--golddark)", fontFamily: "var(--mono)", fontWeight: "700", fontSize: "11px", letterSpacing: ".12em", padding: "10px 16px", cursor: "pointer", textTransform: "uppercase", transition: ".15s" }} hoverStyle={{ background: "var(--red2)" }}>+ Add Client</Hover>
           </div>
         </div>
         <div style={{ height: "1px", background: "linear-gradient(90deg,var(--red),transparent 55%)", margin: "16px 0 22px" }}></div>
 
         <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: "14px", marginBottom: "20px" }}>
           {Stat('CLIENTS', String(clients.length), 'ON THE ROSTER', 'var(--line2)')}
-          {Stat('ACTIVE', String(active), 'PAYING NOW', '#3fb97a')}
+          {Stat('ACTIVE', String(active), 'PAYING NOW', 'var(--good)')}
           {Stat('RENEWALS DUE', String(renewals), 'WITHIN 30 DAYS', renewals ? 'var(--red)' : 'var(--line2)')}
           {Stat('LIFETIME VALUE', this.fmt(totalLtv), 'COLLECTED, ALL CLIENTS', 'var(--red)')}
         </div>
@@ -557,7 +597,7 @@ class Cockpit extends React.Component {
               const st = this.clientStats(c.id);
               const due = c.renewal && dueSoon(c.renewal);
               return (
-                <Hover as="div" key={c.id} onClick={() => this.openClient(c)} baseStyle={{ display: "grid", gridTemplateColumns: "2fr 1.2fr .9fr 1.1fr .7fr .9fr 1fr", gap: "10px", padding: "13px 16px", borderBottom: "1px solid var(--line)", cursor: "pointer", alignItems: "center", fontSize: "13px" }} hoverStyle={{ background: "#141418" }}>
+                <Hover as="div" key={c.id} onClick={() => this.openClient(c)} baseStyle={{ display: "grid", gridTemplateColumns: "2fr 1.2fr .9fr 1.1fr .7fr .9fr 1fr", gap: "10px", padding: "13px 16px", borderBottom: "1px solid var(--line)", cursor: "pointer", alignItems: "center", fontSize: "13px" }} hoverStyle={{ background: "var(--panel2)" }}>
                   <div>
                     <div style={{ fontWeight: 600, color: "var(--cream)" }}>
                       {c.name}
@@ -587,7 +627,7 @@ class Cockpit extends React.Component {
     const m = this.state.clientModal;
     if (!m) return null;
     const lbl = { fontFamily: "var(--mono)", fontSize: "9.5px", letterSpacing: ".2em", color: "var(--dim)", textTransform: "uppercase", display: "block", marginBottom: "5px" };
-    const inp = { width: "100%", background: "#0a0a0c", border: "1px solid var(--line2)", color: "var(--cream)", fontFamily: "var(--mono)", fontSize: "13px", padding: "9px 11px" };
+    const inp = { width: "100%", background: "var(--deep)", border: "1px solid var(--line2)", color: "var(--cream)", fontFamily: "var(--mono)", fontSize: "13px", padding: "9px 11px" };
     const Field = (label, key, opts = {}) => (
       <div style={{ marginBottom: "12px", flex: opts.flex || "none", width: opts.full ? "100%" : undefined }}>
         <label style={lbl}>{label}</label>
@@ -602,19 +642,19 @@ class Cockpit extends React.Component {
     );
     return (
       <div onClick={() => this.closeClient()} style={{ position: "fixed", inset: 0, zIndex: 90, background: "rgba(4,4,5,.78)", display: "flex", alignItems: "center", justifyContent: "center", padding: "20px" }}>
-        <div onClick={(e) => e.stopPropagation()} style={{ width: "520px", maxWidth: "100%", maxHeight: "90vh", overflowY: "auto", background: "#0e0e11", border: "1px solid var(--line)", borderTop: "3px solid var(--red)", padding: "24px 24px 20px" }}>
+        <div onClick={(e) => e.stopPropagation()} style={{ width: "520px", maxWidth: "100%", maxHeight: "90vh", overflowY: "auto", background: "var(--panel)", border: "1px solid var(--line)", borderTop: "3px solid var(--red)", padding: "24px 24px 20px" }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: "18px" }}>
             <div style={{ fontFamily: "var(--cond)", fontWeight: 900, fontSize: "26px", letterSpacing: ".01em" }}>{m.id ? "EDIT CLIENT" : "NEW CLIENT"}</div>
             <button onClick={() => this.closeClient()} style={{ background: "none", border: "none", color: "var(--dim)", fontFamily: "var(--mono)", fontSize: "16px", cursor: "pointer" }}>✕</button>
           </div>
 
-          {Field('Business name', 'name', { full: true, ph: 'Cornerstone Plumbing' })}
+          {Field('Business name', 'name', { full: true, ph: 'NoDa Med Spa' })}
           <div style={{ display: "flex", gap: "12px" }}>{Field('Contact', 'contact', { flex: 1 })}{Field('Phone', 'phone', { flex: 1 })}</div>
           {Field('Email', 'email', { full: true, type: 'email' })}
-          <div style={{ display: "flex", gap: "12px" }}>{Field('Industry', 'industry', { flex: 1, ph: 'Roofing' })}{Field('Source', 'source', { flex: 1, options: ['', 'Facebook', 'Referral', 'Cold', 'Diagnostic', 'Other'] })}</div>
+          <div style={{ display: "flex", gap: "12px" }}>{Field('Industry', 'industry', { flex: 1, ph: 'Med spa' })}{Field('Source', 'source', { flex: 1, options: ['', 'Facebook', 'Referral', 'Cold', 'Diagnostic', 'Other'] })}</div>
           <div style={{ display: "flex", gap: "12px" }}>
             {Field('Status', 'status', { flex: 1, options: ['Lead', 'Active', 'Past'] })}
-            {Field('Ladder rung', 'ladder', { flex: 1, options: ['', 'Diagnostic', 'Tournament', 'Tool Sprint', 'Retainer'] })}
+            {Field('Ladder rung', 'ladder', { flex: 1, options: ['', 'Audit', 'Pilot', 'Engine', 'Domination'] })}
             {Field('Renewal date', 'renewal', { flex: 1, type: 'date' })}
           </div>
           <div style={{ marginBottom: "18px" }}>
@@ -625,7 +665,7 @@ class Cockpit extends React.Component {
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "10px" }}>
             <div style={{ display: "flex", gap: "10px" }}>
               {m.id ? (
-                <button onClick={() => this.removeClient()} style={{ background: "transparent", border: "1px solid #5a2230", color: "var(--red)", fontFamily: "var(--mono)", fontSize: "10.5px", letterSpacing: ".12em", padding: "10px 14px", cursor: "pointer", textTransform: "uppercase" }}>Delete</button>
+                <button onClick={() => this.removeClient()} style={{ background: "transparent", border: "1px solid rgba(255,48,64,.4)", color: "var(--live)", fontFamily: "var(--mono)", fontSize: "10.5px", letterSpacing: ".12em", padding: "10px 14px", cursor: "pointer", textTransform: "uppercase" }}>Delete</button>
               ) : null}
               {m.id && m.email ? (
                 <button onClick={() => this.openEmailThread({ id: m.id, name: m.name, email: m.email })} style={{ background: "transparent", border: "1px solid var(--line2)", color: "var(--cream)", fontFamily: "var(--mono)", fontSize: "10.5px", letterSpacing: ".12em", padding: "10px 14px", cursor: "pointer", textTransform: "uppercase" }}>✉ Email</button>
@@ -633,7 +673,7 @@ class Cockpit extends React.Component {
             </div>
             <div style={{ display: "flex", gap: "10px" }}>
               <button onClick={() => this.closeClient()} style={{ background: "transparent", border: "1px solid var(--line2)", color: "var(--muted)", fontFamily: "var(--mono)", fontSize: "10.5px", letterSpacing: ".12em", padding: "10px 14px", cursor: "pointer", textTransform: "uppercase" }}>Cancel</button>
-              <button onClick={() => this.saveClient()} style={{ background: "var(--red)", border: "1px solid var(--red)", color: "#0a0707", fontFamily: "var(--mono)", fontWeight: 700, fontSize: "10.5px", letterSpacing: ".12em", padding: "10px 18px", cursor: "pointer", textTransform: "uppercase" }}>{m.id ? "Save" : "Add client"}</button>
+              <button onClick={() => this.saveClient()} style={{ background: "var(--red)", border: "1px solid var(--red)", color: "var(--golddark)", fontFamily: "var(--mono)", fontWeight: 700, fontSize: "10.5px", letterSpacing: ".12em", padding: "10px 18px", cursor: "pointer", textTransform: "uppercase" }}>{m.id ? "Save" : "Add client"}</button>
             </div>
           </div>
         </div>
@@ -681,22 +721,185 @@ class Cockpit extends React.Component {
   newWeek() {
     const wk = this.weekKey();
     this.setState(s => { const weeks = Object.assign({}, s.weeks); weeks[wk] = { manual: {} }; return { weeks }; }, () => this.saveStore());
-    this.flash('NEW WEEK ARMED · FRIDAY FIVE RESET');
+    this.flash('NEW WEEK — FRESH TAPE, BOX SCORE RESET');
   }
   flash(m, dur = 2200) { clearTimeout(this.toastT); this.setState({ toast: m }); this.toastT = setTimeout(() => this.setState({ toast: '' }), dur); }
 
   todayStr() { const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
-  setF(key, val) { const t = this.todayStr(); this.setState(s => { const f = Object.assign({}, s.founder); f[t] = Object.assign({}, f[t], { [key]: val }); return { founder: f }; }, () => this.saveStore()); }
+  setF(key, val) { const k = this.fKey(); this.setState(s => { const f = Object.assign({}, s.founder); f[k] = Object.assign({}, f[k], { [key]: val }); return { founder: f }; }, () => this.saveStore()); }
   toggleHabit(id) { const t = this.todayStr(); this.setState(s => ({ habits: s.habits.map(h => { if (h.id !== id) return h; const days = Object.assign({}, h.days); days[t] = !days[t]; if (!days[t]) delete days[t]; return Object.assign({}, h, { days }); }) }), () => this.saveStore()); }
   habitStreak(h) { let n = 0; const d = new Date(); for (;;) { const ds = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); if (h.days && h.days[ds]) { n++; d.setDate(d.getDate() - 1); } else break; } return n; }
   toggleGoal(id) { this.setState(s => ({ goals: s.goals.map(g => g.id === id ? Object.assign({}, g, { done: !g.done }) : g) }), () => this.saveStore()); }
-  addHabit() { const n = (window.prompt('New non-negotiable habit:') || '').trim(); if (n) this.setState(s => ({ habits: [...s.habits, { id: 'h' + Date.now(), name: n, days: {} }] }), () => this.saveStore()); }
-  addGoal() { const n = (window.prompt('New goal — what, by when:') || '').trim(); if (!n) return; const life = /life|health|family|body|sleep|gym|personal|kid|wife|husband/i.test(n); this.setState(s => ({ goals: [...s.goals, { id: 'g' + Date.now(), text: n, type: life ? 'life' : 'business', target: 0, done: false }] }), () => this.saveStore()); }
+  addHabit() { const n = (window.prompt('New non-negotiable habit:') || '').trim(); if (n) this.setState(s => ({ habits: [...s.habits, { id: 'h' + Date.now(), name: n, owner: this.state.partner, days: {} }] }), () => this.saveStore()); }
+  addGoal() { const n = (window.prompt('New goal — what, by when:') || '').trim(); if (!n) return; const life = /life|health|family|body|sleep|gym|personal|kid|wife|husband/i.test(n); this.setState(s => ({ goals: [...s.goals, { id: 'g' + Date.now(), text: n, type: life ? 'life' : 'business', owner: this.state.partner, target: 0, done: false }] }), () => this.saveStore()); }
   goStep(i) { if (i < 0 || i >= this.SCRIPT.length) return; this.setState({ step: i }); }
   toggleObj() { this.setState(s => ({ showObj: !s.showObj })); }
   weighted() { return this.state.deals.filter(d => !['Collected', 'Lost'].includes(d.stage)).reduce((s, d) => s + (+d.value || 0) * (this.STAGEPROB[d.stage] || 0), 0); }
   winRate() { const closed = this.state.deals.filter(d => ['Signed', 'Collected', 'Lost'].includes(d.stage)).length; const won = this.state.deals.filter(d => ['Signed', 'Collected'].includes(d.stage)).length; return closed ? Math.round(won / closed * 100) + '%' : '—'; }
   toggleOp(k) { this.setState(s => ({ ops: Object.assign({}, s.ops, { [k]: !(s.ops && s.ops[k]) }) }), () => this.saveStore()); }
+
+
+  // --- Partner desk key: check-ins are stored per partner, per day ('EB|2026-07-07').
+  fKey() { return this.state.partner + '|' + this.todayStr(); }
+
+  // Set a numeric value inside the current week's manual{} blob (e.g. clips) —
+  // rides the weeks.manual jsonb column so the engine schema stays untouched.
+  setManualVal(key, val) {
+    const wk = this.weekKey();
+    this.setState(s => {
+      const weeks = Object.assign({}, s.weeks);
+      const w = Object.assign({ manual: {} }, weeks[wk]);
+      w.manual = Object.assign({}, w.manual, { [key]: val });
+      weeks[wk] = w; return { weeks };
+    }, () => this.saveStore());
+  }
+
+  // --- Shoots (capture days) CRUD ---
+  blankShoot() { return { id: null, date: this.todayStr(), client: '', kind: 'STORY CAPTURE · HALF-DAY', status: 'OPEN' }; }
+  openShoot(sh) { this.setState({ shootModal: sh ? Object.assign({}, sh) : this.blankShoot() }); }
+  closeShoot() { this.setState({ shootModal: null }); }
+  setShootField(k, val) { this.setState(s => ({ shootModal: Object.assign({}, s.shootModal, { [k]: val }) })); }
+  async saveShoot() {
+    const m = this.state.shootModal; if (!m) return;
+    const sh = { id: m.id || undefined, date: m.date || this.todayStr(), client: (m.client || '').trim(), kind: (m.kind || '').trim() || (m.status === 'OPEN' ? 'SELL THIS DAY' : 'STORY CAPTURE · HALF-DAY'), status: m.status || 'OPEN' };
+    let id = m.id;
+    try { if (store.upsertShoot) id = await store.upsertShoot(sh); }
+    catch (e) { console.error('shoot save failed', e); this.flash('SHOOT SAVE FAILED — ' + (e.message || e), 7000); return; }
+    sh.id = id || m.id || ('local-' + Date.now());
+    this.setState(s => {
+      const shoots = s.shoots.slice();
+      const i = shoots.findIndex(x => x.id === sh.id);
+      if (i >= 0) shoots[i] = sh; else shoots.push(sh);
+      shoots.sort((a, b) => ((a.date || '') < (b.date || '') ? -1 : 1));
+      return { shoots, shootModal: null };
+    });
+    this.flash(m.id ? 'SHOOT UPDATED ✓' : 'SHOOT ADDED ✓');
+  }
+  async removeShoot() {
+    const m = this.state.shootModal; if (!m) return;
+    const persisted = m.id && !String(m.id).startsWith('local') && !String(m.id).startsWith('sh');
+    if (persisted && store.deleteShoot) {
+      try { await store.deleteShoot(m.id); }
+      catch (e) { console.error(e); this.flash('DELETE FAILED — ' + (e.message || e), 7000); return; }
+    }
+    this.setState(s => ({ shoots: s.shoots.filter(x => x.id !== m.id), shootModal: null }));
+    this.flash('SHOOT DELETED');
+  }
+
+  // --- Deliverables tracker CRUD ---
+  blankDeliv() { return { id: null, name: '', done: 0, meta: '' }; }
+  openDeliv(d) { this.setState({ delivModal: d ? Object.assign({}, d) : this.blankDeliv() }); }
+  closeDeliv() { this.setState({ delivModal: null }); }
+  setDelivField(k, val) { this.setState(s => ({ delivModal: Object.assign({}, s.delivModal, { [k]: val }) })); }
+  async saveDeliv() {
+    const m = this.state.delivModal; if (!m) return;
+    const dl = { id: m.id || undefined, name: (m.name || '').trim() || 'Untitled', done: Math.max(0, +m.done || 0), meta: (m.meta || '').trim() };
+    let id = m.id;
+    try { if (store.upsertDeliv) id = await store.upsertDeliv(dl); }
+    catch (e) { console.error('deliverable save failed', e); this.flash('SAVE FAILED — ' + (e.message || e), 7000); return; }
+    dl.id = id || m.id || ('local-' + Date.now());
+    this.setState(s => {
+      const delivs = s.delivs.slice();
+      const i = delivs.findIndex(x => x.id === dl.id);
+      if (i >= 0) delivs[i] = dl; else delivs.push(dl);
+      return { delivs, delivModal: null };
+    });
+    this.flash(m.id ? 'TRACKER UPDATED ✓' : 'CLIENT TRACKED ✓');
+  }
+  async removeDeliv() {
+    const m = this.state.delivModal; if (!m) return;
+    const persisted = m.id && !String(m.id).startsWith('local') && !String(m.id).startsWith('dl');
+    if (persisted && store.deleteDeliv) {
+      try { await store.deleteDeliv(m.id); }
+      catch (e) { console.error(e); this.flash('DELETE FAILED — ' + (e.message || e), 7000); return; }
+    }
+    this.setState(s => ({ delivs: s.delivs.filter(x => x.id !== m.id), delivModal: null }));
+    this.flash('REMOVED');
+  }
+
+  renderShootModal() {
+    const m = this.state.shootModal;
+    if (!m) return null;
+    const lbl = { fontSize: "9.5px", fontWeight: 800, letterSpacing: ".2em", color: "var(--dim)", textTransform: "uppercase", display: "block", marginBottom: "5px" };
+    const inp = { width: "100%", background: "var(--deep)", border: "1px solid var(--line)", borderRadius: "3px", color: "var(--white)", fontFamily: "var(--sans)", fontSize: "13px", padding: "9px 11px" };
+    return (
+      <div onClick={() => this.closeShoot()} style={{ position: "fixed", inset: 0, zIndex: 90, background: "rgba(4,8,16,.8)", display: "flex", alignItems: "center", justifyContent: "center", padding: "20px" }}>
+        <div onClick={(e) => e.stopPropagation()} style={{ width: "420px", maxWidth: "100%", background: "var(--panel)", border: "1px solid var(--line)", borderTop: "3px solid var(--gold)", borderRadius: "4px", padding: "24px 24px 20px" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: "18px" }}>
+            <div style={{ fontFamily: "var(--num)", fontWeight: 700, fontSize: "26px", letterSpacing: ".02em", textTransform: "uppercase" }}>{m.id ? "Edit Capture Day" : "New Capture Day"}</div>
+            <button onClick={() => this.closeShoot()} style={{ background: "none", border: "none", color: "var(--dim)", fontSize: "16px", cursor: "pointer" }}>✕</button>
+          </div>
+          <div style={{ display: "flex", gap: "12px", marginBottom: "13px" }}>
+            <div style={{ flex: 1 }}>
+              <label style={lbl}>Date</label>
+              <input style={inp} type="date" value={m.date || ''} onChange={(e) => this.setShootField('date', e.target.value)} />
+            </div>
+            <div style={{ flex: 1 }}>
+              <label style={lbl}>Status</label>
+              <select style={inp} value={m.status || 'OPEN'} onChange={(e) => this.setShootField('status', e.target.value)}>
+                {['OPEN', 'BOOKED', 'CONFIRMED', 'SHOT'].map(s => <option key={s} value={s}>{s}</option>)}
+              </select>
+            </div>
+          </div>
+          <div style={{ marginBottom: "13px" }}>
+            <label style={lbl}>Client</label>
+            <input style={inp} value={m.client || ''} placeholder="Empty = open slot, tickets available" onChange={(e) => this.setShootField('client', e.target.value)} />
+          </div>
+          <div style={{ marginBottom: "20px" }}>
+            <label style={lbl}>Kind</label>
+            <input style={inp} value={m.kind || ''} placeholder="STORY CAPTURE · HALF-DAY" onChange={(e) => this.setShootField('kind', e.target.value)} />
+          </div>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "10px" }}>
+            {m.id ? (
+              <button onClick={() => this.removeShoot()} style={{ background: "transparent", border: "1px solid rgba(255,48,64,.4)", color: "var(--live)", fontWeight: 800, fontSize: "10.5px", letterSpacing: ".12em", padding: "10px 14px", cursor: "pointer", textTransform: "uppercase", borderRadius: "3px" }}>Delete</button>
+            ) : <span />}
+            <div style={{ display: "flex", gap: "10px" }}>
+              <button onClick={() => this.closeShoot()} style={{ background: "transparent", border: "1px solid var(--line)", color: "var(--muted)", fontWeight: 800, fontSize: "10.5px", letterSpacing: ".12em", padding: "10px 14px", cursor: "pointer", textTransform: "uppercase", borderRadius: "3px" }}>Cancel</button>
+              <button onClick={() => this.saveShoot()} style={{ background: "var(--gold)", border: "none", color: "var(--golddark)", fontWeight: 900, fontSize: "10.5px", letterSpacing: ".12em", padding: "10px 18px", cursor: "pointer", textTransform: "uppercase", borderRadius: "3px" }}>{m.id ? "Save" : "Add day"}</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  renderDelivModal() {
+    const m = this.state.delivModal;
+    if (!m) return null;
+    const lbl = { fontSize: "9.5px", fontWeight: 800, letterSpacing: ".2em", color: "var(--dim)", textTransform: "uppercase", display: "block", marginBottom: "5px" };
+    const inp = { width: "100%", background: "var(--deep)", border: "1px solid var(--line)", borderRadius: "3px", color: "var(--white)", fontFamily: "var(--sans)", fontSize: "13px", padding: "9px 11px" };
+    return (
+      <div onClick={() => this.closeDeliv()} style={{ position: "fixed", inset: 0, zIndex: 90, background: "rgba(4,8,16,.8)", display: "flex", alignItems: "center", justifyContent: "center", padding: "20px" }}>
+        <div onClick={(e) => e.stopPropagation()} style={{ width: "420px", maxWidth: "100%", background: "var(--panel)", border: "1px solid var(--line)", borderTop: "3px solid var(--gold)", borderRadius: "4px", padding: "24px 24px 20px" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: "18px" }}>
+            <div style={{ fontFamily: "var(--num)", fontWeight: 700, fontSize: "26px", letterSpacing: ".02em", textTransform: "uppercase" }}>{m.id ? "Edit Tracker" : "Track Client"}</div>
+            <button onClick={() => this.closeDeliv()} style={{ background: "none", border: "none", color: "var(--dim)", fontSize: "16px", cursor: "pointer" }}>✕</button>
+          </div>
+          <div style={{ marginBottom: "13px" }}>
+            <label style={lbl}>Client</label>
+            <input style={inp} value={m.name || ''} placeholder="NoDa Med Spa" onChange={(e) => this.setDelivField('name', e.target.value)} />
+          </div>
+          <div style={{ marginBottom: "13px" }}>
+            <label style={lbl}>Clips shipped this month (target 8–12)</label>
+            <input style={inp} type="number" min="0" max="30" value={m.done} onChange={(e) => this.setDelivField('done', e.target.value)} />
+          </div>
+          <div style={{ marginBottom: "20px" }}>
+            <label style={lbl}>Meta line</label>
+            <input style={inp} value={m.meta || ''} placeholder="34 PHOTOS · 6 ADS LIVE · REVIEW CALL JUL 29" onChange={(e) => this.setDelivField('meta', e.target.value)} />
+          </div>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "10px" }}>
+            {m.id ? (
+              <button onClick={() => this.removeDeliv()} style={{ background: "transparent", border: "1px solid rgba(255,48,64,.4)", color: "var(--live)", fontWeight: 800, fontSize: "10.5px", letterSpacing: ".12em", padding: "10px 14px", cursor: "pointer", textTransform: "uppercase", borderRadius: "3px" }}>Delete</button>
+            ) : <span />}
+            <div style={{ display: "flex", gap: "10px" }}>
+              <button onClick={() => this.closeDeliv()} style={{ background: "transparent", border: "1px solid var(--line)", color: "var(--muted)", fontWeight: 800, fontSize: "10.5px", letterSpacing: ".12em", padding: "10px 14px", cursor: "pointer", textTransform: "uppercase", borderRadius: "3px" }}>Cancel</button>
+              <button onClick={() => this.saveDeliv()} style={{ background: "var(--gold)", border: "none", color: "var(--golddark)", fontWeight: 900, fontSize: "10.5px", letterSpacing: ".12em", padding: "10px 18px", cursor: "pointer", textTransform: "uppercase", borderRadius: "3px" }}>{m.id ? "Save" : "Track"}</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   renderVals() {
     const motionOn = this.props.enableMotion ?? true;
@@ -707,175 +910,282 @@ class Cockpit extends React.Component {
     const open = this.openDeals();
     const openSum = open.reduce((a, d) => a + (+d.value || 0), 0);
     const cover = gap ? (openSum / gap).toFixed(1) + '×' : '∞';
+    const coverBad = gap ? openSum / gap < 3 : false;
     const ff = this.ff();
     const ffNum = (k) => { const v = ff[k]; return (v === undefined || v === null || v === '') ? '' : v; };
+    const manualClips = (ff.manual && ff.manual.clips != null && ff.manual.clips !== '') ? ff.manual.clips : '';
+    const fmtK = (n) => { n = +n || 0; return n >= 1000 ? '$' + (Math.round(n / 100) / 10) + 'K' : '$' + n; };
+
+    const tiles = [
+      { label: 'COLLECTED', val: this.fmt(collected), sub: 'OF ' + this.fmt(this.GOAL) + ' TARGET', edge: 'var(--line)', top: 'var(--gold)', labelColor: 'var(--gold)', valColor: 'var(--gold)', subColor: 'var(--dim)' },
+      { label: 'SIGNED · IN-YEAR', val: this.fmt(this.signed()), sub: 'CONTRACTS WON', edge: 'var(--line)', top: 'var(--white)', labelColor: 'var(--muted)', valColor: 'var(--white)', subColor: 'var(--dim)' },
+      { label: 'OPEN PIPELINE', val: this.fmt(openSum), sub: open.length + ' LIVE DEALS', edge: 'var(--line)', top: 'var(--white)', labelColor: 'var(--muted)', valColor: 'var(--white)', subColor: 'var(--dim)' },
+      coverBad
+        ? { label: 'COVERAGE', val: cover, sub: 'NEED ≥3× · UNDER PRESSURE', edge: 'rgba(255,48,64,.45)', top: 'var(--live)', labelColor: '#ff8a94', valColor: '#ff8a94', subColor: '#b0596a' }
+        : { label: 'COVERAGE', val: cover, sub: 'NEED ≥3× · HEALTHY', edge: 'var(--line)', top: 'var(--good)', labelColor: 'var(--good)', valColor: 'var(--good)', subColor: 'var(--dim)' }
+    ];
 
     const ffDefs = [
       { key: 'calls', label: 'Calls held', floor: 'floor 3', min: 3 },
-      { key: 'proposals', label: 'Offers out', floor: 'floor 2', min: 2 },
-      { key: 'signed', label: '$ signed / wk', floor: '\u00a0', min: null },
-      { key: 'collected', label: '$ collected / wk', floor: '\u00a0', min: null },
-      { key: 'founderFree', label: 'Founder-free %', floor: 'trend \u2191', min: null }
+      { key: 'proposals', label: 'Audits delivered', floor: 'floor 2', min: 2 },
+      { key: 'signed', label: '$ signed / wk', floor: ' ', min: null },
+      { key: 'collected', label: '$ collected / wk', floor: ' ', min: null },
+      { key: 'clips', label: 'Clips shipped', floor: 'floor 8', min: 8, manual: true }
     ];
     const ff5 = ffDefs.map(f => {
-      const v = ffNum(f.key);
-      let edge = 'var(--line2)', floorColor = 'var(--dim)';
-      if (f.min != null && v !== '') { const hit = (+v >= f.min); edge = hit ? '#2f7d4f' : '#7a2420'; floorColor = hit ? '#3fb97a' : 'var(--red)'; }
-      return { label: f.label, floor: f.floor, val: v, edge, floorColor, onChange: (e) => this.setFF(f.key, e.target.value) };
+      const v = f.manual ? manualClips : ffNum(f.key);
+      let edge = 'var(--line)', floorColor = 'var(--dim)';
+      if (f.min != null && v !== '') { const hit = (+v >= f.min); edge = hit ? 'rgba(46,224,111,.5)' : 'rgba(255,48,64,.55)'; floorColor = hit ? 'var(--good)' : 'var(--live)'; }
+      return { label: f.label, floor: f.floor, val: v, edge, floorColor, onChange: (e) => f.manual ? this.setManualVal('clips', e.target.value) : this.setFF(f.key, e.target.value) };
     });
 
     let warn = '';
-    if (gap && openSum / gap < 3) warn = 'Pipeline coverage is under 3\u00d7 the gap to goal. Raise the weekly call quota to 5 and push two more diagnostics to the cold list this week.';
+    if (coverBad) warn = 'Pipeline coverage is under 3× the gap. Book two more Authority Audits this week and sell the next open capture day.';
 
     const callsDone = (+ffNum('calls') || 0) >= 3;
-    const propDone = (+ffNum('proposals') || 0) >= 2;
+    const auditsDone = (+ffNum('proposals') || 0) >= 2;
+    const clipsDone = (+manualClips || 0) >= 8;
     const man = ff.manual || {};
     const floorDefs = [
       { text: '3 discovery calls held', on: callsDone, manual: null },
-      { text: '2 proposals / diagnostic offers sent', on: propDone, manual: null },
-      { text: '5 diagnostic units pitched to the list', on: !!man.pitch, manual: 'pitch' },
-      { text: '1 proof asset shipped (every 2 wks)', on: !!man.proof, manual: 'proof' }
+      { text: '2 Authority Audits delivered', on: auditsDone, manual: null },
+      { text: '8 short-form clips shipped', on: clipsDone, manual: null },
+      { text: '5 audit invites to the cold list', on: !!man.invites, manual: 'invites' },
+      { text: '1 proof asset posted (every 2 wks)', on: !!man.proof, manual: 'proof' }
     ];
     const floor = floorDefs.map(f => ({
-      text: f.text,
-      check: f.on ? '\u2713' : '',
-      check_c: f.on ? '#3fb97a' : 'var(--dim)',
-      box: f.on ? '#3fb97a' : 'var(--line2)',
-      tc: f.on ? 'var(--muted)' : 'var(--cream)',
+      text: f.text, check: f.on ? '✓' : '',
+      box: f.on ? 'var(--gold)' : 'transparent',
+      boxEdge: f.on ? 'var(--gold)' : 'var(--line)',
+      tc: f.on ? 'var(--dim)' : 'var(--white)',
       cursor: f.manual ? 'pointer' : 'default',
       onClick: f.manual ? () => this.toggleManual(f.manual) : () => {}
     }));
 
     const next = open.slice().sort((a, b) => (a.date || '9') < (b.date || '9') ? -1 : 1).slice(0, 5).map(d => ({
-      label: d.name, sub: '· ' + d.stage, val: this.fmt(d.value), onClick: () => { this.setState({ view: 'pipeline' }); this.flash('JUMP \u2192 PIPELINE'); }
+      label: d.name, sub: '· ' + d.stage, val: this.fmt(d.value),
+      onClick: () => { this.setState({ view: 'pipeline' }); this.flash('JUMP → THE STANDINGS'); }
+    }));
+
+    // --- Shoots: group capture days by month (current + next), derived live ---
+    const moAbbr = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
+    const moFull = ['JANUARY', 'FEBRUARY', 'MARCH', 'APRIL', 'MAY', 'JUNE', 'JULY', 'AUGUST', 'SEPTEMBER', 'OCTOBER', 'NOVEMBER', 'DECEMBER'];
+    const dnames = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
+    const nowD = new Date(this.state.now);
+    const monthKey = (y, m) => y + '-' + String(m + 1).padStart(2, '0');
+    const curKey = monthKey(nowD.getFullYear(), nowD.getMonth());
+    const nextD = new Date(nowD.getFullYear(), nowD.getMonth() + 1, 1);
+    const nextKey = monthKey(nextD.getFullYear(), nextD.getMonth());
+    const allShoots = (this.state.shoots || []).slice().sort((a, b) => ((a.date || '') < (b.date || '') ? -1 : 1));
+    const inMonth = (sh, key) => (sh.date || '').slice(0, 7) === key;
+    const curShoots = allShoots.filter(sh => inMonth(sh, curKey));
+    const nextShoots = allShoots.filter(sh => inMonth(sh, nextKey));
+    const shootView = (sh) => {
+      const isOpen = sh.status === 'OPEN';
+      const d2 = sh.date ? new Date(sh.date + 'T00:00:00') : nowD;
+      return {
+        day: (sh.date || '').slice(8, 10), mon: moAbbr[d2.getMonth()], dow: dnames[d2.getDay()],
+        client: sh.client || 'OPEN SLOT — TICKETS AVAILABLE', kind: sh.kind || (isOpen ? 'SELL THIS DAY' : ''), status: sh.status,
+        bg: isOpen ? 'rgba(255,184,28,.07)' : 'var(--deep)',
+        edge: isOpen ? 'rgba(255,184,28,.5)' : 'var(--line)',
+        headBg: isOpen ? 'var(--gold)' : 'var(--panel2)',
+        headFg: isOpen ? 'var(--golddark)' : 'var(--muted)',
+        statusColor: isOpen ? 'var(--golddark)' : 'var(--good)',
+        dayColor: isOpen ? 'var(--gold)' : 'var(--white)',
+        clientColor: isOpen ? 'var(--gold2)' : 'var(--white)',
+        onClick: () => this.openShoot(sh)
+      };
+    };
+    const shoots = curShoots.slice(0, 4).map(shootView);
+    const shootsAll = curShoots.map(shootView);
+    const nextShootsView = nextShoots.map(shootView);
+    const curMonthName = moFull[nowD.getMonth()];
+    const nextMonthName = moFull[nextD.getMonth()];
+    const curBooked = curShoots.filter(sh => sh.status !== 'OPEN').length;
+    const nextSold = nextShoots.filter(sh => sh.status !== 'OPEN').length;
+    const curMonthLabel = curShoots.length ? ('· ' + curBooked + ' OF ' + curShoots.length + ' BOOKED') : '· NO CAPTURE DAYS YET';
+    const nextMonthLabel = nextShoots.length ? ('· ' + nextSold + ' OF ' + nextShoots.length + ' SOLD — THE ONE THING') : '· PUBLISH THE CALENDAR';
+
+    const delivs = (this.state.delivs || []).map(d => {
+      const done = +d.done || 0;
+      const p = Math.min(100, done / 12 * 100);
+      const hit = done >= 8;
+      return { name: d.name, clips: done + '/12', meta: d.meta || '—', pct: p, clipColor: hit ? 'var(--good)' : 'var(--gold)', barColor: hit ? 'var(--good)' : 'var(--gold)', onClick: () => this.openDeliv(d) };
+    });
+
+    // --- Drive chart: every client advances four downs (derived, capped at 4 chips) ---
+    const engineDefs = [
+      { down: '1ST', name: 'AUDIT', tag: 'expose the cracks', head: 'white', clients: this.state.deals.filter(d => ['Audit Booked', 'Audit Done'].includes(d.stage)).slice(0, 4).map(d => ({ n: d.name, v: fmtK(d.value) })) },
+      { down: '2ND', name: 'CAPTURE', tag: 'half-day story shoot', head: 'gold', clients: allShoots.filter(sh => sh.status !== 'OPEN' && sh.client).slice(0, 4).map(sh => ({ n: sh.client, v: moAbbr[new Date((sh.date || '') + 'T00:00:00').getMonth()] + ' ' + (sh.date || '').slice(8, 10) })) },
+      { down: '3RD', name: 'DEPLOY', tag: 'ads · funnels · follow-up', head: 'gold', clients: (this.state.delivs || []).slice(0, 4).map(x => ({ n: x.name, v: (+x.done || 0) + ' clips' })) },
+      { down: '4TH', name: 'LOOP', tag: 'review · retest · renew', head: 'white', clients: this.state.deals.filter(d => d.stage === 'Collected').slice(0, 4).map(d => ({ n: d.name, v: fmtK(d.value) })) }
+    ];
+    const engine = engineDefs.map(st => ({
+      down: st.down, name: st.name, tag: st.tag,
+      headBg: st.head === 'gold' ? 'var(--gold)' : 'var(--panel2)',
+      headFg: st.head === 'gold' ? 'var(--golddark)' : 'var(--white)',
+      headSub: st.head === 'gold' ? 'rgba(26,22,8,.65)' : 'var(--dim)',
+      count: st.clients.length + ' LIVE',
+      clients: st.clients
     }));
 
     const v = this.state.view;
-    const stageC = { 'Lead': 'var(--dim)', 'Diagnostic Sent': 'var(--red)', 'Diagnostic Done': 'var(--red)', 'Proposal': 'var(--cream)', 'Signed': '#3fb97a', 'Collected': '#fff' };
+    const stageC = { 'Lead': 'var(--dim)', 'Audit Booked': 'var(--gold)', 'Audit Done': 'var(--gold2)', 'Proposal': 'var(--white)', 'Signed': 'var(--good)', 'Collected': 'var(--good)' };
     const pipeCols = this.STAGES.map(st => {
       const ds = this.state.deals.filter(d => d.stage === st);
       return { stage: st, accent: stageC[st] || 'var(--dim)', sum: this.fmt(ds.reduce((a, d) => a + (+d.value || 0), 0)),
         deals: ds.map(d => ({ name: d.name, offer: d.offer, val: this.fmt(d.value), onClick: () => this.openDeal(d) })) };
     });
-    const pStats = { weighted: this.fmt(this.weighted()), count: this.openDeals().length, signed: this.fmt(this.signed()), signedN: this.state.deals.filter(d => ['Signed', 'Collected'].includes(d.stage)).length + ' DEALS', win: this.winRate() };
+    const pStats = { weighted: this.fmt(this.weighted()), count: open.length, signed: this.fmt(this.signed()), signedN: this.state.deals.filter(d => ['Signed', 'Collected'].includes(d.stage)).length + ' DEALS', win: this.winRate() };
+
     const opsState = this.state.ops || {};
-    const fleet = this.FLEET.map(a => { const ran = !!opsState['agent:' + a.name]; return { init: a.init, name: a.name, role: a.role, cad: a.cad, accent: a.accent, dot: ran ? '#3fb97a' : '#444', status: ran ? 'RAN TODAY' : 'IDLE', btn: ran ? 'RESET' : 'MARK RUN', onToggle: () => this.toggleOp('agent:' + a.name) }; });
-    const opsChecklist = this.OPSLIST.map((o, i) => { const on = !!opsState['ops:' + i]; return { text: o, check: on ? '\u2713' : '', box: on ? '#3fb97a' : 'var(--line2)', cc: on ? '#3fb97a' : 'var(--dim)', tc: on ? 'var(--muted)' : 'var(--cream)', onClick: () => this.toggleOp('ops:' + i) }; });
-    const loopNodes = this.LOOP.map((n, i) => ({ label: n, arrow: i < this.LOOP.length - 1 ? '\u2192' : '' }));
+    const fleet = this.FLEET.map(a => {
+      const ran = !!opsState['agent:' + a.name];
+      return { init: a.init, ch: a.ch, name: a.name, role: a.role, cad: a.cad, accent: a.accent, dot: ran ? 'var(--good)' : '#33455f', status: ran ? 'ON AIR TODAY' : 'IDLE', btn: ran ? 'RESET' : 'MARK RUN', onToggle: () => this.toggleOp('agent:' + a.name) };
+    });
+    const opsChecklist = this.OPSLIST.map((o, i) => {
+      const on = !!opsState['ops:' + i];
+      return { text: o, check: on ? '✓' : '', box: on ? 'var(--gold)' : 'var(--line)', boxBg: on ? 'var(--gold)' : 'transparent', tc: on ? 'var(--dim)' : 'var(--white)', onClick: () => this.toggleOp('ops:' + i) };
+    });
+    const loopNodes = this.LOOP.map((n, i) => ({ label: n, arrow: i < this.LOOP.length - 1 ? '→' : '' }));
+
     const ladder = this.LADDER;
-    const sops = this.SOPS.map(s => ({ t: s.t, p: s.p, steps: s.steps, out: s.out, accent: s.danger ? 'var(--red)' : 'var(--cream)' }));
     const stepIdx = this.state.step || 0;
-    const scriptSteps = this.SCRIPT.map((s, i) => ({ n: s.n, l: s.l, bg: i === stepIdx ? '#141418' : '#0a0a0c', bd: i === stepIdx ? 'var(--red)' : 'var(--line)', nc: i === stepIdx ? 'var(--red)' : 'var(--dim)', fg: i === stepIdx ? 'var(--cream)' : 'var(--muted)', onClick: () => this.goStep(i) }));
+    const scriptSteps = this.SCRIPT.map((s, i) => ({
+      n: s.n, l: s.l,
+      bg: i === stepIdx ? 'var(--panel2)' : 'var(--deep)',
+      bd: 'var(--line)',
+      blk: i === stepIdx ? 'var(--gold)' : 'transparent',
+      nc: i === stepIdx ? 'var(--gold)' : 'var(--dim)',
+      fg: i === stepIdx ? 'var(--white)' : 'var(--muted)',
+      onClick: () => this.goStep(i)
+    }));
     const cs = this.SCRIPT[stepIdx] || this.SCRIPT[0];
     const curBlocks = (cs.blocks || []).map(b => ({ isSay: b.t === 'say', isAlt: b.t === 'sayalt', isNote: b.t === 'note', isQ: b.t === 'q', text: b.text || '', items: b.items || [] }));
-    const curGoal = cs.goal; const curNum = cs.n; const curLabel = cs.l;
     const canBack = stepIdx > 0; const canNext = stepIdx < this.SCRIPT.length - 1;
-    const backOpacity = canBack ? '1' : '.28'; const nextOpacity = canNext ? '1' : '.28';
+
     const today = this.todayStr();
-    const fToday = this.state.founder[today] || {};
-    const dnames = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
-    const energyScale = [1, 2, 3, 4, 5].map(n => { const on = fToday.energy == n; return { n, bg: on ? 'var(--red)' : '#0a0a0c', bd: on ? 'var(--red)' : 'var(--line2)', fg: on ? '#0a0707' : 'var(--muted)', onClick: () => this.setF('energy', n) }; });
-    const sleepScale = [5, 6, 7, 8, 9].map(n => { const on = fToday.sleep == n; return { n, bg: on ? 'var(--red)' : '#0a0a0c', bd: on ? 'var(--red)' : 'var(--line2)', fg: on ? '#0a0707' : 'var(--muted)', onClick: () => this.setF('sleep', n) }; });
-    const fToggles = [['workout', 'Trained'], ['deep', 'Deep-work block'], ['calls', '3 calls done'], ['ate', 'Ate right']].map(([k, l]) => { const on = !!fToday[k]; return { label: l, bd: on ? '#1d3d2a' : 'var(--line2)', box: on ? '#3fb97a' : 'var(--line2)', boxBg: on ? '#3fb97a' : 'transparent', cc: on ? '#06140d' : 'transparent', check: on ? '\u2713' : '', onClick: () => this.setF(k, !fToday[k]) }; });
+    const fToday = this.state.founder[this.fKey()] || {};
+    const energyScale = [1, 2, 3, 4, 5].map(n => { const on = fToday.energy == n; return { n, bg: on ? 'var(--gold)' : 'var(--deep)', bd: on ? 'var(--gold)' : 'var(--line)', fg: on ? 'var(--golddark)' : 'var(--muted)', onClick: () => this.setF('energy', n) }; });
+    const sleepScale = [5, 6, 7, 8, 9].map(n => { const on = fToday.sleep == n; return { n, bg: on ? 'var(--gold)' : 'var(--deep)', bd: on ? 'var(--gold)' : 'var(--line)', fg: on ? 'var(--golddark)' : 'var(--muted)', onClick: () => this.setF('sleep', n) }; });
+    const togDefs = this.state.partner === 'EB'
+      ? [['workout', 'Trained'], ['deep', 'Deep-work block'], ['camera', 'Shot something'], ['ate', 'Ate right']]
+      : [['workout', 'Trained'], ['deep', 'Deep-work block'], ['calls', '3 conversations'], ['ate', 'Ate right']];
+    const fToggles = togDefs.map(([k, l]) => { const on = !!fToday[k]; return { label: l, bd: on ? 'rgba(46,224,111,.4)' : 'var(--line)', box: on ? 'var(--good)' : 'var(--line)', boxBg: on ? 'var(--good)' : 'transparent', cc: on ? '#06140d' : 'transparent', check: on ? '✓' : '', onClick: () => this.setF(k, !fToday[k]) }; });
     const noteVal = fToday.note || '';
     const onNote = (e) => this.setF('note', e.target.value);
     const weekStrip = [];
-    for (let i = 6; i >= 0; i--) { const dt = new Date(); dt.setDate(dt.getDate() - i); const ds = dt.getFullYear() + '-' + String(dt.getMonth() + 1).padStart(2, '0') + '-' + String(dt.getDate()).padStart(2, '0'); const e = this.state.founder[ds] || {}; const sc = e.energy || 0; weekStrip.push({ dw: dnames[dt.getDay()], n: sc || '\u00b7', nc: sc >= 4 ? '#3fb97a' : sc >= 2 ? 'var(--red)' : sc ? '#7a2420' : 'var(--dim)', d1: e.workout ? 'var(--red)' : '#2a2a2d', d2: e.calls ? 'var(--cream)' : '#2a2a2d' }); }
-    const collectedNow = this.collected();
-    const habitsView = this.state.habits.map(h => { const on = !!(h.days && h.days[today]); const sk = this.habitStreak(h); return { name: h.name, box: on ? '#3fb97a' : 'var(--line2)', boxBg: on ? '#3fb97a' : 'transparent', cc: on ? '#06140d' : 'var(--dim)', check: on ? '\u2713' : '', streak: sk, streakL: sk === 1 ? 'DAY' : 'DAYS', onToggle: () => this.toggleHabit(h.id) }; });
-    const goalsView = this.state.goals.map(g => { const prog = g.target ? (g.id === 'g1' ? collectedNow : (g.progress || 0)) : 0; const pctG = g.target ? Math.min(100, prog / g.target * 100) : 0; return { text: g.text, check: g.done ? '\u2713' : '', box: g.done ? 'var(--red)' : 'var(--line2)', boxBg: g.done ? 'var(--red)' : 'transparent', cc: g.done ? '#0a0707' : 'var(--dim)', tc: g.done ? 'var(--dim)' : 'var(--cream)', deco: g.done ? 'line-through' : 'none', type: g.type === 'life' ? 'LIFE' : 'BUSINESS', typeC: g.type === 'life' ? 'var(--cream)' : 'var(--red)', hasBar: !!g.target, pct: pctG, progLabel: g.target ? this.fmt(prog) + ' / ' + this.fmt(g.target) : '', onToggle: () => this.toggleGoal(g.id) }; });
-    const dd = new Date(); const dayFull = ['SUNDAY', 'MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY']; const moAbbr = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
-    const todayLabel = dayFull[dd.getDay()] + ' \u00b7 ' + moAbbr[dd.getMonth()] + ' ' + dd.getDate();
+    for (let i = 6; i >= 0; i--) {
+      const dt = new Date(); dt.setDate(dt.getDate() - i);
+      const ds = dt.getFullYear() + '-' + String(dt.getMonth() + 1).padStart(2, '0') + '-' + String(dt.getDate()).padStart(2, '0');
+      const e = this.state.founder[this.state.partner + '|' + ds] || {};
+      const sc = e.energy || 0;
+      weekStrip.push({ dw: dnames[dt.getDay()], n: sc || '·', nc: sc >= 4 ? 'var(--good)' : sc >= 2 ? 'var(--gold)' : sc ? 'var(--live)' : 'var(--dim)', d1: e.workout ? 'var(--gold)' : '#22344f', d2: (e.calls || e.camera) ? 'var(--white)' : '#22344f' });
+    }
+    const partnerTabs = this.PARTNERS.map(p => {
+      const on = p.init === this.state.partner;
+      return { init: p.init, name: p.name, role: p.role, bg: on ? 'var(--panel2)' : 'var(--deep)', bd: on ? 'var(--gold)' : 'var(--line)', initC: on ? 'var(--gold)' : 'var(--dim)', nameC: on ? 'var(--white)' : 'var(--muted)', onClick: () => this.setState({ partner: p.init }) };
+    });
+    const curP = this.PARTNERS.find(p => p.init === this.state.partner) || this.PARTNERS[0];
+
+    const habitsView = this.state.habits.map(h => {
+      const on = !!(h.days && h.days[today]); const sk = this.habitStreak(h);
+      return { name: h.name, owner: h.owner || 'BOTH', box: on ? 'var(--good)' : 'var(--line)', boxBg: on ? 'var(--good)' : 'transparent', cc: on ? '#06140d' : 'var(--dim)', check: on ? '✓' : '', streak: sk, streakL: sk === 1 ? 'DAY' : 'DAYS', onToggle: () => this.toggleHabit(h.id) };
+    });
+    const goalsView = this.state.goals.map(g => {
+      const prog = g.target ? (g.id === 'g1' ? collected : (g.progress || 0)) : 0;
+      const pctG = g.target ? Math.min(100, prog / g.target * 100) : 0;
+      return { text: g.text, owner: g.owner || 'BOTH', check: g.done ? '✓' : '', box: g.done ? 'var(--gold)' : 'var(--line)', boxBg: g.done ? 'var(--gold)' : 'transparent', cc: g.done ? 'var(--golddark)' : 'var(--dim)', tc: g.done ? 'var(--dim)' : 'var(--white)', deco: g.done ? 'line-through' : 'none', type: g.type === 'life' ? 'LIFE' : 'BUSINESS', typeC: g.type === 'life' ? 'var(--white)' : 'var(--gold)', hasBar: !!g.target, pct: pctG, progLabel: g.target ? this.fmt(prog) + ' / ' + this.fmt(g.target) : '', onToggle: () => this.toggleGoal(g.id) };
+    });
+    const dd = new Date(); const dayFull = ['SUNDAY', 'MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY'];
+    const todayLabel = dayFull[dd.getDay()] + ' · ' + moAbbr[dd.getMonth()] + ' ' + dd.getDate();
+
+    // Documents keep the engine's paste-a-link behavior (ops['doclink:<name>']).
     const docsView = this.DOCS.map(g => ({ cat: g.cat, items: g.items.map(it => {
       const url = opsState['doclink:' + it.name] || '';
-      return { name: it.name, fmt: it.fmt, meta: url ? 'Linked \u00b7 click to open' : it.meta, tag: url ? 'LINK' : (it.tag || ''), hasTag: !!(url || it.tag), onClick: () => this.openDoc(it, url) };
+      return { name: it.name, fmt: it.fmt, meta: url ? 'Linked · click to open' : it.meta, tag: url ? 'LINK' : (it.tag || ''), hasTag: !!(url || it.tag), onClick: () => this.openDoc(it, url) };
     }) }));
-    const phaseC = { ACTIVE: 'var(--red)', NEXT: 'var(--cream)', QUEUED: 'var(--dim)' };
+    const phaseC = { ACTIVE: 'var(--gold)', NEXT: 'var(--white)', QUEUED: 'var(--dim)' };
     const plansPhases = this.PLANS.map(p => ({ n: p.n, t: p.t, when: p.when, d: p.d, state: p.state, c: phaseC[p.state] || 'var(--dim)' }));
-    const planMoves = this.PLANMOVES.map((m, i) => { const on = !!opsState['plan:' + i]; return { text: m, check: on ? '\u2713' : '', box: on ? '#3fb97a' : 'var(--line2)', cc: on ? '#3fb97a' : 'var(--dim)', tc: on ? 'var(--muted)' : 'var(--cream)', onClick: () => this.toggleOp('plan:' + i) }; });
+    const planMoves = this.PLANMOVES.map((m, i) => { const on = !!opsState['plan:' + i]; return { text: m, check: on ? '✓' : '', box: on ? 'var(--gold)' : 'var(--line)', boxBg: on ? 'var(--gold)' : 'transparent', tc: on ? 'var(--dim)' : 'var(--white)', onClick: () => this.toggleOp('plan:' + i) }; });
 
     const sections = this.SECTIONS.map(s => {
-      const active = s.id === this.state.view;
-      return {
-        num: s.num, label: s.label,
-        bg: active ? '#141418' : 'transparent',
-        bar: active ? '2px solid var(--red)' : '2px solid transparent',
-        fg: active ? 'var(--cream)' : 'var(--muted)',
-        code: active ? 'var(--red)' : 'var(--dim)',
-        dot: active ? '\u25b6' : '',
-        onSelect: () => this.setState({ view: s.id })
-      };
+      const active = s.id === v;
+      return { num: s.num, label: s.label, bar: active ? 'var(--gold)' : 'transparent', fg: active ? 'var(--white)' : 'var(--dim)', code: active ? 'var(--gold)' : 'var(--dim)', onSelect: () => this.setState({ view: s.id }) };
     });
 
     const d = new Date(this.state.now);
     const pad = (n) => String(n).padStart(2, '0');
     const clock = pad(d.getHours()) + ':' + pad(d.getMinutes()) + ':' + pad(d.getSeconds());
-    const months = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
-    const date = pad(d.getDate()) + ' ' + months[d.getMonth()] + ' ' + d.getFullYear();
+    const date = pad(d.getDate()) + ' ' + moAbbr[d.getMonth()] + ' ' + d.getFullYear();
+    const q = Math.floor(d.getMonth() / 3) + 1;
+    const scoreUs = collected >= 1000 ? (collected / 1000).toFixed(1) + 'K' : String(collected);
+    const goalShort = this.GOAL >= 1000 ? Math.round(this.GOAL / 1000) + 'K' : String(this.GOAL);
+    const counting = this.state.booting && this.state.bootIdx < this.COUNT.length;
 
-    const cur = this.SECTIONS.find(s => s.id === this.state.view) || this.SECTIONS[0];
+    // Bottomline ticker: live agent wire, newest last (falls back to the static line).
+    const tickerItems = (this.state.log || []).slice(-6).map(l => (l.tag + ': ' + l.msg).toUpperCase());
+    if (!tickerItems.length) tickerItems.push('SCOUT: STANDING BY', 'ANCHOR: STANDING BY', 'SHOWRUNNER: ALL CLEAR');
+    tickerItems.push('TARGET: CHARLOTTE AUTHORITY');
 
     return {
-      // boot
       booting: this.state.booting,
-      bootLines: this.BOOT.slice(0, this.state.bootIdx),
-      bootProgress: Math.min(100, Math.round(this.state.bootIdx / this.BOOT.length * 100)),
-      bootReady: this.state.bootIdx >= this.BOOT.length,
+      countShow: counting,
+      countNum: this.COUNT[Math.min(this.state.bootIdx, this.COUNT.length - 1)],
+      bootReady: this.state.booting && !counting,
+      animCount: an('popcount .95s ease both'),
       dismissBoot: () => this.dismiss(),
       skipBoot: (e) => { if (e && e.stopPropagation) e.stopPropagation(); this.dismiss(); },
-      // visuals
-      scanOn: this.props.showScanlines ?? true,
-      animScan: an('scanmove 1.1s steps(2) infinite'),
-      animSweep: an('sweepY 7.5s linear infinite'),
-      animGlow: an('glowp 3.4s ease-in-out infinite'),
-      animPulse: an('pulse 1.8s ease-in-out infinite'),
-      animTicker: an('marq 34s linear infinite'),
-      animShimmer: an('shimmer 3.2s ease-in-out infinite'),
-      animSpin: an('spin 1.4s linear infinite'),
-      // nav
+      tickerOn: this.props.showTicker ?? true,
+      tickerItems,
+      animPulse: an('pulse 1.4s ease-in-out infinite'),
+      animTicker: an('marq 32s linear infinite'),
       sections,
-      isCommand: this.state.view === 'command',
+      isCommand: v === 'command',
       isPipeline: v === 'pipeline',
-      isClients: v === 'clients',
-      isDiagnostic: v === 'script',
+      isAudits: v === 'audits',
+      isShoots: v === 'shoots',
       isAgents: v === 'agents',
-      isPlaybook: v === 'playbook',
-      isFounder: v === 'founder',
+      isPartners: v === 'partners',
       isDocs: v === 'docs',
       isStrategy: v === 'strategy',
       isPlans: v === 'plans',
-      isStandby: !['command', 'pipeline', 'clients', 'invoices', 'proposals', 'scheduling', 'kpis', 'expenses', 'script', 'agents', 'playbook', 'founder', 'docs', 'strategy', 'plans', 'rookie'].includes(v),
-      currentSection: cur.label.toUpperCase(),
-      // status
       clock, date,
-      // war board
-      oneThingTitle: this.ONE_TITLE,
-      oneThingBody: this.ONE_BODY,
+      quarter: 'Q' + q,
+      scoreUs, goalShort,
+      goalFmt: this.fmt(this.GOAL),
       collectedFmt: this.fmt(collected),
       pct,
-      gapText: collected >= this.GOAL ? 'GOAL CLEARED \u2014 BANK IT.' : this.fmt(gap) + ' TO GO \u00b7 ' + pct.toFixed(0) + '% OF TARGET',
+      pctLabel: pct.toFixed(0) + '%',
+      yardLine: Math.round(pct),
+      gapText: collected >= this.GOAL ? 'GOAL CLEARED — BANK IT' : this.fmt(gap) + ' TO GO',
       sellDays: this.daysTo(this.SELLBY),
       deadDays: this.daysTo(this.DEADLINE),
-      founderFree: (ff.founderFree != null && ff.founderFree !== '') ? ff.founderFree + '%' : '\u2014',
-      // kpis
-      kCollected: this.fmt(collected),
-      kSigned: this.fmt(this.signed()),
-      kOpen: this.fmt(openSum),
-      kOpenN: open.length + ' LIVE DEALS',
-      kCover: cover,
-      // modules
-      pipeCols, pStats, fleet, opsChecklist, loopNodes, ladder, sops,
-      scriptSteps, curBlocks, curGoal, curNum, curLabel, canBack, canNext, backOpacity, nextOpacity,
+      sellByLabel: (this.SELLBY || '').slice(5, 7) && moAbbr[+(this.SELLBY || '').slice(5, 7) - 1] + ' ' + +(this.SELLBY || '').slice(8, 10),
+      deadlineLabel: (this.DEADLINE || '').slice(5, 7) && moAbbr[+(this.DEADLINE || '').slice(5, 7) - 1] + ' ' + +(this.DEADLINE || '').slice(8, 10),
+      oneThingTitle: this.ONE_TITLE,
+      oneThingBody: this.ONE_BODY,
+      clipsFmt: (manualClips === '' ? 0 : manualClips) + '/12',
+      tiles, ff5, warn, floor, next, engine,
+      shoots, shootsAll, nextShootsView, curMonthName, nextMonthName, curMonthLabel, nextMonthLabel,
+      runsheet: this.RUNSHEET, delivs,
+      addShoot: () => this.openShoot(null),
+      addDeliv: () => this.openDeliv(null),
+      addDeal: () => this.openDeal(null),
+      pipeCols, pStats,
+      fleet, opsChecklist, loopNodes, log: this.state.log.map(l => ({ t: l.t, tag: l.tag, color: l.color, msg: l.msg })),
+      ladder, scriptSteps, curBlocks, curGoal: cs.goal,
+      backOpacity: canBack ? '1' : '.28', nextOpacity: canNext ? '1' : '.28',
+      backStep: () => this.goStep(stepIdx - 1), nextStep: () => this.goStep(stepIdx + 1),
+      objections: this.OBJECTIONS, showObj: this.state.showObj, showScript: !this.state.showObj,
+      objBtnLabel: this.state.showObj ? '← BACK TO RUNDOWN' : 'OBJECTION HANDLING →',
+      toggleObj: () => this.toggleObj(),
+      partnerTabs, curPartnerName: curP.name.toUpperCase(),
       energyScale, sleepScale, fToggles, noteVal, onNote, weekStrip, habitsView, goalsView, todayLabel,
       addHabit: () => this.addHabit(), addGoal: () => this.addGoal(),
-      docsView, plansPhases, planMoves,
+      docsView,
       stratThesis: this.STRATEGY.thesis, stratPillars: this.STRATEGY.pillars, stratBets: this.STRATEGY.bets, stratAnti: this.STRATEGY.antigoals,
-      objections: this.OBJECTIONS, showObj: this.state.showObj, showScript: !this.state.showObj,
-      objBtnLabel: this.state.showObj ? '← BACK TO SCRIPT' : 'OBJECTION HANDLING →',
-      backStep: () => this.goStep(stepIdx - 1), nextStep: () => this.goStep(stepIdx + 1), toggleObj: () => this.toggleObj(),
-      // panels
-      ff5, warn, floor, next,
-      log: this.state.log.map(l => ({ t: l.t, tag: l.tag, color: l.color, msg: l.msg })),
+      plansPhases, planMoves,
       newWeek: () => this.newWeek(),
       toast: this.state.toast
     };
@@ -887,7 +1197,7 @@ class Cockpit extends React.Component {
     return (
       <button
         onClick={() => this.logout()}
-        style={{ position: "fixed", bottom: "12px", left: "14px", zIndex: 80, background: "rgba(10,10,12,.85)", border: "1px solid var(--line2)", color: "var(--dim)", fontFamily: "var(--mono)", fontSize: "9.5px", letterSpacing: ".16em", padding: "6px 11px", cursor: "pointer", textTransform: "uppercase" }}
+        style={{ position: "fixed", bottom: "48px", left: "14px", zIndex: 80, background: "rgba(10,10,12,.85)", border: "1px solid var(--line2)", color: "var(--dim)", fontFamily: "var(--mono)", fontSize: "9.5px", letterSpacing: ".16em", padding: "6px 11px", cursor: "pointer", textTransform: "uppercase" }}
       >
         Log out
       </button>
@@ -900,10 +1210,10 @@ class Cockpit extends React.Component {
     const m = this.state.dealModal;
     if (!m) return null;
     const lbl = { fontFamily: "var(--mono)", fontSize: "9.5px", letterSpacing: ".2em", color: "var(--dim)", textTransform: "uppercase", display: "block", marginBottom: "5px" };
-    const inp = { width: "100%", background: "#0a0a0c", border: "1px solid var(--line2)", color: "var(--cream)", fontFamily: "var(--mono)", fontSize: "13px", padding: "9px 11px" };
+    const inp = { width: "100%", background: "var(--deep)", border: "1px solid var(--line2)", color: "var(--cream)", fontFamily: "var(--mono)", fontSize: "13px", padding: "9px 11px" };
     return (
       <div onClick={() => this.closeDeal()} style={{ position: "fixed", inset: 0, zIndex: 90, background: "rgba(4,4,5,.78)", display: "flex", alignItems: "center", justifyContent: "center", padding: "20px" }}>
-        <div onClick={(e) => e.stopPropagation()} style={{ width: "420px", maxWidth: "100%", background: "#0e0e11", border: "1px solid var(--line)", borderTop: "3px solid var(--red)", padding: "24px 24px 20px" }}>
+        <div onClick={(e) => e.stopPropagation()} style={{ width: "420px", maxWidth: "100%", background: "var(--panel)", border: "1px solid var(--line)", borderTop: "3px solid var(--red)", padding: "24px 24px 20px" }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: "18px" }}>
             <div style={{ fontFamily: "var(--cond)", fontWeight: 900, fontSize: "26px", letterSpacing: ".01em" }}>{m.id ? "EDIT DEAL" : "NEW DEAL"}</div>
             <button onClick={() => this.closeDeal()} style={{ background: "none", border: "none", color: "var(--dim)", fontFamily: "var(--mono)", fontSize: "16px", cursor: "pointer" }}>✕</button>
@@ -911,11 +1221,11 @@ class Cockpit extends React.Component {
 
           <div style={{ marginBottom: "13px" }}>
             <label style={lbl}>Client / Deal name</label>
-            <input style={inp} value={m.name} onChange={(e) => this.setDealField("name", e.target.value)} placeholder="Lumen Studios" />
+            <input style={inp} value={m.name} onChange={(e) => this.setDealField("name", e.target.value)} placeholder="Queen City HVAC" />
           </div>
           <div style={{ marginBottom: "13px" }}>
             <label style={lbl}>Offer</label>
-            <input style={inp} value={m.offer} onChange={(e) => this.setDealField("offer", e.target.value)} placeholder="Authority Diagnostic" />
+            <input style={inp} value={m.offer} onChange={(e) => this.setDealField("offer", e.target.value)} placeholder="Authority Engine · 3-mo term" />
           </div>
           <div style={{ display: "flex", gap: "12px", marginBottom: "13px" }}>
             <div style={{ flex: 1 }}>
@@ -945,11 +1255,11 @@ class Cockpit extends React.Component {
 
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "10px" }}>
             {m.id ? (
-              <button onClick={() => this.removeDeal()} style={{ background: "transparent", border: "1px solid #5a2230", color: "var(--red)", fontFamily: "var(--mono)", fontSize: "10.5px", letterSpacing: ".12em", padding: "10px 14px", cursor: "pointer", textTransform: "uppercase" }}>Delete</button>
+              <button onClick={() => this.removeDeal()} style={{ background: "transparent", border: "1px solid rgba(255,48,64,.4)", color: "var(--live)", fontFamily: "var(--mono)", fontSize: "10.5px", letterSpacing: ".12em", padding: "10px 14px", cursor: "pointer", textTransform: "uppercase" }}>Delete</button>
             ) : <span />}
             <div style={{ display: "flex", gap: "10px" }}>
               <button onClick={() => this.closeDeal()} style={{ background: "transparent", border: "1px solid var(--line2)", color: "var(--muted)", fontFamily: "var(--mono)", fontSize: "10.5px", letterSpacing: ".12em", padding: "10px 14px", cursor: "pointer", textTransform: "uppercase" }}>Cancel</button>
-              <button onClick={() => this.saveDeal()} style={{ background: "var(--red)", border: "1px solid var(--red)", color: "#0a0707", fontFamily: "var(--mono)", fontWeight: 700, fontSize: "10.5px", letterSpacing: ".12em", padding: "10px 18px", cursor: "pointer", textTransform: "uppercase" }}>{m.id ? "Save" : "Add deal"}</button>
+              <button onClick={() => this.saveDeal()} style={{ background: "var(--red)", border: "1px solid var(--red)", color: "var(--golddark)", fontFamily: "var(--mono)", fontWeight: 700, fontSize: "10.5px", letterSpacing: ".12em", padding: "10px 18px", cursor: "pointer", textTransform: "uppercase" }}>{m.id ? "Save" : "Add deal"}</button>
             </div>
           </div>
         </div>
@@ -1030,7 +1340,7 @@ class Cockpit extends React.Component {
     const paid = invoices.filter(i => i.status === 'paid').reduce((s, i) => s + (+i.amount || 0), 0);
     const today = new Date(); today.setHours(0, 0, 0, 0);
     const overdue = invoices.filter(i => i.status === 'sent' && i.due && new Date(i.due + 'T00:00:00') < today).length;
-    const stC = { draft: 'var(--dim)', sent: 'var(--cream)', paid: '#3fb97a', void: '#7a2420' };
+    const stC = { draft: 'var(--dim)', sent: 'var(--cream)', paid: 'var(--good)', void: 'rgba(255,48,64,.55)' };
 
     const Stat = (label, val, sub, accent) => (
       <div style={{ background: "var(--panel)", border: "1px solid var(--line)", borderTop: "2px solid " + (accent || "var(--line2)"), padding: "15px 18px" }}>
@@ -1041,20 +1351,20 @@ class Cockpit extends React.Component {
     );
 
     return (
-      <div style={{ padding: "24px 26px 60px", maxWidth: "1240px" }}>
+      <div style={{ padding: "28px 26px 96px", maxWidth: "1240px", margin: "0 auto", width: "100%" }}>
         <div style={{ marginBottom: "6px", display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "16px" }}>
           <div>
-            <div style={{ fontSize: "10px", letterSpacing: ".26em", color: "var(--red)" }}>// 04 · GET PAID</div>
-            <h1 style={{ fontFamily: "var(--cond)", fontWeight: 900, fontSize: "48px", lineHeight: ".92", margin: "6px 0 0", letterSpacing: ".005em" }}>INV<span style={{ display: "inline-block", background: "var(--red)", color: "#0a0707", padding: "0 12px", transform: "skewX(-7deg)" }}>OICES</span></h1>
+            <div style={{ fontSize: "10px", letterSpacing: ".26em", color: "var(--red)" }}>// 11 · GET PAID</div>
+            <h1 style={{ fontFamily: "var(--cond)", fontWeight: 900, fontSize: "48px", lineHeight: ".92", margin: "6px 0 0", letterSpacing: ".005em" }}>INV<span style={{ display: "inline-block", background: "var(--red)", color: "var(--golddark)", padding: "0 12px", transform: "skewX(0deg)" }}>OICES</span></h1>
             <div style={{ fontSize: "12px", letterSpacing: ".04em", color: "var(--muted)", marginTop: "9px", maxWidth: "560px", lineHeight: "1.6" }}>Build it, send the link, get paid. PIF or 50% deposit — never discount month one.</div>
           </div>
-          <Hover as="button" onClick={() => this.openInvoice(null)} baseStyle={{ flexShrink: 0, marginTop: "6px", background: "var(--red)", border: "1px solid var(--red)", color: "#0a0707", fontFamily: "var(--mono)", fontWeight: "700", fontSize: "11px", letterSpacing: ".12em", padding: "10px 16px", cursor: "pointer", textTransform: "uppercase", transition: ".15s" }} hoverStyle={{ background: "var(--red2)" }}>+ New Invoice</Hover>
+          <Hover as="button" onClick={() => this.openInvoice(null)} baseStyle={{ flexShrink: 0, marginTop: "6px", background: "var(--red)", border: "1px solid var(--red)", color: "var(--golddark)", fontFamily: "var(--mono)", fontWeight: "700", fontSize: "11px", letterSpacing: ".12em", padding: "10px 16px", cursor: "pointer", textTransform: "uppercase", transition: ".15s" }} hoverStyle={{ background: "var(--red2)" }}>+ New Invoice</Hover>
         </div>
         <div style={{ height: "1px", background: "linear-gradient(90deg,var(--red),transparent 55%)", margin: "16px 0 22px" }}></div>
 
         <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: "14px", marginBottom: "20px" }}>
           {Stat('OUTSTANDING', this.fmt(outstanding), 'SENT, NOT YET PAID', outstanding ? 'var(--red)' : 'var(--line2)')}
-          {Stat('COLLECTED', this.fmt(paid), 'PAID INVOICES', '#3fb97a')}
+          {Stat('COLLECTED', this.fmt(paid), 'PAID INVOICES', 'var(--good)')}
           {Stat('OVERDUE', String(overdue), 'PAST DUE DATE', overdue ? 'var(--red)' : 'var(--line2)')}
         </div>
 
@@ -1068,7 +1378,7 @@ class Cockpit extends React.Component {
               <div>Number</div><div>Client / Title</div><div>Amount</div><div>Status</div><div>Due</div>
             </div>
             {invoices.map((inv) => (
-              <Hover as="div" key={inv.id} onClick={() => this.openInvoice(inv)} baseStyle={{ display: "grid", gridTemplateColumns: "1fr 1.6fr 1fr .9fr 1fr", gap: "10px", padding: "13px 16px", borderBottom: "1px solid var(--line)", cursor: "pointer", alignItems: "center", fontSize: "13px" }} hoverStyle={{ background: "#141418" }}>
+              <Hover as="div" key={inv.id} onClick={() => this.openInvoice(inv)} baseStyle={{ display: "grid", gridTemplateColumns: "1fr 1.6fr 1fr .9fr 1fr", gap: "10px", padding: "13px 16px", borderBottom: "1px solid var(--line)", cursor: "pointer", alignItems: "center", fontSize: "13px" }} hoverStyle={{ background: "var(--panel2)" }}>
                 <div style={{ fontFamily: "var(--mono)", color: "var(--muted)", fontSize: "12px" }}>{inv.number}</div>
                 <div><span style={{ color: "var(--cream)", fontWeight: 600 }}>{clientName(inv.clientId)}</span>{inv.title ? <span style={{ color: "var(--dim)" }}> · {inv.title}</span> : null}</div>
                 <div style={{ fontFamily: "var(--cond)", fontWeight: 800, color: "var(--red)" }}>{this.fmt(inv.amount)}</div>
@@ -1086,11 +1396,11 @@ class Cockpit extends React.Component {
     const m = this.state.invoiceModal;
     if (!m) return null;
     const lbl = { fontFamily: "var(--mono)", fontSize: "9.5px", letterSpacing: ".2em", color: "var(--dim)", textTransform: "uppercase", display: "block", marginBottom: "5px" };
-    const inp = { width: "100%", background: "#0a0a0c", border: "1px solid var(--line2)", color: "var(--cream)", fontFamily: "var(--mono)", fontSize: "13px", padding: "9px 11px" };
+    const inp = { width: "100%", background: "var(--deep)", border: "1px solid var(--line2)", color: "var(--cream)", fontFamily: "var(--mono)", fontSize: "13px", padding: "9px 11px" };
     const total = this.invTotal(m.items);
     return (
       <div onClick={() => this.closeInvoice()} style={{ position: "fixed", inset: 0, zIndex: 90, background: "rgba(4,4,5,.78)", display: "flex", alignItems: "center", justifyContent: "center", padding: "20px" }}>
-        <div onClick={(e) => e.stopPropagation()} style={{ width: "640px", maxWidth: "100%", maxHeight: "92vh", overflowY: "auto", background: "#0e0e11", border: "1px solid var(--line)", borderTop: "3px solid var(--red)", padding: "24px 24px 20px" }}>
+        <div onClick={(e) => e.stopPropagation()} style={{ width: "640px", maxWidth: "100%", maxHeight: "92vh", overflowY: "auto", background: "var(--panel)", border: "1px solid var(--line)", borderTop: "3px solid var(--red)", padding: "24px 24px 20px" }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: "18px" }}>
             <div style={{ fontFamily: "var(--cond)", fontWeight: 900, fontSize: "26px", letterSpacing: ".01em" }}>{m.id ? "EDIT INVOICE" : "NEW INVOICE"} <span style={{ color: "var(--dim)", fontSize: "15px" }}>{m.number}</span></div>
             <button onClick={() => this.closeInvoice()} style={{ background: "none", border: "none", color: "var(--dim)", fontFamily: "var(--mono)", fontSize: "16px", cursor: "pointer" }}>✕</button>
@@ -1104,7 +1414,7 @@ class Cockpit extends React.Component {
                 {(this.state.clients || []).map((c) => (<option key={c.id} value={c.id}>{c.name}</option>))}
               </select>
             </div>
-            <div style={{ flex: 1 }}><label style={lbl}>Title</label><input style={inp} value={m.title} placeholder="Authority Diagnostic" onChange={(e) => this.setInvoiceField('title', e.target.value)} /></div>
+            <div style={{ flex: 1 }}><label style={lbl}>Title</label><input style={inp} value={m.title} placeholder="Authority Engine · 3-mo term" onChange={(e) => this.setInvoiceField('title', e.target.value)} /></div>
             <div style={{ width: "150px" }}><label style={lbl}>Due date</label><input style={inp} type="date" value={m.due || ''} onChange={(e) => this.setInvoiceField('due', e.target.value)} /></div>
           </div>
 
@@ -1114,7 +1424,7 @@ class Cockpit extends React.Component {
               <div>Description</div><div>Qty</div><div>Unit $</div><div>Amount</div><div></div>
             </div>
             {m.items.map((it, i) => (
-              <div key={i} style={{ display: "grid", gridTemplateColumns: "1fr 70px 110px 110px 32px", gap: "8px", padding: "7px 10px", alignItems: "center", borderBottom: "1px solid #1a1a1f" }}>
+              <div key={i} style={{ display: "grid", gridTemplateColumns: "1fr 70px 110px 110px 32px", gap: "8px", padding: "7px 10px", alignItems: "center", borderBottom: "1px solid var(--panel2)" }}>
                 <input style={Object.assign({}, inp, { fontSize: "12px", padding: "7px 9px" })} value={it.desc} placeholder="48-hour teardown" onChange={(e) => this.setInvItem(i, 'desc', e.target.value)} />
                 <input style={Object.assign({}, inp, { fontSize: "12px", padding: "7px 9px", textAlign: "center" })} type="number" min="0" value={it.qty} onChange={(e) => this.setInvItem(i, 'qty', e.target.value)} />
                 <input style={Object.assign({}, inp, { fontSize: "12px", padding: "7px 9px", textAlign: "right" })} type="number" min="0" step="0.01" value={it.unit} onChange={(e) => this.setInvItem(i, 'unit', e.target.value)} />
@@ -1132,12 +1442,12 @@ class Cockpit extends React.Component {
 
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
             {m.id ? (
-              <button onClick={() => this.removeInvoice()} style={{ background: "transparent", border: "1px solid #5a2230", color: "var(--red)", fontFamily: "var(--mono)", fontSize: "10.5px", letterSpacing: ".12em", padding: "10px 14px", cursor: "pointer", textTransform: "uppercase" }}>Delete</button>
+              <button onClick={() => this.removeInvoice()} style={{ background: "transparent", border: "1px solid rgba(255,48,64,.4)", color: "var(--live)", fontFamily: "var(--mono)", fontSize: "10.5px", letterSpacing: ".12em", padding: "10px 14px", cursor: "pointer", textTransform: "uppercase" }}>Delete</button>
             ) : <span />}
             <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
-              {m.id ? <button onClick={() => this.toggleInvoicePaid()} style={{ background: "transparent", border: "1px solid " + (m.status === 'paid' ? '#2f7d4f' : 'var(--line2)'), color: m.status === 'paid' ? '#3fb97a' : 'var(--muted)', fontFamily: "var(--mono)", fontSize: "10.5px", letterSpacing: ".12em", padding: "10px 14px", cursor: "pointer", textTransform: "uppercase" }}>{m.status === 'paid' ? '✓ Paid' : 'Mark paid'}</button> : null}
+              {m.id ? <button onClick={() => this.toggleInvoicePaid()} style={{ background: "transparent", border: "1px solid " + (m.status === 'paid' ? 'rgba(46,224,111,.5)' : 'var(--line2)'), color: m.status === 'paid' ? 'var(--good)' : 'var(--muted)', fontFamily: "var(--mono)", fontSize: "10.5px", letterSpacing: ".12em", padding: "10px 14px", cursor: "pointer", textTransform: "uppercase" }}>{m.status === 'paid' ? '✓ Paid' : 'Mark paid'}</button> : null}
               <button onClick={() => this.copyPayLink()} style={{ background: "transparent", border: "1px solid var(--line2)", color: "var(--cream)", fontFamily: "var(--mono)", fontSize: "10.5px", letterSpacing: ".12em", padding: "10px 14px", cursor: "pointer", textTransform: "uppercase" }}>Copy pay link</button>
-              <button onClick={() => this.saveInvoiceClose()} style={{ background: "var(--red)", border: "1px solid var(--red)", color: "#0a0707", fontFamily: "var(--mono)", fontWeight: 700, fontSize: "10.5px", letterSpacing: ".12em", padding: "10px 18px", cursor: "pointer", textTransform: "uppercase" }}>Save</button>
+              <button onClick={() => this.saveInvoiceClose()} style={{ background: "var(--red)", border: "1px solid var(--red)", color: "var(--golddark)", fontFamily: "var(--mono)", fontWeight: 700, fontSize: "10.5px", letterSpacing: ".12em", padding: "10px 18px", cursor: "pointer", textTransform: "uppercase" }}>Save</button>
             </div>
           </div>
         </div>
@@ -1147,10 +1457,10 @@ class Cockpit extends React.Component {
 
   // --- Proposals + e-sign (Phase 3: HoneyBook replacement, slice 3) ---
   LADDER_PRESETS = [
-    { desc: 'Authority Diagnostic', unit: 750 },
-    { desc: 'Ad Creative Tournament', unit: 2500 },
-    { desc: '48-Hour Tool Sprint', unit: 5000 },
-    { desc: 'Authority Engine (retainer / mo)', unit: 3500 },
+    { desc: 'Story Capture Pilot', unit: 2400 },
+    { desc: 'Authority Engine (per month)', unit: 3500 },
+    { desc: 'Authority Engine · 3-mo term', unit: 10500 },
+    { desc: 'Market Domination (per month)', unit: 6000 },
   ];
   nextProposalNumber() { return this.nextDocNumber(this.state.proposals, 'PRO-'); }
   DEFAULT_AGREEMENT = `CLIENT SERVICE AGREEMENT
@@ -1219,7 +1529,7 @@ Signed: {{signer}}      Date: {{date}}`;
     const sent = props.filter(p => p.status === 'sent').length;
     const accepted = props.filter(p => p.status === 'accepted');
     const acceptedVal = accepted.reduce((s, p) => s + (+p.amount || 0), 0);
-    const stC = { draft: 'var(--dim)', sent: 'var(--cream)', accepted: '#3fb97a', declined: '#7a2420' };
+    const stC = { draft: 'var(--dim)', sent: 'var(--cream)', accepted: 'var(--good)', declined: 'rgba(255,48,64,.55)' };
     const Stat = (label, val, sub, accent) => (
       <div style={{ background: "var(--panel)", border: "1px solid var(--line)", borderTop: "2px solid " + (accent || "var(--line2)"), padding: "15px 18px" }}>
         <div style={{ fontSize: "10px", letterSpacing: ".16em", color: "var(--dim)" }}>{label}</div>
@@ -1228,20 +1538,20 @@ Signed: {{signer}}      Date: {{date}}`;
       </div>
     );
     return (
-      <div style={{ padding: "24px 26px 60px", maxWidth: "1240px" }}>
+      <div style={{ padding: "28px 26px 96px", maxWidth: "1240px", margin: "0 auto", width: "100%" }}>
         <div style={{ marginBottom: "6px", display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "16px" }}>
           <div>
-            <div style={{ fontSize: "10px", letterSpacing: ".26em", color: "var(--red)" }}>// 05 · CLOSE IT</div>
-            <h1 style={{ fontFamily: "var(--cond)", fontWeight: 900, fontSize: "48px", lineHeight: ".92", margin: "6px 0 0", letterSpacing: ".005em" }}>PRO<span style={{ display: "inline-block", background: "var(--red)", color: "#0a0707", padding: "0 12px", transform: "skewX(-7deg)" }}>POSALS</span></h1>
+            <div style={{ fontSize: "10px", letterSpacing: ".26em", color: "var(--red)" }}>// 12 · CLOSE IT</div>
+            <h1 style={{ fontFamily: "var(--cond)", fontWeight: 900, fontSize: "48px", lineHeight: ".92", margin: "6px 0 0", letterSpacing: ".005em" }}>PRO<span style={{ display: "inline-block", background: "var(--red)", color: "var(--golddark)", padding: "0 12px", transform: "skewX(0deg)" }}>POSALS</span></h1>
             <div style={{ fontSize: "12px", letterSpacing: ".04em", color: "var(--muted)", marginTop: "9px", maxWidth: "560px", lineHeight: "1.6" }}>Send it, they accept &amp; sign, it drops straight into your pipeline as Signed. Build off the ladder — never discount month one.</div>
           </div>
-          <Hover as="button" onClick={() => this.openProposal(null)} baseStyle={{ flexShrink: 0, marginTop: "6px", background: "var(--red)", border: "1px solid var(--red)", color: "#0a0707", fontFamily: "var(--mono)", fontWeight: "700", fontSize: "11px", letterSpacing: ".12em", padding: "10px 16px", cursor: "pointer", textTransform: "uppercase", transition: ".15s" }} hoverStyle={{ background: "var(--red2)" }}>+ New Proposal</Hover>
+          <Hover as="button" onClick={() => this.openProposal(null)} baseStyle={{ flexShrink: 0, marginTop: "6px", background: "var(--red)", border: "1px solid var(--red)", color: "var(--golddark)", fontFamily: "var(--mono)", fontWeight: "700", fontSize: "11px", letterSpacing: ".12em", padding: "10px 16px", cursor: "pointer", textTransform: "uppercase", transition: ".15s" }} hoverStyle={{ background: "var(--red2)" }}>+ New Proposal</Hover>
         </div>
         <div style={{ height: "1px", background: "linear-gradient(90deg,var(--red),transparent 55%)", margin: "16px 0 22px" }}></div>
 
         <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: "14px", marginBottom: "20px" }}>
           {Stat('SENT', String(sent), 'AWAITING SIGNATURE', sent ? 'var(--cream)' : 'var(--line2)')}
-          {Stat('ACCEPTED', String(accepted.length), 'SIGNED', '#3fb97a')}
+          {Stat('ACCEPTED', String(accepted.length), 'SIGNED', 'var(--good)')}
           {Stat('ACCEPTED VALUE', this.fmt(acceptedVal), 'SIGNED FROM PROPOSALS', 'var(--red)')}
         </div>
 
@@ -1255,7 +1565,7 @@ Signed: {{signer}}      Date: {{date}}`;
               <div>Number</div><div>Client / Title</div><div>Value</div><div>Status</div><div>Signed by</div>
             </div>
             {props.map((p) => (
-              <Hover as="div" key={p.id} onClick={() => this.openProposal(p)} baseStyle={{ display: "grid", gridTemplateColumns: "1fr 1.6fr 1fr .9fr 1.1fr", gap: "10px", padding: "13px 16px", borderBottom: "1px solid var(--line)", cursor: "pointer", alignItems: "center", fontSize: "13px" }} hoverStyle={{ background: "#141418" }}>
+              <Hover as="div" key={p.id} onClick={() => this.openProposal(p)} baseStyle={{ display: "grid", gridTemplateColumns: "1fr 1.6fr 1fr .9fr 1.1fr", gap: "10px", padding: "13px 16px", borderBottom: "1px solid var(--line)", cursor: "pointer", alignItems: "center", fontSize: "13px" }} hoverStyle={{ background: "var(--panel2)" }}>
                 <div style={{ fontFamily: "var(--mono)", color: "var(--muted)", fontSize: "12px" }}>{p.number}</div>
                 <div><span style={{ color: "var(--cream)", fontWeight: 600 }}>{clientName(p.clientId)}</span>{p.title ? <span style={{ color: "var(--dim)" }}> · {p.title}</span> : null}</div>
                 <div style={{ fontFamily: "var(--cond)", fontWeight: 800, color: "var(--red)" }}>{this.fmt(p.amount)}</div>
@@ -1273,11 +1583,11 @@ Signed: {{signer}}      Date: {{date}}`;
     const m = this.state.proposalModal;
     if (!m) return null;
     const lbl = { fontFamily: "var(--mono)", fontSize: "9.5px", letterSpacing: ".2em", color: "var(--dim)", textTransform: "uppercase", display: "block", marginBottom: "5px" };
-    const inp = { width: "100%", background: "#0a0a0c", border: "1px solid var(--line2)", color: "var(--cream)", fontFamily: "var(--mono)", fontSize: "13px", padding: "9px 11px" };
+    const inp = { width: "100%", background: "var(--deep)", border: "1px solid var(--line2)", color: "var(--cream)", fontFamily: "var(--mono)", fontSize: "13px", padding: "9px 11px" };
     const total = this.invTotal(m.items);
     return (
       <div onClick={() => this.closeProposal()} style={{ position: "fixed", inset: 0, zIndex: 90, background: "rgba(4,4,5,.78)", display: "flex", alignItems: "center", justifyContent: "center", padding: "20px" }}>
-        <div onClick={(e) => e.stopPropagation()} style={{ width: "660px", maxWidth: "100%", maxHeight: "92vh", overflowY: "auto", background: "#0e0e11", border: "1px solid var(--line)", borderTop: "3px solid var(--red)", padding: "24px 24px 20px" }}>
+        <div onClick={(e) => e.stopPropagation()} style={{ width: "660px", maxWidth: "100%", maxHeight: "92vh", overflowY: "auto", background: "var(--panel)", border: "1px solid var(--line)", borderTop: "3px solid var(--red)", padding: "24px 24px 20px" }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: "18px" }}>
             <div style={{ fontFamily: "var(--cond)", fontWeight: 900, fontSize: "26px", letterSpacing: ".01em" }}>{m.id ? "EDIT PROPOSAL" : "NEW PROPOSAL"} <span style={{ color: "var(--dim)", fontSize: "15px" }}>{m.number}</span></div>
             <button onClick={() => this.closeProposal()} style={{ background: "none", border: "none", color: "var(--dim)", fontFamily: "var(--mono)", fontSize: "16px", cursor: "pointer" }}>✕</button>
@@ -1307,7 +1617,7 @@ Signed: {{signer}}      Date: {{date}}`;
               <div>Item</div><div>Qty</div><div>Price $</div><div>Amount</div><div></div>
             </div>
             {m.items.map((it, i) => (
-              <div key={i} style={{ display: "grid", gridTemplateColumns: "1fr 60px 110px 110px 32px", gap: "8px", padding: "7px 10px", alignItems: "center", borderBottom: "1px solid #1a1a1f" }}>
+              <div key={i} style={{ display: "grid", gridTemplateColumns: "1fr 60px 110px 110px 32px", gap: "8px", padding: "7px 10px", alignItems: "center", borderBottom: "1px solid var(--panel2)" }}>
                 <input style={Object.assign({}, inp, { fontSize: "12px", padding: "7px 9px" })} value={it.desc} onChange={(e) => this.setPropItem(i, 'desc', e.target.value)} />
                 <input style={Object.assign({}, inp, { fontSize: "12px", padding: "7px 9px", textAlign: "center" })} type="number" min="0" value={it.qty} onChange={(e) => this.setPropItem(i, 'qty', e.target.value)} />
                 <input style={Object.assign({}, inp, { fontSize: "12px", padding: "7px 9px", textAlign: "right" })} type="number" min="0" step="0.01" value={it.unit} onChange={(e) => this.setPropItem(i, 'unit', e.target.value)} />
@@ -1332,11 +1642,11 @@ Signed: {{signer}}      Date: {{date}}`;
 
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
             {m.id ? (
-              <button onClick={() => this.removeProposal()} style={{ background: "transparent", border: "1px solid #5a2230", color: "var(--red)", fontFamily: "var(--mono)", fontSize: "10.5px", letterSpacing: ".12em", padding: "10px 14px", cursor: "pointer", textTransform: "uppercase" }}>Delete</button>
+              <button onClick={() => this.removeProposal()} style={{ background: "transparent", border: "1px solid rgba(255,48,64,.4)", color: "var(--live)", fontFamily: "var(--mono)", fontSize: "10.5px", letterSpacing: ".12em", padding: "10px 14px", cursor: "pointer", textTransform: "uppercase" }}>Delete</button>
             ) : <span />}
             <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
               <button onClick={() => this.copyProposalLink()} style={{ background: "transparent", border: "1px solid var(--line2)", color: "var(--cream)", fontFamily: "var(--mono)", fontSize: "10.5px", letterSpacing: ".12em", padding: "10px 14px", cursor: "pointer", textTransform: "uppercase" }}>Copy sign link</button>
-              <button onClick={() => this.saveProposalClose()} style={{ background: "var(--red)", border: "1px solid var(--red)", color: "#0a0707", fontFamily: "var(--mono)", fontWeight: 700, fontSize: "10.5px", letterSpacing: ".12em", padding: "10px 18px", cursor: "pointer", textTransform: "uppercase" }}>Save</button>
+              <button onClick={() => this.saveProposalClose()} style={{ background: "var(--red)", border: "1px solid var(--red)", color: "var(--golddark)", fontFamily: "var(--mono)", fontWeight: 700, fontSize: "10.5px", letterSpacing: ".12em", padding: "10px 18px", cursor: "pointer", textTransform: "uppercase" }}>Save</button>
             </div>
           </div>
         </div>
@@ -1429,11 +1739,11 @@ Signed: {{signer}}      Date: {{date}}`;
     const m = this.state.intakeModal;
     if (!m) return null;
     const lbl = { fontFamily: "var(--mono)", fontSize: "9.5px", letterSpacing: ".2em", color: "var(--dim)", textTransform: "uppercase", display: "block", marginBottom: "5px" };
-    const inp = { width: "100%", background: "#0a0a0c", border: "1px solid var(--line2)", color: "var(--cream)", fontFamily: "var(--mono)", fontSize: "13px", padding: "9px 11px" };
+    const inp = { width: "100%", background: "var(--deep)", border: "1px solid var(--line2)", color: "var(--cream)", fontFamily: "var(--mono)", fontSize: "13px", padding: "9px 11px" };
     const types = ['short', 'long', 'email', 'phone', 'choice', 'date'];
     return (
       <div onClick={() => this.closeIntakeSettings()} style={{ position: "fixed", inset: 0, zIndex: 90, background: "rgba(4,4,5,.78)", display: "flex", alignItems: "center", justifyContent: "center", padding: "20px" }}>
-        <div onClick={(e) => e.stopPropagation()} style={{ width: "640px", maxWidth: "100%", maxHeight: "92vh", overflowY: "auto", background: "#0e0e11", border: "1px solid var(--line)", borderTop: "3px solid var(--red)", padding: "24px 24px 20px" }}>
+        <div onClick={(e) => e.stopPropagation()} style={{ width: "640px", maxWidth: "100%", maxHeight: "92vh", overflowY: "auto", background: "var(--panel)", border: "1px solid var(--line)", borderTop: "3px solid var(--red)", padding: "24px 24px 20px" }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: "16px" }}>
             <div style={{ fontFamily: "var(--cond)", fontWeight: 900, fontSize: "26px", letterSpacing: ".01em" }}>INTAKE FORM</div>
             <button onClick={() => this.closeIntakeSettings()} style={{ background: "none", border: "none", color: "var(--dim)", fontFamily: "var(--mono)", fontSize: "16px", cursor: "pointer" }}>✕</button>
@@ -1444,7 +1754,7 @@ Signed: {{signer}}      Date: {{date}}`;
           <label style={lbl}>Questions</label>
           <div style={{ border: "1px solid var(--line2)", marginBottom: "12px" }}>
             {m.fields.map((f, i) => (
-              <div key={f.id || i} style={{ padding: "9px 10px", borderBottom: i < m.fields.length - 1 ? "1px solid #1a1a1f" : "none" }}>
+              <div key={f.id || i} style={{ padding: "9px 10px", borderBottom: i < m.fields.length - 1 ? "1px solid var(--panel2)" : "none" }}>
                 <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
                   <input style={Object.assign({}, inp, { flex: 1, fontSize: "12px", padding: "7px 9px" })} value={f.label} placeholder="Question label" onChange={(e) => this.setIntakeQ(i, 'label', e.target.value)} />
                   <select style={Object.assign({}, inp, { width: "110px", fontSize: "12px", padding: "7px 9px" })} value={f.type} onChange={(e) => this.setIntakeQ(i, 'type', e.target.value)}>
@@ -1467,7 +1777,7 @@ Signed: {{signer}}      Date: {{date}}`;
             <button onClick={() => this.copyIntakeLink()} style={{ background: "transparent", border: "1px solid var(--line2)", color: "var(--cream)", fontFamily: "var(--mono)", fontSize: "10.5px", letterSpacing: ".12em", padding: "10px 14px", cursor: "pointer", textTransform: "uppercase" }}>Copy public link</button>
             <div style={{ display: "flex", gap: "10px" }}>
               <button onClick={() => this.closeIntakeSettings()} style={{ background: "transparent", border: "1px solid var(--line2)", color: "var(--muted)", fontFamily: "var(--mono)", fontSize: "10.5px", letterSpacing: ".12em", padding: "10px 14px", cursor: "pointer", textTransform: "uppercase" }}>Cancel</button>
-              <button onClick={() => this.saveIntakeSettings()} style={{ background: "var(--red)", border: "1px solid var(--red)", color: "#0a0707", fontFamily: "var(--mono)", fontWeight: 700, fontSize: "10.5px", letterSpacing: ".12em", padding: "10px 18px", cursor: "pointer", textTransform: "uppercase" }}>Save form</button>
+              <button onClick={() => this.saveIntakeSettings()} style={{ background: "var(--red)", border: "1px solid var(--red)", color: "var(--golddark)", fontFamily: "var(--mono)", fontWeight: 700, fontSize: "10.5px", letterSpacing: ".12em", padding: "10px 18px", cursor: "pointer", textTransform: "uppercase" }}>Save form</button>
             </div>
           </div>
         </div>
@@ -1521,22 +1831,22 @@ Signed: {{signer}}      Date: {{date}}`;
     );
 
     return (
-      <div style={{ padding: "24px 26px 60px", maxWidth: "1240px" }}>
+      <div style={{ padding: "28px 26px 96px", maxWidth: "1240px", margin: "0 auto", width: "100%" }}>
         <div style={{ marginBottom: "6px", display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "16px" }}>
           <div>
-            <div style={{ fontSize: "10px", letterSpacing: ".26em", color: "var(--red)" }}>// 08 · WHERE IT LEAKS</div>
-            <h1 style={{ fontFamily: "var(--cond)", fontWeight: 900, fontSize: "48px", lineHeight: ".92", margin: "6px 0 0", letterSpacing: ".005em" }}>EXP<span style={{ display: "inline-block", background: "var(--red)", color: "#0a0707", padding: "0 12px", transform: "skewX(-7deg)" }}>ENSES</span></h1>
+            <div style={{ fontSize: "10px", letterSpacing: ".26em", color: "var(--red)" }}>// 15 · WHERE IT LEAKS</div>
+            <h1 style={{ fontFamily: "var(--cond)", fontWeight: 900, fontSize: "48px", lineHeight: ".92", margin: "6px 0 0", letterSpacing: ".005em" }}>EXP<span style={{ display: "inline-block", background: "var(--red)", color: "var(--golddark)", padding: "0 12px", transform: "skewX(0deg)" }}>ENSES</span></h1>
             <div style={{ fontSize: "12px", letterSpacing: ".04em", color: "var(--muted)", marginTop: "9px", maxWidth: "560px", lineHeight: "1.6" }}>Every dollar out, next to the dollars in. Recurring is the silent killer — audit the subscriptions monthly.</div>
           </div>
-          <Hover as="button" onClick={() => this.openExpense(null)} baseStyle={{ flexShrink: 0, marginTop: "6px", background: "var(--red)", border: "1px solid var(--red)", color: "#0a0707", fontFamily: "var(--mono)", fontWeight: "700", fontSize: "11px", letterSpacing: ".12em", padding: "10px 16px", cursor: "pointer", textTransform: "uppercase", transition: ".15s" }} hoverStyle={{ background: "var(--red2)" }}>+ Add Expense</Hover>
+          <Hover as="button" onClick={() => this.openExpense(null)} baseStyle={{ flexShrink: 0, marginTop: "6px", background: "var(--red)", border: "1px solid var(--red)", color: "var(--golddark)", fontFamily: "var(--mono)", fontWeight: "700", fontSize: "11px", letterSpacing: ".12em", padding: "10px 16px", cursor: "pointer", textTransform: "uppercase", transition: ".15s" }} hoverStyle={{ background: "var(--red2)" }}>+ Add Expense</Hover>
         </div>
         <div style={{ height: "1px", background: "linear-gradient(90deg,var(--red),transparent 55%)", margin: "16px 0 22px" }}></div>
 
         <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: "14px", marginBottom: "20px" }}>
           {Stat('SPENT · ' + monthName, this.fmt(spentMo), 'THIS MONTH', spentMo ? 'var(--red)' : 'var(--line2)')}
           {Stat('RECURRING BURN', this.fmt(burn), 'SUBSCRIPTIONS / MO', burn ? 'var(--red)' : 'var(--line2)')}
-          {Stat('COLLECTED · ' + monthName, this.fmt(collectedMo), 'PAID INVOICES', '#3fb97a')}
-          {Stat('NET · ' + monthName, this.fmt(net), 'COLLECTED − EXPENSES', net >= 0 ? '#3fb97a' : 'var(--red)')}
+          {Stat('COLLECTED · ' + monthName, this.fmt(collectedMo), 'PAID INVOICES', 'var(--good)')}
+          {Stat('NET · ' + monthName, this.fmt(net), 'COLLECTED − EXPENSES', net >= 0 ? 'var(--good)' : 'var(--red)')}
         </div>
 
         {Object.keys(byCat).length ? (
@@ -1557,7 +1867,7 @@ Signed: {{signer}}      Date: {{date}}`;
               <div>Date</div><div>Vendor</div><div>Category</div><div>Amount</div><div>Recurring</div>
             </div>
             {expenses.map((x) => (
-              <Hover as="div" key={x.id} onClick={() => this.openExpense(x)} baseStyle={{ display: "grid", gridTemplateColumns: ".9fr 1.6fr 1fr .9fr .8fr", gap: "10px", padding: "12px 16px", borderBottom: "1px solid var(--line)", cursor: "pointer", alignItems: "center", fontSize: "13px" }} hoverStyle={{ background: "#141418" }}>
+              <Hover as="div" key={x.id} onClick={() => this.openExpense(x)} baseStyle={{ display: "grid", gridTemplateColumns: ".9fr 1.6fr 1fr .9fr .8fr", gap: "10px", padding: "12px 16px", borderBottom: "1px solid var(--line)", cursor: "pointer", alignItems: "center", fontSize: "13px" }} hoverStyle={{ background: "var(--panel2)" }}>
                 <div style={{ fontFamily: "var(--mono)", fontSize: "11.5px", color: "var(--muted)" }}>{x.date}</div>
                 <div style={{ color: "var(--cream)", fontWeight: 600 }}>{x.vendor}</div>
                 <div style={{ color: "var(--muted)", fontSize: "11.5px" }}>{x.category}</div>
@@ -1575,10 +1885,10 @@ Signed: {{signer}}      Date: {{date}}`;
     const m = this.state.expenseModal;
     if (!m) return null;
     const lbl = { fontFamily: "var(--mono)", fontSize: "9.5px", letterSpacing: ".2em", color: "var(--dim)", textTransform: "uppercase", display: "block", marginBottom: "5px" };
-    const inp = { width: "100%", background: "#0a0a0c", border: "1px solid var(--line2)", color: "var(--cream)", fontFamily: "var(--mono)", fontSize: "13px", padding: "9px 11px" };
+    const inp = { width: "100%", background: "var(--deep)", border: "1px solid var(--line2)", color: "var(--cream)", fontFamily: "var(--mono)", fontSize: "13px", padding: "9px 11px" };
     return (
       <div onClick={() => this.closeExpense()} style={{ position: "fixed", inset: 0, zIndex: 90, background: "rgba(4,4,5,.78)", display: "flex", alignItems: "center", justifyContent: "center", padding: "20px" }}>
-        <div onClick={(e) => e.stopPropagation()} style={{ width: "440px", maxWidth: "100%", background: "#0e0e11", border: "1px solid var(--line)", borderTop: "3px solid var(--red)", padding: "24px 24px 20px" }}>
+        <div onClick={(e) => e.stopPropagation()} style={{ width: "440px", maxWidth: "100%", background: "var(--panel)", border: "1px solid var(--line)", borderTop: "3px solid var(--red)", padding: "24px 24px 20px" }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: "18px" }}>
             <div style={{ fontFamily: "var(--cond)", fontWeight: 900, fontSize: "26px" }}>{m.id ? "EDIT EXPENSE" : "NEW EXPENSE"}</div>
             <button onClick={() => this.closeExpense()} style={{ background: "none", border: "none", color: "var(--dim)", fontFamily: "var(--mono)", fontSize: "16px", cursor: "pointer" }}>✕</button>
@@ -1598,10 +1908,10 @@ Signed: {{signer}}      Date: {{date}}`;
           </label>
           <div style={{ marginBottom: "18px" }}><label style={lbl}>Notes</label><input style={inp} value={m.notes || ''} onChange={(e) => this.setExpField('notes', e.target.value)} /></div>
           <div style={{ display: "flex", justifyContent: "space-between", gap: "10px" }}>
-            {m.id ? <button onClick={() => this.removeExpense()} style={{ background: "transparent", border: "1px solid #5a2230", color: "var(--red)", fontFamily: "var(--mono)", fontSize: "10.5px", letterSpacing: ".12em", padding: "10px 14px", cursor: "pointer", textTransform: "uppercase" }}>Delete</button> : <span />}
+            {m.id ? <button onClick={() => this.removeExpense()} style={{ background: "transparent", border: "1px solid rgba(255,48,64,.4)", color: "var(--live)", fontFamily: "var(--mono)", fontSize: "10.5px", letterSpacing: ".12em", padding: "10px 14px", cursor: "pointer", textTransform: "uppercase" }}>Delete</button> : <span />}
             <div style={{ display: "flex", gap: "10px" }}>
               <button onClick={() => this.closeExpense()} style={{ background: "transparent", border: "1px solid var(--line2)", color: "var(--muted)", fontFamily: "var(--mono)", fontSize: "10.5px", letterSpacing: ".12em", padding: "10px 14px", cursor: "pointer", textTransform: "uppercase" }}>Cancel</button>
-              <button onClick={() => this.saveExpense()} style={{ background: "var(--red)", border: "1px solid var(--red)", color: "#0a0707", fontFamily: "var(--mono)", fontWeight: 700, fontSize: "10.5px", letterSpacing: ".12em", padding: "10px 18px", cursor: "pointer", textTransform: "uppercase" }}>{m.id ? "Save" : "Add"}</button>
+              <button onClick={() => this.saveExpense()} style={{ background: "var(--red)", border: "1px solid var(--red)", color: "var(--golddark)", fontFamily: "var(--mono)", fontWeight: 700, fontSize: "10.5px", letterSpacing: ".12em", padding: "10px 18px", cursor: "pointer", textTransform: "uppercase" }}>{m.id ? "Save" : "Add"}</button>
             </div>
           </div>
         </div>
@@ -1613,7 +1923,8 @@ Signed: {{signer}}      Date: {{date}}`;
   KPI_PRESETS = [
     { name: 'Leads', unit: '#', target: 10, cadence: 'weekly' },
     { name: 'Calls booked', unit: '#', target: 3, cadence: 'weekly' },
-    { name: 'Proposals out', unit: '#', target: 2, cadence: 'weekly' },
+    { name: 'Audits delivered', unit: '#', target: 2, cadence: 'weekly' },
+    { name: 'Clips shipped', unit: '#', target: 8, cadence: 'weekly' },
     { name: 'Close rate', unit: '%', target: 30, cadence: 'monthly' },
     { name: 'Ad spend', unit: '$', target: '', cadence: 'monthly' },
   ];
@@ -1663,14 +1974,14 @@ Signed: {{signer}}      Date: {{date}}`;
   renderKpisTab() {
     const kpis = this.state.kpis || [];
     return (
-      <div style={{ padding: "24px 26px 60px", maxWidth: "1240px" }}>
+      <div style={{ padding: "28px 26px 96px", maxWidth: "1240px", margin: "0 auto", width: "100%" }}>
         <div style={{ marginBottom: "6px", display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "16px" }}>
           <div>
-            <div style={{ fontSize: "10px", letterSpacing: ".26em", color: "var(--red)" }}>// 07 · WHAT GETS MEASURED</div>
-            <h1 style={{ fontFamily: "var(--cond)", fontWeight: 900, fontSize: "48px", lineHeight: ".92", margin: "6px 0 0", letterSpacing: ".005em" }}>THE <span style={{ display: "inline-block", background: "var(--red)", color: "#0a0707", padding: "0 12px", transform: "skewX(-7deg)" }}>NUMBERS</span></h1>
+            <div style={{ fontSize: "10px", letterSpacing: ".26em", color: "var(--red)" }}>// 14 · WHAT GETS MEASURED</div>
+            <h1 style={{ fontFamily: "var(--cond)", fontWeight: 900, fontSize: "48px", lineHeight: ".92", margin: "6px 0 0", letterSpacing: ".005em" }}>THE <span style={{ display: "inline-block", background: "var(--red)", color: "var(--golddark)", padding: "0 12px", transform: "skewX(0deg)" }}>NUMBERS</span></h1>
             <div style={{ fontSize: "12px", letterSpacing: ".04em", color: "var(--muted)", marginTop: "9px", maxWidth: "560px", lineHeight: "1.6" }}>Define the numbers that matter, log them every period, watch the trend. A KPI without a number is an opinion.</div>
           </div>
-          <Hover as="button" onClick={() => this.openKpi(null)} baseStyle={{ flexShrink: 0, marginTop: "6px", background: "var(--red)", border: "1px solid var(--red)", color: "#0a0707", fontFamily: "var(--mono)", fontWeight: "700", fontSize: "11px", letterSpacing: ".12em", padding: "10px 16px", cursor: "pointer", textTransform: "uppercase", transition: ".15s" }} hoverStyle={{ background: "var(--red2)" }}>+ Add KPI</Hover>
+          <Hover as="button" onClick={() => this.openKpi(null)} baseStyle={{ flexShrink: 0, marginTop: "6px", background: "var(--red)", border: "1px solid var(--red)", color: "var(--golddark)", fontFamily: "var(--mono)", fontWeight: "700", fontSize: "11px", letterSpacing: ".12em", padding: "10px 16px", cursor: "pointer", textTransform: "uppercase", transition: ".15s" }} hoverStyle={{ background: "var(--red2)" }}>+ Add KPI</Hover>
         </div>
         <div style={{ height: "1px", background: "linear-gradient(90deg,var(--red),transparent 55%)", margin: "16px 0 22px" }}></div>
 
@@ -1692,10 +2003,10 @@ Signed: {{signer}}      Date: {{date}}`;
               const hist = [5, 4, 3, 2, 1].map(o => ({ label: this.kpiPeriodLabel(k, o), v: this.kpiVal(k, o) }));
               const maxV = Math.max(1, ...hist.map(h => +h.v || 0), +cur || 0, hasTarget ? +k.target : 0);
               return (
-                <div key={k.id} style={{ background: "var(--panel)", border: "1px solid var(--line)", borderTop: "2px solid " + (cur === '' ? 'var(--line2)' : hit ? '#3fb97a' : hasTarget ? 'var(--red)' : 'var(--cream)'), padding: "16px 18px" }}>
+                <div key={k.id} style={{ background: "var(--panel)", border: "1px solid var(--line)", borderTop: "2px solid " + (cur === '' ? 'var(--line2)' : hit ? 'var(--good)' : hasTarget ? 'var(--red)' : 'var(--cream)'), padding: "16px 18px" }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: "10px" }}>
                     <button onClick={() => this.openKpi(k)} style={{ background: "none", border: "none", color: "var(--cream)", fontFamily: "var(--cond)", fontWeight: 800, fontSize: "17px", letterSpacing: ".02em", cursor: "pointer", padding: 0, textAlign: "left" }}>{k.name.toUpperCase()} <span style={{ color: "var(--dim)", fontSize: "10px", letterSpacing: ".14em" }}>{k.cadence.toUpperCase()}</span></button>
-                    {hasTarget ? <span style={{ fontSize: "10px", letterSpacing: ".1em", color: hit ? '#3fb97a' : 'var(--dim)' }}>TARGET {this.kpiFmt(k, k.target)}</span> : null}
+                    {hasTarget ? <span style={{ fontSize: "10px", letterSpacing: ".1em", color: hit ? 'var(--good)' : 'var(--dim)' }}>TARGET {this.kpiFmt(k, k.target)}</span> : null}
                   </div>
                   <div style={{ display: "flex", alignItems: "flex-end", gap: "14px" }}>
                     <div style={{ flex: "0 0 120px" }}>
@@ -1704,14 +2015,14 @@ Signed: {{signer}}      Date: {{date}}`;
                         type="number" step="any" value={cur} placeholder="0"
                         onChange={(e) => this.setKpiLocal(k, e.target.value)}
                         onBlur={() => this.persistKpi(k)}
-                        style={{ width: "100%", background: "#0a0a0c", border: "1px solid " + (cur === '' ? 'var(--line2)' : hit ? '#2f7d4f' : hasTarget ? '#7a2420' : 'var(--line2)'), color: "var(--cream)", textAlign: "center", fontFamily: "var(--cond)", fontWeight: 800, fontSize: "26px", padding: "6px 4px" }}
+                        style={{ width: "100%", background: "var(--deep)", border: "1px solid " + (cur === '' ? 'var(--line2)' : hit ? 'rgba(46,224,111,.5)' : hasTarget ? 'rgba(255,48,64,.55)' : 'var(--line2)'), color: "var(--cream)", textAlign: "center", fontFamily: "var(--cond)", fontWeight: 800, fontSize: "26px", padding: "6px 4px" }}
                       />
                     </div>
                     <div style={{ flex: 1, display: "flex", alignItems: "flex-end", gap: "6px", height: "62px" }}>
                       {hist.map((h, i) => (
                         <div key={i} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: "3px" }}>
                           <div style={{ fontSize: "8.5px", color: "var(--muted)" }}>{this.kpiFmt(k, h.v)}</div>
-                          <div style={{ width: "100%", height: Math.max(3, Math.round(((+h.v || 0) / maxV) * 38)) + "px", background: (+h.v || 0) === 0 ? '#1a1a1f' : (hasTarget && +h.v >= +k.target ? '#2f7d4f' : 'var(--red2)') }}></div>
+                          <div style={{ width: "100%", height: Math.max(3, Math.round(((+h.v || 0) / maxV) * 38)) + "px", background: (+h.v || 0) === 0 ? 'var(--panel2)' : (hasTarget && +h.v >= +k.target ? 'rgba(46,224,111,.5)' : 'var(--red2)') }}></div>
                           <div style={{ fontSize: "8px", letterSpacing: ".06em", color: "var(--dim)" }}>{h.label}</div>
                         </div>
                       ))}
@@ -1730,10 +2041,10 @@ Signed: {{signer}}      Date: {{date}}`;
     const m = this.state.kpiModal;
     if (!m) return null;
     const lbl = { fontFamily: "var(--mono)", fontSize: "9.5px", letterSpacing: ".2em", color: "var(--dim)", textTransform: "uppercase", display: "block", marginBottom: "5px" };
-    const inp = { width: "100%", background: "#0a0a0c", border: "1px solid var(--line2)", color: "var(--cream)", fontFamily: "var(--mono)", fontSize: "13px", padding: "9px 11px" };
+    const inp = { width: "100%", background: "var(--deep)", border: "1px solid var(--line2)", color: "var(--cream)", fontFamily: "var(--mono)", fontSize: "13px", padding: "9px 11px" };
     return (
       <div onClick={() => this.closeKpi()} style={{ position: "fixed", inset: 0, zIndex: 90, background: "rgba(4,4,5,.78)", display: "flex", alignItems: "center", justifyContent: "center", padding: "20px" }}>
-        <div onClick={(e) => e.stopPropagation()} style={{ width: "420px", maxWidth: "100%", background: "#0e0e11", border: "1px solid var(--line)", borderTop: "3px solid var(--red)", padding: "24px 24px 20px" }}>
+        <div onClick={(e) => e.stopPropagation()} style={{ width: "420px", maxWidth: "100%", background: "var(--panel)", border: "1px solid var(--line)", borderTop: "3px solid var(--red)", padding: "24px 24px 20px" }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: "18px" }}>
             <div style={{ fontFamily: "var(--cond)", fontWeight: 900, fontSize: "26px" }}>{m.id ? "EDIT KPI" : "NEW KPI"}</div>
             <button onClick={() => this.closeKpi()} style={{ background: "none", border: "none", color: "var(--dim)", fontFamily: "var(--mono)", fontSize: "16px", cursor: "pointer" }}>✕</button>
@@ -1749,10 +2060,10 @@ Signed: {{signer}}      Date: {{date}}`;
             <div style={{ flex: 1 }}><label style={lbl}>Target</label><input style={inp} type="number" step="any" value={m.target} placeholder="—" onChange={(e) => this.setKpiField('target', e.target.value)} /></div>
           </div>
           <div style={{ display: "flex", justifyContent: "space-between", gap: "10px" }}>
-            {m.id ? <button onClick={() => this.removeKpi()} style={{ background: "transparent", border: "1px solid #5a2230", color: "var(--red)", fontFamily: "var(--mono)", fontSize: "10.5px", letterSpacing: ".12em", padding: "10px 14px", cursor: "pointer", textTransform: "uppercase" }}>Delete</button> : <span />}
+            {m.id ? <button onClick={() => this.removeKpi()} style={{ background: "transparent", border: "1px solid rgba(255,48,64,.4)", color: "var(--live)", fontFamily: "var(--mono)", fontSize: "10.5px", letterSpacing: ".12em", padding: "10px 14px", cursor: "pointer", textTransform: "uppercase" }}>Delete</button> : <span />}
             <div style={{ display: "flex", gap: "10px" }}>
               <button onClick={() => this.closeKpi()} style={{ background: "transparent", border: "1px solid var(--line2)", color: "var(--muted)", fontFamily: "var(--mono)", fontSize: "10.5px", letterSpacing: ".12em", padding: "10px 14px", cursor: "pointer", textTransform: "uppercase" }}>Cancel</button>
-              <button onClick={() => this.saveKpi()} style={{ background: "var(--red)", border: "1px solid var(--red)", color: "#0a0707", fontFamily: "var(--mono)", fontWeight: 700, fontSize: "10.5px", letterSpacing: ".12em", padding: "10px 18px", cursor: "pointer", textTransform: "uppercase" }}>{m.id ? "Save" : "Add"}</button>
+              <button onClick={() => this.saveKpi()} style={{ background: "var(--red)", border: "1px solid var(--red)", color: "var(--golddark)", fontFamily: "var(--mono)", fontWeight: 700, fontSize: "10.5px", letterSpacing: ".12em", padding: "10px 18px", cursor: "pointer", textTransform: "uppercase" }}>{m.id ? "Save" : "Add"}</button>
             </div>
           </div>
         </div>
@@ -1794,11 +2105,11 @@ Signed: {{signer}}      Date: {{date}}`;
   renderEmailModal() {
     const m = this.state.emailModal;
     if (!m) return null;
-    const inp = { width: "100%", background: "#0a0a0c", border: "1px solid var(--line2)", color: "var(--cream)", fontFamily: "var(--mono)", fontSize: "13px", padding: "9px 11px" };
+    const inp = { width: "100%", background: "var(--deep)", border: "1px solid var(--line2)", color: "var(--cream)", fontFamily: "var(--mono)", fontSize: "13px", padding: "9px 11px" };
     const fmtAt = (iso) => { try { return new Date(iso).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }); } catch (e) { return ''; } };
     return (
       <div onClick={() => this.closeEmailThread()} style={{ position: "fixed", inset: 0, zIndex: 91, background: "rgba(4,4,5,.82)", display: "flex", alignItems: "center", justifyContent: "center", padding: "20px" }}>
-        <div onClick={(e) => e.stopPropagation()} style={{ width: "620px", maxWidth: "100%", maxHeight: "92vh", display: "flex", flexDirection: "column", background: "#0e0e11", border: "1px solid var(--line)", borderTop: "3px solid var(--red)" }}>
+        <div onClick={(e) => e.stopPropagation()} style={{ width: "620px", maxWidth: "100%", maxHeight: "92vh", display: "flex", flexDirection: "column", background: "var(--panel)", border: "1px solid var(--line)", borderTop: "3px solid var(--red)" }}>
           <div style={{ padding: "18px 22px 14px", borderBottom: "1px solid var(--line)", display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
             <div>
               <div style={{ fontFamily: "var(--cond)", fontWeight: 900, fontSize: "24px" }}>✉ {m.name}</div>
@@ -1826,7 +2137,7 @@ Signed: {{signer}}      Date: {{date}}`;
             <textarea style={Object.assign({}, inp, { minHeight: "84px", resize: "vertical", marginBottom: "10px" })} value={m.body} placeholder="Write it straight. They can smell template." onChange={(e) => this.setEmailF('body', e.target.value)} />
             {m.notice ? <div style={{ color: "var(--red)", fontSize: "11.5px", marginBottom: "10px", lineHeight: 1.5 }}>{m.notice}</div> : null}
             <div style={{ display: "flex", justifyContent: "flex-end" }}>
-              <button onClick={() => this.sendEmailMsg()} disabled={m.sending} style={{ background: "var(--red)", border: "1px solid var(--red)", color: "#0a0707", fontFamily: "var(--mono)", fontWeight: 700, fontSize: "10.5px", letterSpacing: ".12em", padding: "10px 20px", cursor: m.sending ? "default" : "pointer", textTransform: "uppercase", opacity: m.sending ? .6 : 1 }}>{m.sending ? 'Sending…' : 'Send →'}</button>
+              <button onClick={() => this.sendEmailMsg()} disabled={m.sending} style={{ background: "var(--red)", border: "1px solid var(--red)", color: "var(--golddark)", fontFamily: "var(--mono)", fontWeight: 700, fontSize: "10.5px", letterSpacing: ".12em", padding: "10px 20px", cursor: m.sending ? "default" : "pointer", textTransform: "uppercase", opacity: m.sending ? .6 : 1 }}>{m.sending ? 'Sending…' : 'Send →'}</button>
             </div>
           </div>
         </div>
@@ -1866,9 +2177,9 @@ Signed: {{signer}}      Date: {{date}}`;
       const j = await res.json();
       if (j.ok) {
         this.setState(s => ({ rookieMsgs: [...s.rookieMsgs, { role: 'assistant', content: j.reply, actions: j.actions || [] }], rookieBusy: false }));
-        if (j.actions && j.actions.length) { this.flash('ROOKIE: ' + j.actions.length + ' ACTION' + (j.actions.length > 1 ? 'S' : '') + ' EXECUTED'); this.loadStore(); }
+        if (j.actions && j.actions.length) { this.flash('SHOWRUNNER: ' + j.actions.length + ' ACTION' + (j.actions.length > 1 ? 'S' : '') + ' EXECUTED'); this.loadStore(); }
       } else {
-        const msg = j.error === 'no_api_key' ? 'ANTHROPIC_API_KEY missing in Vercel — Rookie is offline.' : j.error === 'no_service_role' ? 'SUPABASE_SERVICE_ROLE_KEY missing — Rookie cannot act.' : 'Error: ' + (j.error || 'unknown') + '. Try again.';
+        const msg = j.error === 'no_api_key' ? 'ANTHROPIC_API_KEY missing in Vercel — Showrunner is offline.' : j.error === 'no_service_role' ? 'SUPABASE_SERVICE_ROLE_KEY missing — Showrunner cannot act.' : 'Error: ' + (j.error || 'unknown') + '. Try again.';
         this.setState(s => ({ rookieMsgs: [...s.rookieMsgs, { role: 'assistant', content: msg, actions: [] }], rookieBusy: false }));
       }
     } catch (e) {
@@ -1878,14 +2189,14 @@ Signed: {{signer}}      Date: {{date}}`;
 
   renderRookieTab() {
     const msgs = this.state.rookieMsgs || [];
-    const inp = { background: "#0a0a0c", border: "1px solid var(--line2)", color: "var(--cream)", fontFamily: "var(--mono)", fontSize: "13px", padding: "11px 13px" };
-    const chips = ['Log my Friday Five: 3 calls, 2 offers, $1500 signed, $750 collected', 'Add a deal: Acme Roofing, Authority Diagnostic, $750', "What's my coverage?", 'Log expense: Adobe $60/mo recurring', 'Change THE ONE THING to: Close 3 Authority Engines by Aug 31', 'Email Rustic Lumber Store: new leads are on the way to Zach this week'];
+    const inp = { background: "var(--deep)", border: "1px solid var(--line2)", color: "var(--cream)", fontFamily: "var(--mono)", fontSize: "13px", padding: "11px 13px" };
+    const chips = ['Log my box score: 3 calls, 2 audits, $3500 signed, $2400 collected', 'Add a deal: Queen City HVAC, Authority Engine · 3-mo term, $10500', "What's my coverage?", 'Log expense: Adobe $60/mo recurring', "Change THE ONE THING to: Sell out August's four capture days", "Draft an email to NoDa Med Spa: this month's clips are live"];
     return (
-      <div style={{ padding: "24px 26px 60px", maxWidth: "900px" }}>
+      <div style={{ padding: "28px 26px 96px", maxWidth: "900px", margin: "0 auto", width: "100%" }}>
         <div style={{ marginBottom: "6px" }}>
-          <div style={{ fontSize: "10px", letterSpacing: ".26em", color: "var(--red)" }}>// 16 · THE BATTLESUIT</div>
-          <h1 style={{ fontFamily: "var(--cond)", fontWeight: 900, fontSize: "48px", lineHeight: ".92", margin: "6px 0 0", letterSpacing: ".005em" }}>ROO<span style={{ display: "inline-block", background: "var(--red)", color: "#0a0707", padding: "0 12px", transform: "skewX(-7deg)" }}>KIE</span></h1>
-          <div style={{ fontSize: "12px", letterSpacing: ".04em", color: "var(--muted)", marginTop: "9px", maxWidth: "620px", lineHeight: "1.6" }}>Give the order; Rookie executes it against the OS — deals, Friday Five, clients, expenses, KPIs — and reports back with the numbers. Every action hits the database and the sys.log.</div>
+          <div style={{ fontSize: "10px", letterSpacing: ".26em", color: "var(--red)" }}>// 16 · THE SHOWRUNNER DESK</div>
+          <h1 style={{ fontFamily: "var(--cond)", fontWeight: 900, fontSize: "48px", lineHeight: ".92", margin: "6px 0 0", letterSpacing: ".005em" }}>SHOW<span style={{ display: "inline-block", background: "var(--red)", color: "var(--golddark)", padding: "0 12px", transform: "skewX(0deg)" }}>RUNNER</span></h1>
+          <div style={{ fontSize: "12px", letterSpacing: ".04em", color: "var(--muted)", marginTop: "9px", maxWidth: "620px", lineHeight: "1.6" }}>Give the order; Showrunner executes it against the OS — deals, the box score, clients, expenses, KPIs — and reports back with the numbers. Every action hits the database and the sys.log.</div>
         </div>
         <div style={{ height: "1px", background: "linear-gradient(90deg,var(--red),transparent 55%)", margin: "16px 0 22px" }}></div>
 
@@ -1893,7 +2204,7 @@ Signed: {{signer}}      Date: {{date}}`;
           <div style={{ flex: 1, overflowY: "auto", padding: "18px 20px" }}>
             {msgs.length === 0 ? (
               <div>
-                <div style={{ color: "var(--dim)", fontSize: "12.5px", lineHeight: 1.7, marginBottom: "14px" }}>Rookie online. Standing by for orders. Try:</div>
+                <div style={{ color: "var(--dim)", fontSize: "12.5px", lineHeight: 1.7, marginBottom: "14px" }}>Showrunner online. Standing by for orders. Try:</div>
                 <div style={{ display: "flex", flexDirection: "column", gap: "8px", alignItems: "flex-start" }}>
                   {chips.map((c, i) => (
                     <button key={i} onClick={() => this.setState({ rookieInput: c }, () => this.sendRookie())} style={{ background: "transparent", border: "1px dashed var(--line2)", color: "var(--muted)", fontFamily: "var(--mono)", fontSize: "11px", padding: "8px 12px", cursor: "pointer", textAlign: "left" }}>▸ {c}</button>
@@ -1902,11 +2213,11 @@ Signed: {{signer}}      Date: {{date}}`;
               </div>
             ) : msgs.map((m, i) => (
               <div key={i} style={{ marginBottom: "14px" }}>
-                <div style={{ fontSize: "9px", letterSpacing: ".18em", color: m.role === 'user' ? 'var(--cream)' : 'var(--red)', textTransform: "uppercase", marginBottom: "4px" }}>{m.role === 'user' ? '> YOU' : '◉ ROOKIE'}</div>
+                <div style={{ fontSize: "9px", letterSpacing: ".18em", color: m.role === 'user' ? 'var(--cream)' : 'var(--red)', textTransform: "uppercase", marginBottom: "4px" }}>{m.role === 'user' ? '> YOU' : '◉ SHOWRUNNER'}</div>
                 <div style={{ fontSize: "13px", color: m.role === 'user' ? "var(--cream)" : "var(--muted)", lineHeight: 1.65, whiteSpace: "pre-wrap", borderLeft: "2px solid " + (m.role === 'user' ? 'var(--line2)' : 'var(--red)'), paddingLeft: "12px" }}>{m.content}{m.fileName ? <span style={{ display: "inline-block", marginLeft: "8px", border: "1px solid var(--line2)", color: "var(--dim)", fontSize: "9.5px", padding: "2px 7px", letterSpacing: ".06em" }}>📎 {m.fileName}</span> : null}</div>
                 {m.actions && m.actions.length ? (
                   <div style={{ marginTop: "6px", paddingLeft: "14px" }}>
-                    {m.actions.map((a, k) => (<div key={k} style={{ fontSize: "10.5px", color: "#3fb97a", lineHeight: 1.6 }}>✓ {a}</div>))}
+                    {m.actions.map((a, k) => (<div key={k} style={{ fontSize: "10.5px", color: "var(--good)", lineHeight: 1.6 }}>✓ {a}</div>))}
                   </div>
                 ) : null}
               </div>
@@ -1917,7 +2228,7 @@ Signed: {{signer}}      Date: {{date}}`;
             <div style={{ borderTop: "1px solid var(--line)", padding: "8px 14px", display: "flex", alignItems: "center", gap: "10px", fontSize: "11px", color: "var(--muted)" }}>
               📎 {this.state.rookieFile.name}
               <button onClick={() => this.setState({ rookieFile: null })} style={{ background: "none", border: "none", color: "var(--dim)", cursor: "pointer", fontSize: "12px" }}>✕</button>
-              <span style={{ color: "var(--dim)", fontSize: "10px" }}>— tell Rookie what to do with it (e.g. "log these as expenses")</span>
+              <span style={{ color: "var(--dim)", fontSize: "10px" }}>— tell Showrunner what to do with it (e.g. "log these as expenses")</span>
             </div>
           ) : null}
           <div style={{ borderTop: "1px solid var(--line)", padding: "12px 14px", display: "flex", gap: "10px" }}>
@@ -1927,14 +2238,14 @@ Signed: {{signer}}      Date: {{date}}`;
             <input
               style={Object.assign({}, inp, { flex: 1 })}
               value={this.state.rookieInput}
-              placeholder={this.state.rookieFile ? "What should Rookie do with the file?" : "Give an order — Rookie writes it to the OS"}
+              placeholder={this.state.rookieFile ? "What should Showrunner do with the file?" : "Give an order — Showrunner writes it to the OS"}
               onChange={(e) => this.setState({ rookieInput: e.target.value })}
               onKeyDown={(e) => { if (e.key === 'Enter') this.sendRookie(); }}
             />
-            <button onClick={() => this.sendRookie()} disabled={this.state.rookieBusy} style={{ background: "var(--red)", border: "1px solid var(--red)", color: "#0a0707", fontFamily: "var(--mono)", fontWeight: 700, fontSize: "11px", letterSpacing: ".12em", padding: "11px 20px", cursor: this.state.rookieBusy ? "default" : "pointer", textTransform: "uppercase", opacity: this.state.rookieBusy ? .5 : 1 }}>Execute →</button>
+            <button onClick={() => this.sendRookie()} disabled={this.state.rookieBusy} style={{ background: "var(--red)", border: "1px solid var(--red)", color: "var(--golddark)", fontFamily: "var(--mono)", fontWeight: 700, fontSize: "11px", letterSpacing: ".12em", padding: "11px 20px", cursor: this.state.rookieBusy ? "default" : "pointer", textTransform: "uppercase", opacity: this.state.rookieBusy ? .5 : 1 }}>Execute →</button>
           </div>
         </div>
-        <div style={{ fontSize: "10px", color: "var(--dim)", marginTop: "10px", lineHeight: 1.5 }}>Write-safe: Rookie can add and update — including the sprint target, THE ONE THING, goals, and strategy — but cannot delete anything. 📎 attach a receipt, statement, PDF, or CSV and he'll extract + log the expenses. Conversation resets on refresh (persistence later).</div>
+        <div style={{ fontSize: "10px", color: "var(--dim)", marginTop: "10px", lineHeight: 1.5 }}>Write-safe: Showrunner can add and update — including the sprint target, THE ONE THING, goals, and strategy — but cannot delete anything. 📎 attach a receipt, statement, PDF, or CSV and he'll extract + log the expenses. Conversation resets on refresh (persistence later).</div>
       </div>
     );
   }
@@ -1943,19 +2254,19 @@ Signed: {{signer}}      Date: {{date}}`;
     const cfg = this.bookingCfg();
     const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
     const lbl = { fontFamily: "var(--mono)", fontSize: "9.5px", letterSpacing: ".2em", color: "var(--dim)", textTransform: "uppercase", display: "block", marginBottom: "5px" };
-    const inp = { background: "#0a0a0c", border: "1px solid var(--line2)", color: "var(--cream)", fontFamily: "var(--mono)", fontSize: "13px", padding: "9px 11px" };
+    const inp = { background: "var(--deep)", border: "1px solid var(--line2)", color: "var(--cream)", fontFamily: "var(--mono)", fontSize: "13px", padding: "9px 11px" };
     const fmtWhen = (iso) => { try { return new Date(iso).toLocaleString('en-US', { timeZone: cfg.tz, weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }); } catch (e) { return iso; } };
     const upcoming = (this.state.bookings || []).slice().sort((a, b) => (a.start < b.start ? -1 : 1));
 
     return (
-      <div style={{ padding: "24px 26px 60px", maxWidth: "1240px" }}>
+      <div style={{ padding: "28px 26px 96px", maxWidth: "1240px", margin: "0 auto", width: "100%" }}>
         <div style={{ marginBottom: "6px", display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "16px" }}>
           <div>
-            <div style={{ fontSize: "10px", letterSpacing: ".26em", color: "var(--red)" }}>// 06 · BOOK THE CALLS</div>
-            <h1 style={{ fontFamily: "var(--cond)", fontWeight: 900, fontSize: "48px", lineHeight: ".92", margin: "6px 0 0", letterSpacing: ".005em" }}>SCHED<span style={{ display: "inline-block", background: "var(--red)", color: "#0a0707", padding: "0 12px", transform: "skewX(-7deg)" }}>ULING</span></h1>
+            <div style={{ fontSize: "10px", letterSpacing: ".26em", color: "var(--red)" }}>// 13 · BOOK THE AUDITS</div>
+            <h1 style={{ fontFamily: "var(--cond)", fontWeight: 900, fontSize: "48px", lineHeight: ".92", margin: "6px 0 0", letterSpacing: ".005em" }}>SCHED<span style={{ display: "inline-block", background: "var(--red)", color: "var(--golddark)", padding: "0 12px", transform: "skewX(0deg)" }}>ULING</span></h1>
             <div style={{ fontSize: "12px", letterSpacing: ".04em", color: "var(--muted)", marginTop: "9px", maxWidth: "560px", lineHeight: "1.6" }}>Set your hours, share one link, clients book the discovery call themselves. The floor is 3 a week — keep it fed.</div>
           </div>
-          <Hover as="button" onClick={() => this.copyBookLink()} baseStyle={{ flexShrink: 0, marginTop: "6px", background: "var(--red)", border: "1px solid var(--red)", color: "#0a0707", fontFamily: "var(--mono)", fontWeight: "700", fontSize: "11px", letterSpacing: ".12em", padding: "10px 16px", cursor: "pointer", textTransform: "uppercase", transition: ".15s" }} hoverStyle={{ background: "var(--red2)" }}>Copy Booking Link</Hover>
+          <Hover as="button" onClick={() => this.copyBookLink()} baseStyle={{ flexShrink: 0, marginTop: "6px", background: "var(--red)", border: "1px solid var(--red)", color: "var(--golddark)", fontFamily: "var(--mono)", fontWeight: "700", fontSize: "11px", letterSpacing: ".12em", padding: "10px 16px", cursor: "pointer", textTransform: "uppercase", transition: ".15s" }} hoverStyle={{ background: "var(--red2)" }}>Copy Booking Link</Hover>
         </div>
         <div style={{ height: "1px", background: "linear-gradient(90deg,var(--red),transparent 55%)", margin: "16px 0 22px" }}></div>
 
@@ -1982,7 +2293,7 @@ Signed: {{signer}}      Date: {{date}}`;
               {dayNames.map((dn, dow) => {
                 const day = Object.assign({ on: false, start: '09:00', end: '17:00' }, cfg.days[dow]);
                 return (
-                  <div key={dow} style={{ display: "flex", alignItems: "center", gap: "10px", padding: "8px 12px", borderBottom: dow < 6 ? "1px solid #1a1a1f" : "none" }}>
+                  <div key={dow} style={{ display: "flex", alignItems: "center", gap: "10px", padding: "8px 12px", borderBottom: dow < 6 ? "1px solid var(--panel2)" : "none" }}>
                     <label style={{ display: "flex", alignItems: "center", gap: "8px", width: "120px", cursor: "pointer", fontSize: "12px", color: day.on ? "var(--cream)" : "var(--dim)" }}>
                       <input type="checkbox" checked={!!day.on} onChange={(e) => this.setBookingDay(dow, 'on', e.target.checked)} />{dn}
                     </label>
@@ -2025,10 +2336,10 @@ Signed: {{signer}}      Date: {{date}}`;
     const m = this.state.docModal;
     if (!m) return null;
     const lbl = { fontFamily: "var(--mono)", fontSize: "9.5px", letterSpacing: ".2em", color: "var(--dim)", textTransform: "uppercase", display: "block", marginBottom: "5px" };
-    const inp = { width: "100%", background: "#0a0a0c", border: "1px solid var(--line2)", color: "var(--cream)", fontFamily: "var(--mono)", fontSize: "13px", padding: "9px 11px" };
+    const inp = { width: "100%", background: "var(--deep)", border: "1px solid var(--line2)", color: "var(--cream)", fontFamily: "var(--mono)", fontSize: "13px", padding: "9px 11px" };
     return (
       <div onClick={() => this.closeDoc()} style={{ position: "fixed", inset: 0, zIndex: 90, background: "rgba(4,4,5,.78)", display: "flex", alignItems: "center", justifyContent: "center", padding: "20px" }}>
-        <div onClick={(e) => e.stopPropagation()} style={{ width: "440px", maxWidth: "100%", background: "#0e0e11", border: "1px solid var(--line)", borderTop: "3px solid var(--red)", padding: "24px 24px 20px" }}>
+        <div onClick={(e) => e.stopPropagation()} style={{ width: "440px", maxWidth: "100%", background: "var(--panel)", border: "1px solid var(--line)", borderTop: "3px solid var(--red)", padding: "24px 24px 20px" }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: "6px" }}>
             <div style={{ fontFamily: "var(--cond)", fontWeight: 900, fontSize: "24px", letterSpacing: ".01em" }}>DOCUMENT LINK</div>
             <button onClick={() => this.closeDoc()} style={{ background: "none", border: "none", color: "var(--dim)", fontFamily: "var(--mono)", fontSize: "16px", cursor: "pointer" }}>✕</button>
@@ -2054,7 +2365,7 @@ Signed: {{signer}}      Date: {{date}}`;
             ) : <span />}
             <div style={{ display: "flex", gap: "10px" }}>
               <button onClick={() => this.closeDoc()} style={{ background: "transparent", border: "1px solid var(--line2)", color: "var(--muted)", fontFamily: "var(--mono)", fontSize: "10.5px", letterSpacing: ".12em", padding: "10px 14px", cursor: "pointer", textTransform: "uppercase" }}>Cancel</button>
-              <button onClick={() => this.saveDocLink()} style={{ background: "var(--red)", border: "1px solid var(--red)", color: "#0a0707", fontFamily: "var(--mono)", fontWeight: 700, fontSize: "10.5px", letterSpacing: ".12em", padding: "10px 18px", cursor: "pointer", textTransform: "uppercase" }}>Save link</button>
+              <button onClick={() => this.saveDocLink()} style={{ background: "var(--red)", border: "1px solid var(--red)", color: "var(--golddark)", fontFamily: "var(--mono)", fontWeight: 700, fontSize: "10.5px", letterSpacing: ".12em", padding: "10px 18px", cursor: "pointer", textTransform: "uppercase" }}>Save link</button>
             </div>
           </div>
         </div>
@@ -2064,11 +2375,61 @@ Signed: {{signer}}      Date: {{date}}`;
 
   render() {
     const v = this.renderVals();
-    const { addGoal, addHabit, animGlow, animPulse, animScan, animShimmer, animSpin, animSweep, animTicker, backOpacity, backStep, bootLines, bootProgress, bootReady, booting, clock, collectedFmt, curBlocks, curGoal, currentSection, date, deadDays, dismissBoot, docsView, energyScale, fToggles, ff5, fleet, floor, founderFree, gapText, goalsView, habitsView, isAgents, isCommand, isDiagnostic, isDocs, isFounder, isPipeline, isPlans, isPlaybook, isStandby, isStrategy, kCollected, kCover, kOpen, kOpenN, kSigned, ladder, log, loopNodes, newWeek, next, nextOpacity, nextStep, noteVal, objBtnLabel, objections, onNote, oneThingBody, oneThingTitle, opsChecklist, pStats, pct, pipeCols, planMoves, plansPhases, scanOn, scriptSteps, sections, sellDays, showObj, showScript, skipBoot, sleepScale, sops, stratAnti, stratBets, stratPillars, stratThesis, toast, todayLabel, toggleObj, warn, weekStrip } = v;
+    const {
+      addDeal, addDeliv, addGoal, addHabit, addShoot, animCount, animPulse, animTicker,
+      backOpacity, backStep, bootReady, booting, clipsFmt, clock, collectedFmt, countNum, countShow,
+      curBlocks, curGoal, curMonthLabel, curMonthName, date, deadDays, deadlineLabel, delivs, dismissBoot,
+      docsView, energyScale, engine, fToggles, ff5, fleet, floor, gapText, goalFmt, goalShort, goalsView,
+      habitsView, isAgents, isAudits, isCommand, isDocs, isPartners, isPipeline, isPlans, isShoots,
+      isStrategy, ladder, log, loopNodes, newWeek, next, nextMonthLabel, nextMonthName, nextOpacity,
+      nextShootsView, nextStep, noteVal, objBtnLabel, objections, onNote, oneThingBody, oneThingTitle,
+      opsChecklist, pStats, partnerTabs, pct, pctLabel, pipeCols, planMoves, plansPhases, quarter,
+      runsheet, scoreUs, scriptSteps, sections, sellByLabel, sellDays, shoots, shootsAll, showObj,
+      showScript, skipBoot, sleepScale, stratAnti, stratBets, stratPillars, stratThesis, tickerItems,
+      tickerOn, toast, todayLabel, toggleObj, warn, weekStrip, curPartnerName, yardLine
+    } = v;
+
+    const tickerSpan = (k) => (
+      <span key={k} style={{ paddingRight: "70px" }}>
+        {tickerItems.map((t, i) => (<React.Fragment key={i}>{t} <span style={{ color: "var(--gold)" }}>▸</span>{' '}</React.Fragment>))}
+      </span>
+    );
+
+    const shootCard = (sh, i) => (
+      <Hover as="div" key={i} onClick={sh.onClick} baseStyle={{ background: sh.bg, border: "1px solid " + sh.edge, borderRadius: "4px", overflow: "hidden", cursor: "pointer", transition: ".12s" }} hoverStyle={{ borderColor: "var(--gold)" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: sh.headBg, padding: "6px 12px" }}>
+          <span style={{ fontSize: "8.5px", fontWeight: 800, letterSpacing: ".18em", color: sh.headFg }}>{sh.mon} {sh.day} · {sh.dow} 10:00</span>
+          <span style={{ fontSize: "8.5px", fontWeight: 800, letterSpacing: ".12em", color: sh.statusColor }}>● {sh.status}</span>
+        </div>
+        <div style={{ padding: "12px 14px", display: "flex", gap: "12px", alignItems: "center" }}>
+          <div style={{ fontFamily: "var(--num)", fontWeight: 700, fontSize: "33px", lineHeight: ".9", color: sh.dayColor, flexShrink: 0 }}>{sh.day}</div>
+          <div style={{ minWidth: 0 }}>
+            <div style={{ fontWeight: 800, fontSize: "13px", lineHeight: "1.15", color: sh.clientColor }}>{sh.client}</div>
+            <div style={{ fontSize: "8.5px", fontWeight: 700, letterSpacing: ".1em", color: "var(--dim)", marginTop: "4px" }}>{sh.kind}</div>
+          </div>
+        </div>
+      </Hover>
+    );
+
+    const kicker = (text) => (
+      <div style={{ display: "inline-flex", alignItems: "center", gap: "8px", background: "var(--panel2)", border: "1px solid var(--line)", borderRadius: "3px", padding: "5px 11px" }}>
+        <span style={{ width: "7px", height: "7px", background: "var(--gold)" }}></span>
+        <span style={{ fontSize: "9.5px", fontWeight: 800, letterSpacing: ".24em", color: "var(--muted)" }}>{text}</span>
+      </div>
+    );
+    const h1s = { fontFamily: "var(--num)", fontWeight: 700, fontSize: "52px", lineHeight: ".98", margin: "12px 0 0", letterSpacing: ".02em", textTransform: "uppercase" };
+    const subs = { fontSize: "12.5px", color: "var(--muted)", marginTop: "10px", maxWidth: "620px", lineHeight: "1.65" };
+    const screenPad = { padding: "28px 26px 96px", maxWidth: "1240px", margin: "0 auto", width: "100%" };
+    const goldBtn = { background: "var(--gold)", border: "none", color: "var(--golddark)", fontWeight: 900, fontSize: "11.5px", letterSpacing: ".16em", padding: "13px 20px", cursor: "pointer", borderRadius: "3px", textTransform: "uppercase" };
+    const ghostBtn = { background: "transparent", border: "1px solid var(--line)", color: "var(--muted)", fontWeight: 800, fontSize: "10.5px", letterSpacing: ".14em", padding: "11px 16px", cursor: "pointer", borderRadius: "3px", textTransform: "uppercase", whiteSpace: "nowrap", transition: ".15s" }
+
     return (
       <>
 
-<div style={{ position: "relative", width: "100%", minHeight: "100vh", background: "var(--bg)", color: "var(--cream)", fontFamily: "var(--mono)", overflowX: "hidden", "--bg": "#080809", "--panel": "#0e0e11", "--panel2": "#131317", "--line": "#26262c", "--line2": "#34343c", "--cream": "#ece8e1", "--muted": "#8b867d", "--dim": "#56524b", "--red": "#e6322b", "--red2": "#b81f1a", "--reddim": "#2a1110", "--mono": "'JetBrains Mono',ui-monospace,monospace", "--cond": "'Barlow Condensed','Arial Narrow',sans-serif" }}>
+<div style={{ position: "relative", width: "100%", minHeight: "100vh", background: "var(--navy)", color: "var(--white)", fontFamily: "var(--sans)", overflowX: "hidden",
+  "--navy": "#0a1322", "--deep": "#060c17", "--panel": "#101d33", "--panel2": "#16263f", "--line": "#24385c", "--gold": "#ffb81c", "--gold2": "#ffd06a", "--golddark": "#1a1608", "--white": "#f4f7fc", "--muted": "#8ea3c4", "--dim": "#5c7096", "--live": "#ff3040", "--good": "#2ee06f",
+  "--sans": "'Archivo',sans-serif", "--num": "'Oswald',sans-serif",
+  "--bg": "#0a1322", "--line2": "#33455f", "--cream": "#f4f7fc", "--red": "#ffb81c", "--red2": "#ffd06a", "--reddim": "rgba(255,184,28,.07)", "--mono": "'Archivo',sans-serif", "--cond": "'Oswald',sans-serif" }}>
 {this.renderDealModal()}
 {this.renderDocModal()}
 {this.renderClientModal()}
@@ -2078,755 +2439,811 @@ Signed: {{signer}}      Date: {{date}}`;
 {this.renderExpenseModal()}
 {this.renderKpiModal()}
 {this.renderEmailModal()}
+{this.renderShootModal()}
+{this.renderDelivModal()}
 {this.renderChrome()}
 
-  {(scanOn) ? (<>
-    <div style={{ position: "absolute", inset: "0", pointerEvents: "none", zIndex: "62", background: "repeating-linear-gradient(0deg,rgba(0,0,0,.2) 0 1px,transparent 1px 3px)", animation: animScan }}></div>
-    <div style={{ position: "absolute", left: "0", right: "0", top: "0", height: "150px", pointerEvents: "none", zIndex: "60", background: "linear-gradient(180deg,transparent,rgba(230,50,43,.06),transparent)", animation: animSweep }}></div>
-  </>) : null}
-
-  
-  <div style={{ display: "flex", minHeight: "100vh", position: "relative", zIndex: "1" }}>
-
-    
-    <aside style={{ width: "264px", flexShrink: "0", background: "linear-gradient(180deg,#0b0b0e,#070708)", borderRight: "1px solid var(--line)", position: "sticky", top: "0", height: "100vh", display: "flex", flexDirection: "column", zIndex: "3" }}>
-      <div style={{ padding: "20px 18px 16px", borderBottom: "1px solid var(--line)", display: "flex", alignItems: "center", gap: "13px" }}>
-        <div style={{ position: "relative", width: "42px", height: "42px", border: "2px solid var(--red)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: "0", background: "#0a0707", animation: animGlow }}>
-          <div style={{ position: "absolute", left: "2px", top: "3px", bottom: "3px", width: "4px", background: "repeating-linear-gradient(180deg,var(--red) 0 3px,transparent 3px 7px)" }}></div>
-          <div style={{ position: "absolute", right: "2px", top: "3px", bottom: "3px", width: "4px", background: "repeating-linear-gradient(180deg,var(--red) 0 3px,transparent 3px 7px)" }}></div>
-          <div style={{ width: "0", height: "0", borderTop: "8px solid transparent", borderBottom: "8px solid transparent", borderLeft: "13px solid var(--red)", marginLeft: "3px" }}></div>
+  {/* ===================== SCOREBUG ===================== */}
+  <header style={{ position: "sticky", top: 0, zIndex: 30, background: "var(--deep)", borderBottom: "3px solid var(--gold)" }}>
+    <div style={{ display: "flex", alignItems: "stretch", gap: 0, padding: "0 22px", height: "62px" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: "12px", paddingRight: "18px", borderRight: "1px solid var(--line)" }}>
+        <div style={{ width: "38px", height: "38px", borderRadius: "6px", overflow: "hidden", flexShrink: 0, border: "1px solid var(--line)" }}>
+          <img src="/brand/ci-mark.png" alt="Creative Impact" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
         </div>
         <div>
-          <div style={{ fontFamily: "var(--cond)", fontWeight: "900", fontSize: "23px", lineHeight: ".86", letterSpacing: ".01em" }}>CHURLISH<span style={{ color: "var(--red)" }}>/</span>OS</div>
-          <div style={{ fontFamily: "var(--mono)", fontSize: "8.5px", letterSpacing: ".32em", color: "var(--dim)", marginTop: "3px" }}>OPERATING SYSTEM</div>
+          <div style={{ fontWeight: 900, fontSize: "14px", letterSpacing: ".08em", lineHeight: 1 }}>CREATIVE IMPACT</div>
+          <div style={{ fontSize: "8.5px", fontWeight: 700, letterSpacing: ".3em", color: "var(--dim)", marginTop: "3px" }}>IMPACT SPORTS NET · CLT</div>
         </div>
       </div>
 
-      <div style={{ padding: "10px 14px", display: "flex", alignItems: "center", gap: "8px", borderBottom: "1px solid var(--line)", fontSize: "10px", letterSpacing: ".14em", color: "var(--muted)" }}>
-        <span style={{ width: "7px", height: "7px", borderRadius: "50%", background: "#3fb97a", boxShadow: "0 0 8px #3fb97a", animation: animPulse }}></span>SYSTEM ONLINE
-        <span style={{ marginLeft: "auto", color: "var(--dim)" }}>v1.4.0</span>
-      </div>
-
-      <nav style={{ padding: "12px 10px", flex: "1", overflowY: "auto" }}>
-        <div style={{ fontSize: "9px", letterSpacing: ".28em", color: "var(--dim)", padding: "4px 8px 8px" }}>// MODULES</div>
-        {(sections).map((s, __k0) => (<React.Fragment key={__k0}>
-          <Hover as="button" baseStyle={{ display: "flex", alignItems: "center", gap: "12px", width: "100%", textAlign: "left", padding: "10px 12px 10px 14px", marginBottom: "2px", background: s.bg, border: "none", borderLeft: s.bar, color: s.fg, cursor: "pointer", fontFamily: "var(--cond)", fontWeight: "700", fontSize: "16.5px", letterSpacing: ".03em", textTransform: "uppercase", transition: ".14s" }} hoverStyle={{ background: "#141418", color: "var(--cream)" }} onClick={s.onSelect}>
-            <span style={{ fontFamily: "var(--mono)", fontWeight: "500", fontSize: "10.5px", letterSpacing: ".04em", color: s.code }}>{s.num}</span>
-            <span>{s.label}</span>
-            <span style={{ marginLeft: "auto", fontSize: "9px", color: "var(--red)" }}>{s.dot}</span>
-          </Hover>
-        </React.Fragment>))}
-      </nav>
-
-      <div style={{ padding: "14px 16px", borderTop: "1px solid var(--line)", fontSize: "10px", letterSpacing: ".08em", lineHeight: "1.9", color: "var(--dim)" }}>
-        <div style={{ color: "var(--muted)" }}>ONE-MAN HQ</div>
-        <div>SPRINT <span style={{ color: "var(--red)" }}>//</span> $150,000</div>
-        <div>SIGN-BY <span style={{ color: "var(--cream)" }}>08.31.26</span></div>
-        <div style={{ marginTop: "6px", color: "var(--dim)" }}>402.819.8168</div>
-        <div style={{ color: "var(--dim)" }}>CHURLISHMEDIA.COM</div>
-      </div>
-    </aside>
-
-    
-    <main style={{ flex: "1", minWidth: "0", display: "flex", flexDirection: "column", position: "relative" }}>
-
-      
-      <div style={{ display: "flex", alignItems: "center", gap: "16px", padding: "8px 22px", borderBottom: "1px solid var(--line)", background: "#0a0a0c", fontSize: "11px", letterSpacing: ".1em", color: "var(--muted)", position: "sticky", top: "0", zIndex: "22", whiteSpace: "nowrap" }}>
-        <span style={{ color: "var(--red)" }}>●</span>
-        <span style={{ color: "var(--cream)" }}>{clock}</span>
-        <span style={{ color: "var(--dim)" }}>{date}</span>
-        <span style={{ color: "var(--line2)" }}>|</span>
-        <span>AGENTS <span style={{ color: "#3fb97a" }}>6/6</span></span>
-        <span style={{ color: "var(--line2)" }}>|</span>
-        <span>ENC <span style={{ color: "var(--cream)" }}>AES-256</span></span>
-        <div style={{ flex: "1", overflow: "hidden", margin: "0 6px" }}>
-          <div style={{ display: "inline-flex", whiteSpace: "nowrap", animation: animTicker }}>
-            <span style={{ color: "var(--dim)", paddingRight: "48px" }}>SYS.OK ▸ FEED.LIVE ▸ KID FLASH: 142 LEADS SOURCED ▸ BLUE BEETLE: 18 SEQUENCES ACTIVE ▸ RED ROBIN: 31 CLIPS RENDERED ▸ WATCHTOWER: FLEET GREEN ▸ LEDGER SYNCED ▸ UPTIME 99.98% ▸</span>
-            <span style={{ color: "var(--dim)", paddingRight: "48px" }}>SYS.OK ▸ FEED.LIVE ▸ KID FLASH: 142 LEADS SOURCED ▸ BLUE BEETLE: 18 SEQUENCES ACTIVE ▸ RED ROBIN: 31 CLIPS RENDERED ▸ WATCHTOWER: FLEET GREEN ▸ LEDGER SYNCED ▸ UPTIME 99.98% ▸</span>
-          </div>
+      <div style={{ display: "flex", alignItems: "center", gap: 0, padding: "0 18px", borderRight: "1px solid var(--line)" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+          <span style={{ fontWeight: 800, fontSize: "12px", letterSpacing: ".1em", color: "var(--muted)" }}>CI</span>
+          <span style={{ fontFamily: "var(--num)", fontWeight: 700, fontSize: "27px", color: "var(--gold)", lineHeight: 1 }}>{scoreUs}</span>
         </div>
-        <span style={{ color: "#3fb97a" }}>SYS.OK</span>
-      </div>
-
-      
-      <section style={{ padding: "18px 22px", borderBottom: "1px solid var(--line)", background: "linear-gradient(180deg,#0c0c0f,#090909)", display: "flex", gap: "22px", alignItems: "center", flexWrap: "wrap", position: "relative", overflow: "hidden" }}>
-        <div style={{ position: "absolute", top: "0", left: "0", right: "0", height: "1px", background: "linear-gradient(90deg,var(--red),transparent 40%)" }}></div>
-        <div style={{ flex: "1", minWidth: "330px" }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: "8px" }}>
-            <span style={{ fontSize: "10px", letterSpacing: ".2em", color: "var(--dim)" }}>COLLECTED <span style={{ color: "var(--red)" }}>//</span> TARGET LOCK</span>
-            <span style={{ fontFamily: "var(--cond)", fontWeight: "800", fontSize: "17px", letterSpacing: ".02em" }}><span style={{ color: "var(--red)" }}>{collectedFmt}</span> <span style={{ color: "var(--dim)", fontSize: "13px" }}>/ $150,000</span></span>
-          </div>
-          <div style={{ height: "13px", background: "#161619", border: "1px solid var(--line2)", position: "relative", overflow: "hidden" }}>
-            <div style={{ position: "absolute", left: "0", top: "0", bottom: "0", width: `${pct}%`, background: "linear-gradient(90deg,var(--red2),var(--red))", boxShadow: "0 0 16px rgba(230,50,43,.6)" }}>
-              <div style={{ position: "absolute", inset: "0", background: "linear-gradient(90deg,transparent,rgba(255,255,255,.35),transparent)", animation: animShimmer }}></div>
-            </div>
-            <div style={{ position: "absolute", left: "0", top: "0", bottom: "0", width: "100%", background: "repeating-linear-gradient(90deg,transparent 0 33px,rgba(0,0,0,.4) 33px 34px)" }}></div>
-          </div>
-          <div style={{ fontSize: "10.5px", letterSpacing: ".08em", color: "var(--muted)", marginTop: "7px" }}>{gapText}</div>
-        </div>
-
-        <div style={{ position: "relative", minWidth: "138px", background: "#0b0b0e", border: "1px solid var(--line2)", padding: "11px 16px" }}>
-          <span style={{ position: "absolute", top: "-1px", left: "-1px", width: "11px", height: "11px", borderTop: "2px solid var(--red)", borderLeft: "2px solid var(--red)" }}></span>
-          <span style={{ position: "absolute", bottom: "-1px", right: "-1px", width: "11px", height: "11px", borderBottom: "2px solid var(--red)", borderRight: "2px solid var(--red)" }}></span>
-          <div style={{ fontSize: "9.5px", letterSpacing: ".16em", color: "var(--dim)" }}>SELL-BY</div>
-          <div style={{ fontFamily: "var(--cond)", fontWeight: "800", fontSize: "40px", lineHeight: ".92", color: "var(--cream)" }}>{sellDays}</div>
-          <div style={{ fontSize: "9px", letterSpacing: ".12em", color: "var(--muted)" }}>DAYS // AUG 31</div>
-        </div>
-        <div style={{ position: "relative", minWidth: "138px", background: "#0b0b0e", border: "1px solid var(--line2)", padding: "11px 16px" }}>
-          <span style={{ position: "absolute", top: "-1px", left: "-1px", width: "11px", height: "11px", borderTop: "2px solid var(--line2)", borderLeft: "2px solid var(--line2)" }}></span>
-          <span style={{ position: "absolute", bottom: "-1px", right: "-1px", width: "11px", height: "11px", borderBottom: "2px solid var(--line2)", borderRight: "2px solid var(--line2)" }}></span>
-          <div style={{ fontSize: "9.5px", letterSpacing: ".16em", color: "var(--dim)" }}>DEADLINE</div>
-          <div style={{ fontFamily: "var(--cond)", fontWeight: "800", fontSize: "40px", lineHeight: ".92", color: "var(--cream)" }}>{deadDays}</div>
-          <div style={{ fontSize: "9px", letterSpacing: ".12em", color: "var(--muted)" }}>DAYS // DEC 31</div>
-        </div>
-        <div style={{ position: "relative", minWidth: "138px", background: "#0b0b0e", border: "1px solid var(--line2)", padding: "11px 16px" }}>
-          <span style={{ position: "absolute", top: "-1px", left: "-1px", width: "11px", height: "11px", borderTop: "2px solid var(--line2)", borderLeft: "2px solid var(--line2)" }}></span>
-          <span style={{ position: "absolute", bottom: "-1px", right: "-1px", width: "11px", height: "11px", borderBottom: "2px solid var(--line2)", borderRight: "2px solid var(--line2)" }}></span>
-          <div style={{ fontSize: "9.5px", letterSpacing: ".16em", color: "var(--dim)" }}>FOUNDER-FREE</div>
-          <div style={{ fontFamily: "var(--cond)", fontWeight: "800", fontSize: "40px", lineHeight: ".92", color: "var(--cream)" }}>{founderFree}</div>
-          <div style={{ fontSize: "9px", letterSpacing: ".12em", color: "var(--muted)" }}>AUTONOMY</div>
-        </div>
-      </section>
-
-      
-      {(isCommand) ? (<>
-      <div style={{ padding: "24px 26px 60px", maxWidth: "1240px" }}>
-        <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: "16px", flexWrap: "wrap", marginBottom: "6px" }}>
-          <div>
-            <div style={{ fontSize: "10px", letterSpacing: ".26em", color: "var(--red)" }}>// LAYER_01 · THE SCREEN YOU LIVE IN</div>
-            <h1 style={{ fontFamily: "var(--cond)", fontWeight: "900", fontSize: "48px", lineHeight: ".92", margin: "6px 0 0", letterSpacing: ".005em" }}>COMMAND <span style={{ display: "inline-block", background: "var(--red)", color: "#0a0707", padding: "0 12px", transform: "skewX(-7deg)" }}>CENTER</span></h1>
-            <div style={{ fontSize: "12px", letterSpacing: ".04em", color: "var(--muted)", marginTop: "9px", maxWidth: "560px", lineHeight: "1.6" }}>The whole sprint on one screen. Sign by August 31, collect by December 31. Everything else is noise.</div>
-          </div>
-          <Hover as="button" baseStyle={{ background: "transparent", border: "1px solid var(--line2)", color: "var(--muted)", fontFamily: "var(--mono)", fontSize: "11px", letterSpacing: ".12em", padding: "9px 15px", cursor: "pointer", textTransform: "uppercase", transition: ".15s" }} hoverStyle={{ borderColor: "var(--red)", color: "var(--cream)" }} onClick={newWeek}>↻ NEW WEEK</Hover>
-        </div>
-        <div style={{ height: "1px", background: "linear-gradient(90deg,var(--red),transparent 55%)", margin: "16px 0 22px" }}></div>
-
-        
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: "14px", marginBottom: "16px" }}>
-          <div style={{ position: "relative", background: "var(--panel)", border: "1px solid var(--line)", borderTop: "2px solid var(--red)", padding: "16px 18px 18px" }}>
-            <div style={{ fontSize: "10px", letterSpacing: ".16em", color: "var(--dim)" }}>COLLECTED</div>
-            <div style={{ fontFamily: "var(--cond)", fontWeight: "800", fontSize: "44px", lineHeight: ".9", color: "var(--red)", marginTop: "7px" }}>{kCollected}</div>
-            <div style={{ fontSize: "9.5px", letterSpacing: ".1em", color: "var(--muted)", marginTop: "4px" }}>OF $150,000 TARGET</div>
-          </div>
-          <div style={{ position: "relative", background: "var(--panel)", border: "1px solid var(--line)", borderTop: "2px solid var(--line2)", padding: "16px 18px 18px" }}>
-            <div style={{ fontSize: "10px", letterSpacing: ".16em", color: "var(--dim)" }}>SIGNED · IN-YEAR</div>
-            <div style={{ fontFamily: "var(--cond)", fontWeight: "800", fontSize: "44px", lineHeight: ".9", color: "var(--cream)", marginTop: "7px" }}>{kSigned}</div>
-            <div style={{ fontSize: "9.5px", letterSpacing: ".1em", color: "var(--muted)", marginTop: "4px" }}>CONTRACTS WON</div>
-          </div>
-          <div style={{ position: "relative", background: "var(--panel)", border: "1px solid var(--line)", borderTop: "2px solid var(--line2)", padding: "16px 18px 18px" }}>
-            <div style={{ fontSize: "10px", letterSpacing: ".16em", color: "var(--dim)" }}>OPEN PIPELINE</div>
-            <div style={{ fontFamily: "var(--cond)", fontWeight: "800", fontSize: "44px", lineHeight: ".9", color: "var(--cream)", marginTop: "7px" }}>{kOpen}</div>
-            <div style={{ fontSize: "9.5px", letterSpacing: ".1em", color: "var(--muted)", marginTop: "4px" }}>{kOpenN}</div>
-          </div>
-          <div style={{ position: "relative", background: "var(--panel)", border: "1px solid var(--line)", borderTop: "2px solid var(--red)", padding: "16px 18px 18px" }}>
-            <div style={{ fontSize: "10px", letterSpacing: ".16em", color: "var(--dim)" }}>COVERAGE</div>
-            <div style={{ fontFamily: "var(--cond)", fontWeight: "800", fontSize: "44px", lineHeight: ".9", color: "var(--cream)", marginTop: "7px" }}>{kCover}</div>
-            <div style={{ fontSize: "9.5px", letterSpacing: ".1em", color: "var(--muted)", marginTop: "4px" }}>PIPELINE ÷ GAP · NEED ≥3×</div>
-          </div>
-        </div>
-
-        
-        <div style={{ display: "grid", gridTemplateColumns: "1.15fr 1fr", gap: "14px" }}>
-          <div style={{ background: "var(--panel)", border: "1px solid var(--line)", padding: "18px 20px", position: "relative" }}>
-            <div style={{ fontSize: "10px", letterSpacing: ".16em", color: "var(--red)" }}>THE FRIDAY FIVE <span style={{ color: "var(--dim)" }}>— LOG IT, CLOSE THE LAPTOP</span></div>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(5,1fr)", gap: "9px", marginTop: "14px" }}>
-              {(ff5).map((f, __k1) => (<React.Fragment key={__k1}>
-                <div style={{ background: "var(--panel2)", border: `1px solid ${f.edge}`, padding: "11px 8px", textAlign: "center" }}>
-                  <label style={{ display: "block", fontSize: "8.5px", letterSpacing: ".08em", color: "var(--dim)", textTransform: "uppercase", minHeight: "26px", lineHeight: "1.3" }}>{f.label}</label>
-                  <input value={f.val} onChange={f.onChange} placeholder="0" style={{ width: "100%", background: "#0a0a0c", border: "1px solid var(--line2)", color: "var(--cream)", textAlign: "center", fontFamily: "var(--cond)", fontWeight: "800", fontSize: "24px", padding: "5px 2px", marginTop: "6px" }} />
-                  <div style={{ fontSize: "8.5px", letterSpacing: ".06em", color: f.floorColor, marginTop: "5px" }}>{f.floor}</div>
-                </div>
-              </React.Fragment>))}
-            </div>
-            {(warn) ? (<>
-              <div style={{ marginTop: "14px", background: "var(--reddim)", border: "1px solid #5a2230", borderLeft: "3px solid var(--red)", padding: "11px 14px" }}>
-                <div style={{ fontSize: "10px", letterSpacing: ".16em", color: "var(--red)", marginBottom: "4px" }}>⚠ TRIPWIRE</div>
-                <div style={{ fontSize: "12px", color: "var(--cream)", lineHeight: "1.5" }}>{warn}</div>
-              </div>
-            </>) : null}
-          </div>
-
-          <div style={{ background: "var(--panel)", border: "1px solid var(--line)", padding: "18px 20px" }}>
-            <div style={{ fontSize: "10px", letterSpacing: ".16em", color: "var(--dim)" }}>THIS WEEK'S FLOOR</div>
-            <div style={{ marginTop: "10px" }}>
-              {(floor).map((g, __k2) => (<React.Fragment key={__k2}>
-                <div onClick={g.onClick} style={{ display: "flex", alignItems: "center", gap: "11px", padding: "9px 0", borderBottom: "1px solid #1a1a1d", fontSize: "12.5px", cursor: g.cursor }}>
-                  <span style={{ width: "18px", height: "18px", border: `1.5px solid ${g.box}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: "11px", color: g.check_c, flexShrink: "0" }}>{g.check}</span>
-                  <span style={{ color: g.tc }}>{g.text}</span>
-                </div>
-              </React.Fragment>))}
-            </div>
-            <div style={{ fontSize: "10px", letterSpacing: ".16em", color: "var(--red)", marginTop: "16px" }}>WHERE THE MONEY IS HIDING</div>
-            <div style={{ marginTop: "8px" }}>
-              {(next).map((n, __k3) => (<React.Fragment key={__k3}>
-                <Hover as="div" baseStyle={{ display: "flex", alignItems: "center", gap: "10px", padding: "8px 0", borderBottom: "1px solid #1a1a1d", fontSize: "12px", cursor: "pointer" }} hoverStyle={{ color: "var(--cream)" }} onClick={n.onClick}>
-                  <span style={{ color: "var(--red)" }}>›</span>
-                  <span style={{ color: "var(--cream)", fontWeight: "500" }}>{n.label}</span>
-                  <span style={{ color: "var(--dim)" }}>{n.sub}</span>
-                  <span style={{ marginLeft: "auto", fontFamily: "var(--cond)", fontWeight: "800", fontSize: "15px", color: "var(--cream)" }}>{n.val}</span>
-                </Hover>
-              </React.Fragment>))}
-            </div>
-          </div>
-        </div>
-
-        
-        <div style={{ display: "grid", gridTemplateColumns: "1.15fr 1fr", gap: "14px", marginTop: "16px" }}>
-          <div style={{ position: "relative", background: "var(--reddim)", border: "1px solid #5a2230", borderLeft: "4px solid var(--red)", padding: "20px 22px", overflow: "hidden" }}>
-            <div style={{ position: "absolute", right: "-30px", top: "-30px", fontFamily: "var(--cond)", fontWeight: "900", fontSize: "140px", color: "rgba(230,50,43,.07)", lineHeight: "1" }}>01</div>
-            <div style={{ fontSize: "10px", letterSpacing: ".2em", color: "var(--red)" }}>THE ONE THING · UNTIL IT'S DONE</div>
-            <div style={{ fontFamily: "var(--cond)", fontWeight: "800", fontSize: "27px", lineHeight: "1.02", marginTop: "10px", maxWidth: "90%", textTransform: "uppercase" }}>{oneThingTitle}</div>
-            <div style={{ fontSize: "12.5px", color: "var(--cream)", lineHeight: "1.6", marginTop: "10px", maxWidth: "94%" }}>{oneThingBody}</div>
-          </div>
-          <div style={{ background: "#0a0a0c", border: "1px solid var(--line)", padding: "14px 16px", fontSize: "11px" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: "8px", color: "var(--dim)", letterSpacing: ".16em", fontSize: "10px", borderBottom: "1px solid var(--line)", paddingBottom: "9px", marginBottom: "8px" }}>
-              <span style={{ width: "6px", height: "6px", borderRadius: "50%", background: "#3fb97a", animation: animPulse }}></span>SYS.LOG — LIVE FEED
-            </div>
-            {(log).map((l, __k4) => (<React.Fragment key={__k4}>
-              <div style={{ display: "flex", gap: "9px", padding: "3px 0", lineHeight: "1.5" }}>
-                <span style={{ color: "var(--dim)", flexShrink: "0" }}>{l.t}</span>
-                <span style={{ color: l.color, flexShrink: "0" }}>{l.tag}</span>
-                <span style={{ color: "var(--muted)" }}>{l.msg}</span>
-              </div>
-            </React.Fragment>))}
-          </div>
+        <span style={{ margin: "0 14px", fontFamily: "var(--num)", fontWeight: 500, fontSize: "13px", color: "var(--dim)" }}>VS</span>
+        <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+          <span style={{ fontWeight: 800, fontSize: "12px", letterSpacing: ".1em", color: "var(--muted)" }}>GOAL</span>
+          <span style={{ fontFamily: "var(--num)", fontWeight: 700, fontSize: "27px", color: "var(--white)", lineHeight: 1 }}>{goalShort}</span>
         </div>
       </div>
-      </>) : null}
 
-      
-      {(isPipeline) ? (<>
-      <div style={{ padding: "24px 26px 60px", maxWidth: "1240px" }}>
-        <div style={{ marginBottom: "6px", display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "16px" }}>
-          <div>
-            <div style={{ fontSize: "10px", letterSpacing: ".26em", color: "var(--red)" }}>// 02 · THE BOARD</div>
-            <h1 style={{ fontFamily: "var(--cond)", fontWeight: "900", fontSize: "48px", lineHeight: ".92", margin: "6px 0 0", letterSpacing: ".005em" }}>SALES <span style={{ display: "inline-block", background: "var(--red)", color: "#0a0707", padding: "0 12px", transform: "skewX(-7deg)" }}>PIPELINE</span></h1>
-            <div style={{ fontSize: "12px", letterSpacing: ".04em", color: "var(--muted)", marginTop: "9px", maxWidth: "560px", lineHeight: "1.6" }}>Every live deal by stage. Signed and Collected feed the war board upstairs. Nothing moves itself — you move it.</div>
-          </div>
-          <Hover as="button" onClick={() => this.openDeal(null)} baseStyle={{ flexShrink: 0, marginTop: "6px", background: "var(--red)", border: "1px solid var(--red)", color: "#0a0707", fontFamily: "var(--mono)", fontWeight: "700", fontSize: "11px", letterSpacing: ".12em", padding: "10px 16px", cursor: "pointer", textTransform: "uppercase", transition: ".15s" }} hoverStyle={{ background: "var(--red2)" }}>+ Add Deal</Hover>
+      <div style={{ display: "flex", alignItems: "center", gap: "16px", padding: "0 18px", borderRight: "1px solid var(--line)" }}>
+        <div style={{ textAlign: "center" }}>
+          <div style={{ fontFamily: "var(--num)", fontWeight: 600, fontSize: "19px", lineHeight: 1, color: "var(--white)" }}>{quarter}</div>
+          <div style={{ fontSize: "8px", fontWeight: 700, letterSpacing: ".22em", color: "var(--dim)", marginTop: "2px" }}>PERIOD</div>
         </div>
-        <div style={{ height: "1px", background: "linear-gradient(90deg,var(--red),transparent 55%)", margin: "16px 0 22px" }}></div>
-
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: "14px", marginBottom: "20px" }}>
-          <div style={{ background: "var(--panel)", border: "1px solid var(--line)", borderTop: "2px solid var(--line2)", padding: "15px 18px" }}>
-            <div style={{ fontSize: "10px", letterSpacing: ".16em", color: "var(--dim)" }}>WEIGHTED PIPELINE</div>
-            <div style={{ fontFamily: "var(--cond)", fontWeight: "800", fontSize: "38px", lineHeight: ".9", color: "var(--cream)", marginTop: "6px" }}>{pStats.weighted}</div>
-            <div style={{ fontSize: "9.5px", letterSpacing: ".1em", color: "var(--muted)", marginTop: "4px" }}>STAGE-PROBABILITY ADJUSTED</div>
-          </div>
-          <div style={{ background: "var(--panel)", border: "1px solid var(--line)", borderTop: "2px solid var(--line2)", padding: "15px 18px" }}>
-            <div style={{ fontSize: "10px", letterSpacing: ".16em", color: "var(--dim)" }}>LIVE DEALS</div>
-            <div style={{ fontFamily: "var(--cond)", fontWeight: "800", fontSize: "38px", lineHeight: ".9", color: "var(--cream)", marginTop: "6px" }}>{pStats.count}</div>
-            <div style={{ fontSize: "9.5px", letterSpacing: ".1em", color: "var(--muted)", marginTop: "4px" }}>NOT WON / LOST</div>
-          </div>
-          <div style={{ background: "var(--panel)", border: "1px solid var(--line)", borderTop: "2px solid var(--red)", padding: "15px 18px" }}>
-            <div style={{ fontSize: "10px", letterSpacing: ".16em", color: "var(--dim)" }}>SIGNED</div>
-            <div style={{ fontFamily: "var(--cond)", fontWeight: "800", fontSize: "38px", lineHeight: ".9", color: "var(--red)", marginTop: "6px" }}>{pStats.signed}</div>
-            <div style={{ fontSize: "9.5px", letterSpacing: ".1em", color: "var(--muted)", marginTop: "4px" }}>{pStats.signedN}</div>
-          </div>
-          <div style={{ background: "var(--panel)", border: "1px solid var(--line)", borderTop: "2px solid var(--line2)", padding: "15px 18px" }}>
-            <div style={{ fontSize: "10px", letterSpacing: ".16em", color: "var(--dim)" }}>WIN RATE</div>
-            <div style={{ fontFamily: "var(--cond)", fontWeight: "800", fontSize: "38px", lineHeight: ".9", color: "var(--cream)", marginTop: "6px" }}>{pStats.win}</div>
-            <div style={{ fontSize: "9.5px", letterSpacing: ".1em", color: "var(--muted)", marginTop: "4px" }}>SIGNED ÷ CLOSED</div>
-          </div>
+        <div style={{ textAlign: "center" }}>
+          <div style={{ fontFamily: "var(--num)", fontWeight: 600, fontSize: "19px", lineHeight: 1, color: "var(--gold)" }}>{sellDays}</div>
+          <div style={{ fontSize: "8px", fontWeight: 700, letterSpacing: ".22em", color: "var(--dim)", marginTop: "2px" }}>TO SIGN-BY</div>
         </div>
-
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(6,minmax(178px,1fr))", gap: "12px", overflowX: "auto", paddingBottom: "10px" }}>
-          {(pipeCols).map((c, __k5) => (<React.Fragment key={__k5}>
-            <div style={{ background: "#0a0a0c", border: "1px solid var(--line)", padding: "11px", minHeight: "150px" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "11px", borderBottom: "1px solid var(--line)", paddingBottom: "9px" }}>
-                <span style={{ fontFamily: "var(--cond)", fontWeight: "900", fontSize: "12px", letterSpacing: ".05em", textTransform: "uppercase", color: c.accent }}>{c.stage}</span>
-                <span style={{ fontFamily: "var(--cond)", fontWeight: "800", fontSize: "13px", color: "var(--dim)" }}>{c.sum}</span>
-              </div>
-              {(c.deals).map((d, __k6) => (<React.Fragment key={__k6}>
-                <Hover as="div" onClick={d.onClick} baseStyle={{ background: "var(--panel)", border: "1px solid var(--line2)", padding: "9px 10px", marginBottom: "8px", cursor: "pointer", transition: ".12s" }} hoverStyle={{ borderColor: "var(--red)" }}>
-                  <div style={{ fontWeight: "600", fontSize: "13px", color: "var(--cream)", lineHeight: "1.2" }}>{d.name}</div>
-                  <div style={{ fontSize: "10.5px", color: "var(--muted)", marginTop: "3px" }}>{d.offer}</div>
-                  <div style={{ fontFamily: "var(--cond)", fontWeight: "800", fontSize: "15px", color: "var(--red)", marginTop: "5px" }}>{d.val}</div>
-                </Hover>
-              </React.Fragment>))}
-            </div>
-          </React.Fragment>))}
+        <div style={{ textAlign: "center" }}>
+          <div style={{ fontFamily: "var(--num)", fontWeight: 600, fontSize: "19px", lineHeight: 1, color: "var(--white)" }}>{deadDays}</div>
+          <div style={{ fontSize: "8px", fontWeight: 700, letterSpacing: ".22em", color: "var(--dim)", marginTop: "2px" }}>TO FINAL</div>
         </div>
       </div>
-      </>) : null}
 
-      
-      {(isAgents) ? (<>
-      <div style={{ padding: "24px 26px 60px", maxWidth: "1240px" }}>
-        <div style={{ marginBottom: "6px" }}>
-          <div style={{ fontSize: "10px", letterSpacing: ".26em", color: "var(--red)" }}>// 05 · THE FOUNDER-FREE ENGINE</div>
-          <h1 style={{ fontFamily: "var(--cond)", fontWeight: "900", fontSize: "48px", lineHeight: ".92", margin: "6px 0 0", letterSpacing: ".005em" }}>AGENT <span style={{ display: "inline-block", background: "var(--red)", color: "#0a0707", padding: "0 12px", transform: "skewX(-7deg)" }}>FLEET</span></h1>
-          <div style={{ fontSize: "12px", letterSpacing: ".04em", color: "var(--muted)", marginTop: "9px", maxWidth: "580px", lineHeight: "1.6" }}>Six units run the top of the funnel and the content machine, so your hands stay on sales and the lens. Your only manual jobs: take the calls and approve the proof.</div>
+      <div style={{ flex: 1 }}></div>
+
+      <div style={{ display: "flex", alignItems: "center", gap: "18px" }}>
+        <div style={{ textAlign: "right" }}>
+          <div style={{ fontFamily: "var(--num)", fontWeight: 600, fontSize: "19px", letterSpacing: ".06em", lineHeight: 1 }}>{clock}</div>
+          <div style={{ fontSize: "8.5px", fontWeight: 700, letterSpacing: ".2em", color: "var(--dim)", marginTop: "2px" }}>{date}</div>
         </div>
-        <div style={{ height: "1px", background: "linear-gradient(90deg,var(--red),transparent 55%)", margin: "16px 0 22px" }}></div>
-
-        <div style={{ fontSize: "10px", letterSpacing: ".16em", color: "var(--red)", marginBottom: "10px" }}>THE DAILY LOOP</div>
-        <div style={{ display: "flex", alignItems: "center", gap: "9px", flexWrap: "wrap", background: "#0a0a0c", border: "1px solid var(--line)", padding: "15px 18px", marginBottom: "18px" }}>
-          {(loopNodes).map((n, __k7) => (<React.Fragment key={__k7}>
-            <span style={{ fontFamily: "var(--cond)", fontWeight: "700", fontSize: "12.5px", letterSpacing: ".05em", textTransform: "uppercase", padding: "8px 13px", background: "#141418", border: "1px solid var(--line2)", color: "var(--cream)" }}>{n.label}</span>
-            <span style={{ color: "var(--red)", fontWeight: "900", fontSize: "15px" }}>{n.arrow}</span>
-          </React.Fragment>))}
+        <div style={{ display: "flex", alignItems: "center", gap: "8px", background: "var(--live)", padding: "7px 13px", borderRadius: "3px" }}>
+          <span style={{ width: "8px", height: "8px", borderRadius: "50%", background: "#fff", animation: animPulse }}></span>
+          <span style={{ fontWeight: 900, fontSize: "11px", letterSpacing: ".18em" }}>LIVE · CLT</span>
         </div>
-
-        <div style={{ marginBottom: "20px" }}>
-          {(fleet).map((a, __k8) => (<React.Fragment key={__k8}>
-            <div style={{ display: "flex", alignItems: "center", gap: "14px", background: "var(--panel)", border: "1px solid var(--line)", borderLeft: `2px solid ${a.accent}`, padding: "13px 16px", marginBottom: "9px" }}>
-              <div style={{ width: "44px", height: "44px", background: "#0a0a0c", border: "1px solid var(--line2)", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "var(--cond)", fontWeight: "900", fontSize: "17px", color: a.accent, flexShrink: "0" }}>{a.init}</div>
-              <div style={{ flex: "1", minWidth: "0" }}>
-                <div style={{ fontFamily: "var(--cond)", fontWeight: "900", fontSize: "17px", letterSpacing: ".02em", color: "var(--cream)" }}>{a.name}</div>
-                <div style={{ fontSize: "12px", color: "var(--muted)", lineHeight: "1.45" }}>{a.role}</div>
-                <div style={{ fontFamily: "var(--mono)", fontSize: "9.5px", letterSpacing: ".12em", textTransform: "uppercase", color: "var(--dim)", marginTop: "3px" }}>{a.cad}</div>
-              </div>
-              <div style={{ display: "flex", alignItems: "center", gap: "10px", flexShrink: "0" }}>
-                <span style={{ width: "9px", height: "9px", borderRadius: "50%", background: a.dot }}></span>
-                <span style={{ fontFamily: "var(--mono)", fontSize: "10px", letterSpacing: ".08em", color: "var(--muted)", minWidth: "62px" }}>{a.status}</span>
-                <Hover as="button" baseStyle={{ background: "transparent", border: "1px solid var(--line2)", color: "var(--muted)", fontFamily: "var(--mono)", fontSize: "9.5px", letterSpacing: ".1em", padding: "7px 11px", cursor: "pointer", transition: ".15s" }} hoverStyle={{ borderColor: "var(--red)", color: "var(--cream)" }} onClick={a.onToggle}>{a.btn}</Hover>
-              </div>
-            </div>
-          </React.Fragment>))}
-        </div>
-
-        <div style={{ background: "var(--panel)", border: "1px solid var(--line)", padding: "18px 20px" }}>
-          <div style={{ fontSize: "10px", letterSpacing: ".16em", color: "var(--dim)" }}>TODAY'S OPERATING CHECKLIST</div>
-          <div style={{ marginTop: "10px" }}>
-            {(opsChecklist).map((o, __k9) => (<React.Fragment key={__k9}>
-              <div onClick={o.onClick} style={{ display: "flex", alignItems: "center", gap: "11px", padding: "9px 0", borderBottom: "1px solid #1a1a1d", fontSize: "12.5px", cursor: "pointer" }}>
-                <span style={{ width: "18px", height: "18px", border: `1.5px solid ${o.box}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: "11px", color: o.cc, flexShrink: "0" }}>{o.check}</span>
-                <span style={{ color: o.tc }}>{o.text}</span>
-              </div>
-            </React.Fragment>))}
-          </div>
-        </div>
-      </div>
-      </>) : null}
-
-      
-      {(isPlaybook) ? (<>
-      <div style={{ padding: "24px 26px 60px", maxWidth: "1240px" }}>
-        <div style={{ marginBottom: "6px" }}>
-          <div style={{ fontSize: "10px", letterSpacing: ".26em", color: "var(--red)" }}>// 04 · OFFERS &amp; DELIVERY</div>
-          <h1 style={{ fontFamily: "var(--cond)", fontWeight: "900", fontSize: "48px", lineHeight: ".92", margin: "6px 0 0", letterSpacing: ".005em" }}>THE <span style={{ display: "inline-block", background: "var(--red)", color: "#0a0707", padding: "0 12px", transform: "skewX(-7deg)" }}>PLAYBOOK</span></h1>
-          <div style={{ fontSize: "12px", letterSpacing: ".04em", color: "var(--muted)", marginTop: "9px", maxWidth: "560px", lineHeight: "1.6" }}>The offers and how each one gets delivered — the SOPs you and the agents execute. Pricing is fixed. Never discount month one.</div>
-        </div>
-        <div style={{ height: "1px", background: "linear-gradient(90deg,var(--red),transparent 55%)", margin: "16px 0 22px" }}></div>
-
-        <div style={{ fontSize: "10px", letterSpacing: ".16em", color: "var(--red)", marginBottom: "11px" }}>THE LADDER · TOP OF MIND</div>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: "14px", marginBottom: "24px" }}>
-          {(ladder).map((l, __k10) => (<React.Fragment key={__k10}>
-            <div style={{ background: "var(--panel)", border: "1px solid var(--line)", borderTop: `2px solid ${l.accent}`, padding: "16px 18px" }}>
-              <div style={{ fontFamily: "var(--cond)", fontWeight: "700", fontSize: "11px", letterSpacing: ".1em", textTransform: "uppercase", color: l.accent }}>{l.p}</div>
-              <div style={{ fontFamily: "var(--cond)", fontWeight: "900", fontSize: "22px", color: "var(--cream)", marginTop: "7px", lineHeight: "1" }}>{l.n}</div>
-              <div style={{ fontSize: "12.5px", color: "var(--muted)", lineHeight: "1.5", marginTop: "7px" }}>{l.d}</div>
-            </div>
-          </React.Fragment>))}
-        </div>
-
-        <div style={{ fontSize: "10px", letterSpacing: ".16em", color: "var(--dim)", marginBottom: "11px" }}>DELIVERY SOPS</div>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "14px" }}>
-          {(sops).map((s, __k11) => (<React.Fragment key={__k11}>
-            <div style={{ background: "var(--panel)", border: "1px solid var(--line)", padding: "18px 20px" }}>
-              <div style={{ display: "inline-block", fontFamily: "var(--cond)", fontWeight: "900", fontSize: "10px", letterSpacing: ".12em", color: "#0a0707", background: s.accent, padding: "3px 10px" }}>SOP</div>
-              <div style={{ fontFamily: "var(--cond)", fontWeight: "900", fontSize: "20px", color: "var(--cream)", marginTop: "11px" }}>{s.t}</div>
-              <div style={{ fontFamily: "var(--cond)", fontWeight: "800", fontSize: "12.5px", letterSpacing: ".04em", color: "var(--red)", marginTop: "4px" }}>{s.p}</div>
-              <ol style={{ margin: "11px 0 0 16px", padding: "0", fontSize: "12.5px", color: "var(--cream)", lineHeight: "1.5" }}>
-                {(s.steps).map((st, __k12) => (<React.Fragment key={__k12}>
-                  <li style={{ padding: "3px 0" }}>{st}</li>
-                </React.Fragment>))}
-              </ol>
-              <div style={{ fontSize: "11.5px", color: "var(--muted)", lineHeight: "1.5", marginTop: "11px", paddingTop: "11px", borderTop: "1px solid var(--line)" }}>{s.out}</div>
-            </div>
-          </React.Fragment>))}
-        </div>
-
-        <div style={{ background: "var(--reddim)", border: "1px solid #5a2230", borderLeft: "3px solid var(--red)", padding: "14px 18px", marginTop: "18px" }}>
-          <div style={{ fontSize: "10px", letterSpacing: ".16em", color: "var(--red)", marginBottom: "5px" }}>PRICE INTEGRITY</div>
-          <div style={{ fontSize: "12.5px", color: "var(--cream)", lineHeight: "1.6" }}>Ad spend is always separate, $500/mo minimum. The first three tournaments at $1,500 are a case-study exchange with a deliverable attached — say it that way in writing. Never the word "discount."</div>
-        </div>
-      </div>
-      </>) : null}
-
-      {(this.state.view === 'clients') ? this.renderClientsTab() : null}
-
-      {(this.state.view === 'invoices') ? this.renderInvoicesTab() : null}
-
-      {(this.state.view === 'proposals') ? this.renderProposalsTab() : null}
-
-      {(this.state.view === 'scheduling') ? this.renderSchedulingTab() : null}
-
-      {(this.state.view === 'kpis') ? this.renderKpisTab() : null}
-
-      {(this.state.view === 'expenses') ? this.renderExpensesTab() : null}
-
-      {(this.state.view === 'rookie') ? this.renderRookieTab() : null}
-
-      {(isDiagnostic) ? (<>
-      <div style={{ padding: "24px 26px 60px", maxWidth: "1240px" }}>
-        <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: "16px", flexWrap: "wrap", marginBottom: "6px" }}>
-          <div>
-            <div style={{ fontSize: "10px", letterSpacing: ".26em", color: "var(--red)" }}>// 03 · THE FIRST YES</div>
-            <h1 style={{ fontFamily: "var(--cond)", fontWeight: "900", fontSize: "48px", lineHeight: ".92", margin: "6px 0 0", letterSpacing: ".005em" }}>THE DIAGNOSTIC <span style={{ display: "inline-block", background: "var(--red)", color: "#0a0707", padding: "0 12px", transform: "skewX(-7deg)" }}>CALL</span></h1>
-            <div style={{ fontSize: "12px", letterSpacing: ".04em", color: "var(--muted)", marginTop: "9px", maxWidth: "560px", lineHeight: "1.6" }}>The $750 first-yes call. NEPQ spine, Voss on the objections, Churlish in the mouth. Run it live — don't wing it.</div>
-          </div>
-          <Hover as="button" baseStyle={{ background: "transparent", border: "1px solid var(--line2)", color: "var(--muted)", fontFamily: "var(--mono)", fontSize: "11px", letterSpacing: ".12em", padding: "9px 15px", cursor: "pointer", textTransform: "uppercase", transition: ".15s", whiteSpace: "nowrap" }} hoverStyle={{ borderColor: "var(--red)", color: "var(--cream)" }} onClick={toggleObj}>{objBtnLabel}</Hover>
-        </div>
-        <div style={{ height: "1px", background: "linear-gradient(90deg,var(--red),transparent 55%)", margin: "16px 0 22px" }}></div>
-
-        {(showScript) ? (<>
-        <div style={{ display: "grid", gridTemplateColumns: "236px 1fr", gap: "18px" }}>
-          <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
-            {(scriptSteps).map((s, __k13) => (<React.Fragment key={__k13}>
-              <button onClick={s.onClick} style={{ display: "flex", alignItems: "center", gap: "11px", textAlign: "left", padding: "11px 13px", background: s.bg, border: `1px solid ${s.bd}`, color: s.fg, cursor: "pointer", transition: ".14s" }}>
-                <span style={{ fontFamily: "var(--cond)", fontWeight: "900", fontSize: "14px", color: s.nc, width: "18px", flexShrink: "0" }}>{s.n}</span>
-                <span style={{ fontFamily: "var(--cond)", fontWeight: "700", fontSize: "13.5px", letterSpacing: ".03em", textTransform: "uppercase", lineHeight: "1.05" }}>{s.l}</span>
-              </button>
-            </React.Fragment>))}
-          </div>
-          <div style={{ background: "var(--panel)", border: "1px solid var(--line)", padding: "22px 24px", minHeight: "360px" }}>
-            <div style={{ fontSize: "12.5px", color: "var(--red)", fontWeight: "500", lineHeight: "1.5", marginBottom: "16px", paddingBottom: "14px", borderBottom: "1px solid var(--line)" }}>▸ {curGoal}</div>
-            {(curBlocks).map((b, __k14) => (<React.Fragment key={__k14}>
-              {(b.isSay) ? (<>
-                <div style={{ background: "#100b0c", borderLeft: "3px solid var(--red)", padding: "13px 16px", margin: "12px 0", fontSize: "14.5px", lineHeight: "1.55", color: "var(--cream)" }}>{b.text}</div>
-              </>) : null}
-              {(b.isAlt) ? (<>
-                <div style={{ background: "#0e0e10", borderLeft: "3px solid var(--line2)", padding: "13px 16px", margin: "12px 0", fontSize: "14.5px", lineHeight: "1.55", color: "var(--muted)" }}>{b.text}</div>
-              </>) : null}
-              {(b.isNote) ? (<>
-                <div style={{ fontSize: "12.5px", color: "var(--muted)", fontStyle: "italic", margin: "10px 0", lineHeight: "1.5" }}>{b.text}</div>
-              </>) : null}
-              {(b.isQ) ? (<>
-                <div style={{ margin: "10px 0 4px" }}>
-                  {(b.items).map((q, __k15) => (<React.Fragment key={__k15}>
-                    <div style={{ padding: "9px 0 9px 22px", position: "relative", fontSize: "14px", lineHeight: "1.5", borderBottom: "1px solid #1a1a1d", color: "var(--cream)" }}><span style={{ position: "absolute", left: "2px", color: "var(--red)", fontWeight: "900" }}>›</span>{q}</div>
-                  </React.Fragment>))}
-                </div>
-              </>) : null}
-            </React.Fragment>))}
-            <div style={{ display: "flex", justifyContent: "space-between", marginTop: "22px" }}>
-              <Hover as="button" baseStyle={{ background: "transparent", border: "1px solid var(--line2)", color: "var(--muted)", fontFamily: "var(--mono)", fontSize: "11px", letterSpacing: ".1em", padding: "8px 14px", cursor: "pointer", opacity: backOpacity }} hoverStyle={{ borderColor: "var(--red)", color: "var(--cream)" }} onClick={backStep}>← BACK</Hover>
-              <button onClick={nextStep} style={{ background: "var(--red)", border: "none", color: "#0a0707", fontFamily: "var(--mono)", fontWeight: "700", fontSize: "11px", letterSpacing: ".1em", padding: "8px 16px", cursor: "pointer", opacity: nextOpacity }}>NEXT STEP →</button>
-            </div>
-          </div>
-        </div>
-        </>) : null}
-
-        {(showObj) ? (<>
-        <div>
-          <div style={{ fontSize: "10px", letterSpacing: ".16em", color: "var(--red)", marginBottom: "14px" }}>THE SEVEN YOU'LL ACTUALLY HEAR — AND THE TURN</div>
-          {(objections).map((o, __k16) => (<React.Fragment key={__k16}>
-            <details style={{ border: "1px solid var(--line)", background: "#0a0a0c", marginBottom: "9px" }}>
-              <summary style={{ padding: "14px 16px", cursor: "pointer", fontFamily: "var(--cond)", fontWeight: "700", fontSize: "15.5px", letterSpacing: ".02em", color: "var(--cream)", listStyle: "none" }}>{o.q}</summary>
-              <div style={{ padding: "0 16px 16px" }}>
-                <div style={{ fontFamily: "var(--cond)", fontWeight: "700", fontSize: "10px", letterSpacing: ".14em", textTransform: "uppercase", color: "var(--dim)", margin: "4px 0 8px" }}>{o.lab}</div>
-                <div style={{ background: "#100b0c", borderLeft: "3px solid var(--red)", padding: "13px 16px", fontSize: "14px", lineHeight: "1.55", color: "var(--cream)" }}>{o.a}</div>
-              </div>
-            </details>
-          </React.Fragment>))}
-        </div>
-        </>) : null}
-      </div>
-      </>) : null}
-
-      
-      {(isFounder) ? (<>
-      <div style={{ padding: "24px 26px 60px", maxWidth: "1240px" }}>
-        <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: "16px", flexWrap: "wrap", marginBottom: "6px" }}>
-          <div>
-            <div style={{ fontSize: "10px", letterSpacing: ".26em", color: "var(--red)" }}>// 06 · THE SINGLE POINT OF FAILURE</div>
-            <h1 style={{ fontFamily: "var(--cond)", fontWeight: "900", fontSize: "48px", lineHeight: ".92", margin: "6px 0 0", letterSpacing: ".005em" }}>FOUNDER <span style={{ display: "inline-block", background: "var(--red)", color: "#0a0707", padding: "0 12px", transform: "skewX(-7deg)" }}>OS</span></h1>
-            <div style={{ fontSize: "12px", letterSpacing: ".04em", color: "var(--muted)", marginTop: "9px", maxWidth: "580px", lineHeight: "1.6" }}>You are the single point of failure. Energy in, calls out, goals tracked. Burnout in week 5 kills the number — so this layer is non-optional.</div>
-          </div>
-          <div style={{ fontFamily: "var(--mono)", fontSize: "11px", letterSpacing: ".12em", color: "var(--muted)" }}>{todayLabel}</div>
-        </div>
-        <div style={{ height: "1px", background: "linear-gradient(90deg,var(--red),transparent 55%)", margin: "16px 0 22px" }}></div>
-
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "14px" }}>
-          <div style={{ background: "var(--panel)", border: "1px solid var(--line)", padding: "18px 20px" }}>
-            <div style={{ fontSize: "10px", letterSpacing: ".16em", color: "var(--red)" }}>TODAY'S CHECK-IN</div>
-            <div style={{ marginTop: "14px" }}>
-              <div style={{ fontSize: "10px", letterSpacing: ".1em", color: "var(--dim)", textTransform: "uppercase" }}>Energy</div>
-              <div style={{ display: "flex", gap: "6px", marginTop: "6px" }}>
-                {(energyScale).map((e, __k17) => (<React.Fragment key={__k17}>
-                  <button onClick={e.onClick} style={{ flex: "1", background: e.bg, border: `1px solid ${e.bd}`, color: e.fg, fontFamily: "var(--cond)", fontWeight: "900", fontSize: "16px", padding: "9px 0", cursor: "pointer", transition: ".12s" }}>{e.n}</button>
-                </React.Fragment>))}
-              </div>
-            </div>
-            <div style={{ marginTop: "14px" }}>
-              <div style={{ fontSize: "10px", letterSpacing: ".1em", color: "var(--dim)", textTransform: "uppercase" }}>Sleep (hrs)</div>
-              <div style={{ display: "flex", gap: "6px", marginTop: "6px" }}>
-                {(sleepScale).map((e, __k18) => (<React.Fragment key={__k18}>
-                  <button onClick={e.onClick} style={{ flex: "1", background: e.bg, border: `1px solid ${e.bd}`, color: e.fg, fontFamily: "var(--cond)", fontWeight: "900", fontSize: "16px", padding: "9px 0", cursor: "pointer", transition: ".12s" }}>{e.n}</button>
-                </React.Fragment>))}
-              </div>
-            </div>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "9px", marginTop: "14px" }}>
-              {(fToggles).map((t, __k19) => (<React.Fragment key={__k19}>
-                <div onClick={t.onClick} style={{ display: "flex", alignItems: "center", gap: "9px", background: "#0a0a0c", border: `1px solid ${t.bd}`, padding: "11px 12px", cursor: "pointer", transition: ".12s" }}>
-                  <span style={{ width: "20px", height: "20px", border: `2px solid ${t.box}`, background: t.boxBg, display: "flex", alignItems: "center", justifyContent: "center", fontSize: "12px", fontWeight: "900", color: t.cc, flexShrink: "0" }}>{t.check}</span>
-                  <span style={{ fontSize: "13px", color: "var(--cream)" }}>{t.label}</span>
-                </div>
-              </React.Fragment>))}
-            </div>
-            <div style={{ marginTop: "14px" }}>
-              <label style={{ display: "block", fontSize: "10px", letterSpacing: ".1em", color: "var(--dim)", textTransform: "uppercase", marginBottom: "6px" }}>One line — how's the head today?</label>
-              <textarea value={noteVal} onChange={onNote} placeholder="Honest. Nobody reads this but you." style={{ width: "100%", minHeight: "62px", background: "#0a0a0c", border: "1px solid var(--line2)", color: "var(--cream)", padding: "10px 12px", fontFamily: "var(--mono)", fontSize: "12px", lineHeight: "1.5", resize: "vertical" }}></textarea>
-            </div>
-          </div>
-
-          <div style={{ background: "var(--panel)", border: "1px solid var(--line)", padding: "18px 20px" }}>
-            <div style={{ fontSize: "10px", letterSpacing: ".16em", color: "var(--dim)" }}>LAST 7 DAYS</div>
-            <div style={{ display: "flex", gap: "7px", marginTop: "8px" }}>
-              {(weekStrip).map((d, __k20) => (<React.Fragment key={__k20}>
-                <div style={{ flex: "1", textAlign: "center", background: "#0a0a0c", border: "1px solid var(--line)", padding: "9px 4px" }}>
-                  <div style={{ fontFamily: "var(--cond)", fontWeight: "700", fontSize: "10px", color: "var(--dim)" }}>{d.dw}</div>
-                  <div style={{ fontFamily: "var(--cond)", fontWeight: "900", fontSize: "18px", margin: "3px 0", color: d.nc }}>{d.n}</div>
-                  <div style={{ fontSize: "8px", letterSpacing: "1px" }}><span style={{ color: d.d1 }}>●</span><span style={{ color: d.d2 }}>●</span></div>
-                </div>
-              </React.Fragment>))}
-            </div>
-            <div style={{ fontSize: "10px", letterSpacing: ".16em", color: "var(--red)", marginTop: "20px" }}>NON-NEGOTIABLE HABITS</div>
-            <div style={{ marginTop: "8px" }}>
-              {(habitsView).map((h, __k21) => (<React.Fragment key={__k21}>
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "11px 0", borderBottom: "1px solid #1a1a1d" }}>
-                  <span style={{ fontSize: "14px", color: "var(--cream)" }}>{h.name}</span>
-                  <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-                    <span style={{ fontFamily: "var(--cond)", fontWeight: "900", fontSize: "15px", color: "var(--red)" }}>{h.streak}<span style={{ color: "var(--dim)", fontSize: "9.5px", fontWeight: "700", letterSpacing: ".08em" }}> {h.streakL}</span></span>
-                    <div onClick={h.onToggle} style={{ width: "30px", height: "30px", border: `2px solid ${h.box}`, background: h.boxBg, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: "900", fontSize: "14px", color: h.cc, cursor: "pointer", transition: ".12s" }}>{h.check}</div>
-                  </div>
-                </div>
-              </React.Fragment>))}
-            </div>
-            <Hover as="button" baseStyle={{ width: "100%", background: "transparent", border: "1px dashed var(--line2)", color: "var(--muted)", fontFamily: "var(--mono)", fontSize: "10.5px", letterSpacing: ".1em", textTransform: "uppercase", padding: "11px", marginTop: "10px", cursor: "pointer", transition: ".15s" }} hoverStyle={{ borderColor: "var(--red)", color: "var(--cream)" }} onClick={addHabit}>+ ADD HABIT</Hover>
-          </div>
-        </div>
-
-        <div style={{ background: "var(--panel)", border: "1px solid var(--line)", padding: "18px 20px", marginTop: "14px" }}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "12px" }}>
-            <div style={{ fontSize: "10px", letterSpacing: ".16em", color: "var(--red)" }}>GOALS — BUSINESS &amp; THE REST OF YOUR LIFE</div>
-            <Hover as="button" baseStyle={{ background: "transparent", border: "1px solid var(--line2)", color: "var(--muted)", fontFamily: "var(--mono)", fontSize: "10px", letterSpacing: ".1em", padding: "6px 11px", cursor: "pointer", transition: ".15s" }} hoverStyle={{ borderColor: "var(--red)", color: "var(--cream)" }} onClick={addGoal}>+ ADD GOAL</Hover>
-          </div>
-          <div style={{ marginTop: "10px" }}>
-            {(goalsView).map((g, __k22) => (<React.Fragment key={__k22}>
-              <div style={{ display: "flex", gap: "12px", alignItems: "flex-start", padding: "12px 0", borderBottom: "1px solid #1a1a1d" }}>
-                <div onClick={g.onToggle} style={{ marginTop: "1px", width: "22px", height: "22px", border: `2px solid ${g.box}`, background: g.boxBg, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: "900", fontSize: "12px", color: g.cc, cursor: "pointer", flexShrink: "0", transition: ".12s" }}>{g.check}</div>
-                <div style={{ flex: "1", minWidth: "0" }}>
-                  <span style={{ fontSize: "14px", color: g.tc, textDecoration: g.deco }}>{g.text}</span>
-                  <span style={{ fontFamily: "var(--cond)", fontWeight: "700", fontSize: "9px", letterSpacing: ".1em", padding: "2px 7px", marginLeft: "9px", border: `1px solid ${g.typeC}`, color: g.typeC, whiteSpace: "nowrap" }}>{g.type}</span>
-                  {(g.hasBar) ? (<>
-                    <div style={{ height: "6px", background: "#1a1a1d", marginTop: "9px", overflow: "hidden" }}><div style={{ height: "100%", width: `${g.pct}%`, background: "var(--red)" }}></div></div>
-                    <div style={{ fontSize: "11px", color: "var(--dim)", marginTop: "4px" }}>{g.progLabel}</div>
-                  </>) : null}
-                </div>
-              </div>
-            </React.Fragment>))}
-          </div>
-        </div>
-      </div>
-      </>) : null}
-
-      
-      {(isDocs) ? (<>
-      <div style={{ padding: "24px 26px 60px", maxWidth: "1240px" }}>
-        <div style={{ marginBottom: "6px" }}>
-          <div style={{ fontSize: "10px", letterSpacing: ".26em", color: "var(--red)" }}>// 07 · THE LIBRARY</div>
-          <h1 style={{ fontFamily: "var(--cond)", fontWeight: "900", fontSize: "48px", lineHeight: ".92", margin: "6px 0 0", letterSpacing: ".005em" }}>DOCUMENT <span style={{ display: "inline-block", background: "var(--red)", color: "#0a0707", padding: "0 12px", transform: "skewX(-7deg)" }}>VAULT</span></h1>
-          <div style={{ fontSize: "12px", letterSpacing: ".04em", color: "var(--muted)", marginTop: "9px", maxWidth: "560px", lineHeight: "1.6" }}>Every artifact the OS runs on — the spec, the scripts, the brand, the lists. One source of truth, version-locked.</div>
-        </div>
-        <div style={{ height: "1px", background: "linear-gradient(90deg,var(--red),transparent 55%)", margin: "16px 0 22px" }}></div>
-
-        {(docsView).map((g, __k23) => (<React.Fragment key={__k23}>
-          <div style={{ marginBottom: "22px" }}>
-            <div style={{ fontSize: "10px", letterSpacing: ".16em", color: "var(--red)", marginBottom: "10px" }}>{g.cat}</div>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
-              {(g.items).map((it, __k24) => (<React.Fragment key={__k24}>
-                <Hover as="div" baseStyle={{ display: "flex", alignItems: "center", gap: "13px", background: "var(--panel)", border: "1px solid var(--line)", padding: "12px 14px", cursor: "pointer", transition: ".12s" }} hoverStyle={{ borderColor: "var(--red)" }} onClick={it.onClick}>
-                  <div style={{ fontFamily: "var(--mono)", fontSize: "9px", fontWeight: "700", letterSpacing: ".04em", color: "var(--red)", border: "1px solid var(--line2)", padding: "5px 0", minWidth: "44px", textAlign: "center", flexShrink: "0" }}>{it.fmt}</div>
-                  <div style={{ flex: "1", minWidth: "0" }}>
-                    <div style={{ fontSize: "13.5px", color: "var(--cream)", fontWeight: "500", lineHeight: "1.2" }}>{it.name}</div>
-                    <div style={{ fontSize: "11px", color: "var(--muted)", marginTop: "2px" }}>{it.meta}</div>
-                  </div>
-                  {(it.hasTag) ? (<>
-                    <span style={{ fontFamily: "var(--mono)", fontSize: "8.5px", letterSpacing: ".1em", color: "#0a0707", background: "var(--red)", padding: "3px 6px", flexShrink: "0" }}>{it.tag}</span>
-                  </>) : null}
-                </Hover>
-              </React.Fragment>))}
-            </div>
-          </div>
-        </React.Fragment>))}
-      </div>
-      </>) : null}
-
-      
-      {(isStrategy) ? (<>
-      <div style={{ padding: "24px 26px 60px", maxWidth: "1240px" }}>
-        <div style={{ marginBottom: "6px" }}>
-          <div style={{ fontSize: "10px", letterSpacing: ".26em", color: "var(--red)" }}>// 08 · THE THESIS</div>
-          <h1 style={{ fontFamily: "var(--cond)", fontWeight: "900", fontSize: "48px", lineHeight: ".92", margin: "6px 0 0", letterSpacing: ".005em" }}>THE <span style={{ display: "inline-block", background: "var(--red)", color: "#0a0707", padding: "0 12px", transform: "skewX(-7deg)" }}>STRATEGY</span></h1>
-          <div style={{ fontSize: "12px", letterSpacing: ".04em", color: "var(--muted)", marginTop: "9px", maxWidth: "560px", lineHeight: "1.6" }}>Why the engine is built the way it's built. Read it when a shiny distraction shows up and threatens the one thing.</div>
-        </div>
-        <div style={{ height: "1px", background: "linear-gradient(90deg,var(--red),transparent 55%)", margin: "16px 0 22px" }}></div>
-
-        <div style={{ background: "var(--panel)", border: "1px solid var(--line)", borderTop: "2px solid var(--red)", padding: "18px 20px", marginBottom: "22px" }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: "10px" }}>
-            <div style={{ fontFamily: "var(--cond)", fontWeight: 800, fontSize: "17px", letterSpacing: ".02em" }}>MY WORKING STRATEGY</div>
-            <div style={{ fontSize: "9.5px", letterSpacing: ".14em", color: "var(--dim)", textTransform: "uppercase" }}>Saves automatically</div>
-          </div>
-          <textarea value={this.strategyText()} onChange={(e) => this.setStrategyText(e.target.value)} placeholder="Type your current strategy, bets, and what you're deliberately NOT doing this quarter…"
-            style={{ width: "100%", minHeight: "120px", background: "#0a0a0c", border: "1px solid var(--line2)", color: "var(--cream)", fontFamily: "var(--mono)", fontSize: "13px", lineHeight: "1.6", padding: "12px 14px", resize: "vertical" }} />
-        </div>
-
-        <div style={{ position: "relative", background: "var(--reddim)", border: "1px solid #5a2230", borderLeft: "4px solid var(--red)", padding: "24px 28px", marginBottom: "22px", overflow: "hidden" }}>
-          <div style={{ position: "absolute", right: "-10px", top: "-44px", fontFamily: "var(--cond)", fontWeight: "900", fontSize: "150px", color: "rgba(230,50,43,.07)", lineHeight: "1" }}>★</div>
-          <div style={{ fontSize: "10px", letterSpacing: ".2em", color: "var(--red)" }}>THE THESIS</div>
-          <div style={{ fontFamily: "var(--cond)", fontWeight: "800", fontSize: "30px", lineHeight: "1.08", marginTop: "10px", maxWidth: "880px", color: "var(--cream)" }}>{stratThesis}</div>
-        </div>
-
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: "14px", marginBottom: "22px" }}>
-          {(stratPillars).map((p, __k25) => (<React.Fragment key={__k25}>
-            <div style={{ background: "var(--panel)", border: "1px solid var(--line)", borderTop: "2px solid var(--red)", padding: "18px 20px" }}>
-              <div style={{ fontFamily: "var(--cond)", fontWeight: "700", fontSize: "11px", letterSpacing: ".16em", color: "var(--red)" }}>{p.k}</div>
-              <div style={{ fontFamily: "var(--cond)", fontWeight: "900", fontSize: "19px", color: "var(--cream)", marginTop: "6px", lineHeight: "1.05" }}>{p.t}</div>
-              <div style={{ fontSize: "12.5px", color: "var(--muted)", lineHeight: "1.55", marginTop: "8px" }}>{p.d}</div>
-            </div>
-          </React.Fragment>))}
-        </div>
-
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "14px" }}>
-          <div style={{ background: "var(--panel)", border: "1px solid var(--line)", padding: "18px 20px" }}>
-            <div style={{ fontSize: "10px", letterSpacing: ".16em", color: "var(--red)" }}>THE THREE BETS</div>
-            <div style={{ marginTop: "10px" }}>
-              {(stratBets).map((b, __k26) => (<React.Fragment key={__k26}>
-                <div style={{ display: "flex", gap: "11px", padding: "10px 0", borderBottom: "1px solid #1a1a1d", fontSize: "13px", lineHeight: "1.5", color: "var(--cream)" }}><span style={{ color: "var(--red)", fontWeight: "900", flexShrink: "0" }}>›</span><span>{b}</span></div>
-              </React.Fragment>))}
-            </div>
-          </div>
-          <div style={{ background: "#0a0a0c", border: "1px solid var(--line)", padding: "18px 20px" }}>
-            <div style={{ fontSize: "10px", letterSpacing: ".16em", color: "var(--dim)" }}>WHAT WE DON'T DO</div>
-            <div style={{ marginTop: "10px" }}>
-              {(stratAnti).map((a, __k27) => (<React.Fragment key={__k27}>
-                <div style={{ display: "flex", gap: "11px", padding: "10px 0", borderBottom: "1px solid #1a1a1d", fontSize: "13px", lineHeight: "1.5", color: "var(--muted)" }}><span style={{ color: "var(--dim)", fontWeight: "900", flexShrink: "0" }}>✕</span><span>{a}</span></div>
-              </React.Fragment>))}
-            </div>
-          </div>
-        </div>
-      </div>
-      </>) : null}
-
-      
-      {(isPlans) ? (<>
-      <div style={{ padding: "24px 26px 60px", maxWidth: "1240px" }}>
-        <div style={{ marginBottom: "6px" }}>
-          <div style={{ fontSize: "10px", letterSpacing: ".26em", color: "var(--red)" }}>// 09 · THE ROADMAP</div>
-          <h1 style={{ fontFamily: "var(--cond)", fontWeight: "900", fontSize: "48px", lineHeight: ".92", margin: "6px 0 0", letterSpacing: ".005em" }}>THE <span style={{ display: "inline-block", background: "var(--red)", color: "#0a0707", padding: "0 12px", transform: "skewX(-7deg)" }}>PLAN</span></h1>
-          <div style={{ fontSize: "12px", letterSpacing: ".04em", color: "var(--muted)", marginTop: "9px", maxWidth: "560px", lineHeight: "1.6" }}>Four phases, two deadlines, one number. Sign by August 31, collect by December 31.</div>
-        </div>
-        <div style={{ height: "1px", background: "linear-gradient(90deg,var(--red),transparent 55%)", margin: "16px 0 22px" }}></div>
-
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "14px", marginBottom: "22px" }}>
-          <div style={{ background: "var(--panel)", border: "1px solid var(--line)", borderTop: "2px solid var(--red)", padding: "16px 20px", display: "flex", alignItems: "center", gap: "18px" }}>
-            <div style={{ fontFamily: "var(--cond)", fontWeight: "900", fontSize: "46px", color: "var(--red)", lineHeight: ".86" }}>{sellDays}</div>
-            <div><div style={{ fontSize: "10px", letterSpacing: ".16em", color: "var(--dim)" }}>DAYS TO SIGN</div><div style={{ fontFamily: "var(--cond)", fontWeight: "800", fontSize: "17px", color: "var(--cream)", marginTop: "3px" }}>$150K CONTRACTED · AUG 31</div></div>
-          </div>
-          <div style={{ background: "var(--panel)", border: "1px solid var(--line)", borderTop: "2px solid var(--line2)", padding: "16px 20px", display: "flex", alignItems: "center", gap: "18px" }}>
-            <div style={{ fontFamily: "var(--cond)", fontWeight: "900", fontSize: "46px", color: "var(--cream)", lineHeight: ".86" }}>{deadDays}</div>
-            <div><div style={{ fontSize: "10px", letterSpacing: ".16em", color: "var(--dim)" }}>DAYS TO COLLECT</div><div style={{ fontFamily: "var(--cond)", fontWeight: "800", fontSize: "17px", color: "var(--cream)", marginTop: "3px" }}>$150K BANKED · DEC 31</div></div>
-          </div>
-        </div>
-
-        <div style={{ fontSize: "10px", letterSpacing: ".16em", color: "var(--red)", marginBottom: "11px" }}>THE FOUR PHASES</div>
-        <div style={{ marginBottom: "22px" }}>
-          {(plansPhases).map((p, __k28) => (<React.Fragment key={__k28}>
-            <div style={{ display: "flex", gap: "16px", alignItems: "flex-start", background: "var(--panel)", border: "1px solid var(--line)", borderLeft: `3px solid ${p.c}`, padding: "16px 18px", marginBottom: "10px" }}>
-              <div style={{ fontFamily: "var(--cond)", fontWeight: "900", fontSize: "26px", color: p.c, flexShrink: "0", width: "40px", lineHeight: "1" }}>{p.n}</div>
-              <div style={{ flex: "1", minWidth: "0" }}>
-                <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
-                  <span style={{ fontFamily: "var(--cond)", fontWeight: "900", fontSize: "19px", color: "var(--cream)" }}>{p.t}</span>
-                  <span style={{ fontFamily: "var(--mono)", fontSize: "9px", letterSpacing: ".1em", color: p.c, border: `1px solid ${p.c}`, padding: "2px 7px" }}>{p.when}</span>
-                  <span style={{ fontFamily: "var(--mono)", fontSize: "9px", letterSpacing: ".12em", color: "var(--dim)", marginLeft: "auto" }}>{p.state}</span>
-                </div>
-                <div style={{ fontSize: "12.5px", color: "var(--muted)", lineHeight: "1.55", marginTop: "6px" }}>{p.d}</div>
-              </div>
-            </div>
-          </React.Fragment>))}
-        </div>
-
-        <div style={{ background: "var(--panel)", border: "1px solid var(--line)", padding: "18px 20px" }}>
-          <div style={{ fontSize: "10px", letterSpacing: ".16em", color: "var(--red)" }}>THIS WEEK'S MOVES · PHASE 1</div>
-          <div style={{ marginTop: "10px" }}>
-            {(planMoves).map((m, __k29) => (<React.Fragment key={__k29}>
-              <div onClick={m.onClick} style={{ display: "flex", alignItems: "center", gap: "11px", padding: "9px 0", borderBottom: "1px solid #1a1a1d", fontSize: "12.5px", cursor: "pointer" }}>
-                <span style={{ width: "18px", height: "18px", border: `1.5px solid ${m.box}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: "11px", color: m.cc, flexShrink: "0" }}>{m.check}</span>
-                <span style={{ color: m.tc }}>{m.text}</span>
-              </div>
-            </React.Fragment>))}
-          </div>
-        </div>
-      </div>
-      </>) : null}
-
-      
-      {(isStandby) ? (<>
-      <div style={{ padding: "24px 26px", display: "flex", alignItems: "center", justifyContent: "center", minHeight: "60vh" }}>
-        <div style={{ position: "relative", background: "var(--panel)", border: "1px solid var(--line)", padding: "46px 54px", textAlign: "center", maxWidth: "560px", overflow: "hidden" }}>
-          <span style={{ position: "absolute", top: "-1px", left: "-1px", width: "16px", height: "16px", borderTop: "2px solid var(--red)", borderLeft: "2px solid var(--red)" }}></span>
-          <span style={{ position: "absolute", top: "-1px", right: "-1px", width: "16px", height: "16px", borderTop: "2px solid var(--red)", borderRight: "2px solid var(--red)" }}></span>
-          <span style={{ position: "absolute", bottom: "-1px", left: "-1px", width: "16px", height: "16px", borderBottom: "2px solid var(--red)", borderLeft: "2px solid var(--red)" }}></span>
-          <span style={{ position: "absolute", bottom: "-1px", right: "-1px", width: "16px", height: "16px", borderBottom: "2px solid var(--red)", borderRight: "2px solid var(--red)" }}></span>
-          <div style={{ width: "54px", height: "54px", border: "2px solid var(--line2)", borderTopColor: "var(--red)", borderRadius: "50%", margin: "0 auto 22px", animation: animSpin }}></div>
-          <div style={{ fontSize: "10px", letterSpacing: ".26em", color: "var(--red)" }}>MODULE // STANDBY</div>
-          <div style={{ fontFamily: "var(--cond)", fontWeight: "900", fontSize: "42px", lineHeight: ".92", marginTop: "8px" }}>{currentSection}</div>
-          <div style={{ fontSize: "12px", color: "var(--muted)", lineHeight: "1.6", marginTop: "12px" }}>This module is wired and ready. The <span style={{ color: "var(--cream)" }}>TERMINAL</span> skin rolls across it next — confirm the look on Command and I'll build it out.</div>
-          <div style={{ fontFamily: "var(--mono)", fontSize: "10.5px", color: "var(--dim)", letterSpacing: ".1em", marginTop: "18px" }}>STATUS: QUEUED · LAYER MOUNTED · AWAITING BUILD ORDER</div>
-        </div>
-      </div>
-      </>) : null}
-
-    </main>
-  </div>
-
-  
-  {(toast) ? (<>
-    <div style={{ position: "fixed", bottom: "24px", left: "50%", transform: "translateX(-50%)", background: "#0e0e11", border: "1px solid var(--red)", borderLeft: "3px solid var(--red)", color: "var(--cream)", padding: "11px 22px", fontSize: "11px", letterSpacing: ".12em", zIndex: "90", boxShadow: "0 8px 30px rgba(0,0,0,.6)" }}>{toast}</div>
-  </>) : null}
-
-  
-  {(booting) ? (<>
-    <div onClick={dismissBoot} style={{ position: "fixed", inset: "0", zIndex: "120", background: "#060607", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", cursor: "pointer", fontFamily: "var(--mono)", padding: "24px" }}>
-      <div style={{ position: "absolute", inset: "0", pointerEvents: "none", background: "repeating-linear-gradient(0deg,rgba(0,0,0,.3) 0 1px,transparent 1px 3px)" }}></div>
-      <div onClick={skipBoot} style={{ position: "absolute", top: "18px", right: "22px", fontSize: "10px", letterSpacing: ".16em", color: "var(--dim)", border: "1px solid var(--line)", padding: "6px 12px", cursor: "pointer" }}>[ESC] SKIP →</div>
-
-      <div style={{ position: "relative", width: "104px", height: "104px", border: "3px solid var(--red)", display: "flex", alignItems: "center", justifyContent: "center", background: "#0a0707", animation: animGlow, marginBottom: "22px" }}>
-        <div style={{ position: "absolute", left: "5px", top: "7px", bottom: "7px", width: "8px", background: "repeating-linear-gradient(180deg,var(--red) 0 6px,transparent 6px 13px)" }}></div>
-        <div style={{ position: "absolute", right: "5px", top: "7px", bottom: "7px", width: "8px", background: "repeating-linear-gradient(180deg,var(--red) 0 6px,transparent 6px 13px)" }}></div>
-        <div style={{ width: "0", height: "0", borderTop: "20px solid transparent", borderBottom: "20px solid transparent", borderLeft: "32px solid var(--red)", marginLeft: "6px" }}></div>
-        <span style={{ position: "absolute", top: "-3px", left: "-3px", width: "18px", height: "18px", borderTop: "2px solid var(--cream)", borderLeft: "2px solid var(--cream)" }}></span>
-        <span style={{ position: "absolute", bottom: "-3px", right: "-3px", width: "18px", height: "18px", borderBottom: "2px solid var(--cream)", borderRight: "2px solid var(--cream)" }}></span>
-      </div>
-      <div style={{ fontFamily: "var(--cond)", fontWeight: "900", fontSize: "34px", letterSpacing: ".04em", lineHeight: ".9" }}>CHURLISH<span style={{ color: "var(--red)" }}>/</span>OS</div>
-      <div style={{ fontSize: "9px", letterSpacing: ".4em", color: "var(--dim)", marginTop: "6px", marginBottom: "24px" }}>OPERATING SYSTEM · v1.4.0</div>
-
-      <div style={{ width: "100%", maxWidth: "520px", background: "#0a0a0c", border: "1px solid var(--line)", padding: "16px 18px", minHeight: "212px" }}>
-        {(bootLines).map((b, __k30) => (<React.Fragment key={__k30}>
-          <div style={{ fontSize: "12px", lineHeight: "1.65", color: b.color, animation: "bootin .18s ease" }}>{b.text}</div>
-        </React.Fragment>))}
-        {(bootReady) ? (<>
-          <div style={{ fontSize: "13px", letterSpacing: ".14em", color: "var(--red)", marginTop: "12px" }}>▸ PRESS ENTER TO AUTHENTICATE<span style={{ animation: "blink 1s steps(1) infinite" }}>_</span></div>
-        </>) : null}
-      </div>
-      <div style={{ width: "100%", maxWidth: "520px", height: "6px", background: "#161619", border: "1px solid var(--line2)", marginTop: "14px", position: "relative", overflow: "hidden" }}>
-        <div style={{ position: "absolute", left: "0", top: "0", bottom: "0", width: `${bootProgress}%`, background: "linear-gradient(90deg,var(--red2),var(--red))", transition: "width .2s" }}></div>
-      </div>
-      <div style={{ width: "100%", maxWidth: "520px", display: "flex", justifyContent: "space-between", fontSize: "9.5px", letterSpacing: ".14em", color: "var(--dim)", marginTop: "7px" }}>
-        <span>INITIALIZING SYSTEM</span><span>{bootProgress}%</span>
       </div>
     </div>
-  </>) : null}
+
+    <nav style={{ display: "flex", gap: "2px", padding: "0 22px", background: "var(--deep)", overflowX: "auto" }}>
+      {sections.map((s, i) => (
+        <Hover as="button" key={i} onClick={s.onSelect}
+          baseStyle={{ flexShrink: 0, background: "transparent", border: "none", borderBottom: "3px solid " + s.bar, color: s.fg, cursor: "pointer", padding: "10px 12px 9px", fontFamily: "var(--sans)", fontWeight: 800, fontSize: "11px", letterSpacing: ".1em", textTransform: "uppercase", transition: ".12s" }}
+          hoverStyle={{ color: "var(--white)" }}>
+          <span style={{ color: s.code, marginRight: "7px", fontWeight: 700 }}>{s.num}</span>{s.label}
+        </Hover>
+      ))}
+    </nav>
+  </header>
+
+  {/* ===================== DRIVE METER ===================== */}
+  <section style={{ padding: "20px 26px", background: "var(--panel)", borderBottom: "1px solid var(--line)" }}>
+    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: "10px", flexWrap: "wrap", gap: "8px" }}>
+      <span style={{ fontWeight: 900, fontSize: "13px", letterSpacing: ".14em" }}>THE DRIVE TO {goalShort} <span style={{ color: "var(--gold)" }}>· COLLECTED CASH = FIELD POSITION</span></span>
+      <span style={{ fontFamily: "var(--num)", fontWeight: 600, fontSize: "15px" }}><span style={{ color: "var(--gold)" }}>{collectedFmt}</span> <span style={{ color: "var(--dim)", fontSize: "12px" }}>/ {goalFmt} · {gapText}</span></span>
+    </div>
+    <div style={{ position: "relative", height: "34px", background: "var(--deep)", border: "1px solid var(--line)", borderRadius: "3px", overflow: "hidden" }}>
+      <div style={{ position: "absolute", inset: 0, background: "repeating-linear-gradient(90deg,transparent 0 calc(10% - 1px),rgba(142,163,196,.25) calc(10% - 1px) 10%)" }}></div>
+      <div style={{ position: "absolute", right: 0, top: 0, bottom: 0, width: "9%", background: "rgba(255,184,28,.16)", borderLeft: "2px solid var(--gold)" }}></div>
+      <div style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: `${pct}%`, background: "linear-gradient(90deg,rgba(255,184,28,.12),rgba(255,184,28,.4))" }}></div>
+      <div style={{ position: "absolute", left: `${pct}%`, top: "50%", width: "16px", height: "16px", margin: "-8px 0 0 -8px", background: "var(--gold)", borderRadius: "50% / 42%", boxShadow: "0 0 12px rgba(255,184,28,.8)" }}></div>
+      <div style={{ position: "absolute", right: "8px", top: "50%", transform: "translateY(-50%)", fontFamily: "var(--num)", fontWeight: 700, fontSize: "12px", letterSpacing: ".14em", color: "var(--gold)" }}>END ZONE</div>
+    </div>
+    <div style={{ display: "flex", justifyContent: "space-between", marginTop: "7px", fontSize: "9px", fontWeight: 700, letterSpacing: ".14em", color: "var(--dim)" }}>
+      <span>OWN {yardLine} YARD LINE</span><span>{pctLabel} OF THE FIELD COVERED</span>
+    </div>
+  </section>
+
+  {/* ============ 01 COMMAND: THE BIG BOARD ============ */}
+  {(isCommand) ? (
+  <div style={screenPad}>
+
+    <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: "16px", flexWrap: "wrap", marginBottom: "22px" }}>
+      <div>
+        {kicker('SEGMENT 01 — THE SCREEN YOU LIVE IN')}
+        <h1 style={h1s}>The Big Board</h1>
+        <div style={{ ...subs, maxWidth: "600px" }}>Sign by <span style={{ color: "var(--white)", fontWeight: 700 }}>{sellByLabel}</span>, collect by <span style={{ color: "var(--white)", fontWeight: 700 }}>{deadlineLabel}</span>. Charlotte is watching the other guy's highlight reel — take the broadcast back.</div>
+      </div>
+      <Hover as="button" onClick={newWeek} baseStyle={goldBtn} hoverStyle={{ background: "var(--gold2)" }}>↻ NEW WEEK</Hover>
+    </div>
+
+    <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: "16px", marginBottom: "22px" }}>
+      {v.tiles.map((t, i) => (
+        <div key={i} style={{ background: "var(--panel2)", border: "1px solid " + t.edge, borderTop: "4px solid " + t.top, borderRadius: "4px", padding: "16px 18px" }}>
+          <div style={{ fontSize: "9.5px", fontWeight: 800, letterSpacing: ".2em", color: t.labelColor }}>{t.label}</div>
+          <div style={{ fontFamily: "var(--num)", fontWeight: 700, fontSize: "41px", lineHeight: 1, color: t.valColor, marginTop: "9px" }}>{t.val}</div>
+          <div style={{ fontSize: "9px", fontWeight: 700, letterSpacing: ".12em", color: t.subColor, marginTop: "7px" }}>{t.sub}</div>
+        </div>
+      ))}
+    </div>
+
+    <div style={{ background: "var(--panel)", border: "1px solid var(--line)", borderRadius: "4px", padding: "20px 22px", marginBottom: "20px" }}>
+      <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", flexWrap: "wrap", gap: "8px" }}>
+        <div style={{ fontWeight: 900, fontSize: "15px", letterSpacing: ".1em" }}>DRIVE CHART <span style={{ color: "var(--dim)", fontSize: "11px", fontWeight: 700, letterSpacing: ".06em" }}>— EVERY CLIENT ADVANCES FOUR DOWNS</span></div>
+        <div style={{ fontSize: "9px", letterSpacing: ".22em", color: "var(--gold)", fontWeight: 800 }}>AUDIT ▸ CAPTURE ▸ DEPLOY ▸ LOOP</div>
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: "12px", marginTop: "16px" }}>
+        {engine.map((st, i) => (
+          <div key={i} style={{ background: "var(--deep)", border: "1px solid var(--line)", borderRadius: "4px", overflow: "hidden" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: st.headBg, padding: "8px 12px" }}>
+              <span style={{ fontFamily: "var(--num)", fontWeight: 700, fontSize: "13.5px", letterSpacing: ".1em", color: st.headFg }}>{st.down} · {st.name}</span>
+              <span style={{ fontSize: "8.5px", fontWeight: 800, letterSpacing: ".1em", color: st.headSub }}>{st.count}</span>
+            </div>
+            <div style={{ padding: "10px 10px 4px" }}>
+              <div style={{ fontSize: "8.5px", fontWeight: 700, letterSpacing: ".14em", color: "var(--dim)", textTransform: "uppercase", marginBottom: "8px" }}>{st.tag}</div>
+              {st.clients.map((c, j) => (
+                <div key={j} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "8px", background: "var(--panel2)", borderLeft: "3px solid var(--gold)", padding: "6px 9px", marginBottom: "6px", borderRadius: "2px" }}>
+                  <span style={{ fontSize: "10.5px", fontWeight: 700, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{c.n}</span>
+                  <span style={{ fontFamily: "var(--num)", fontWeight: 600, fontSize: "11.5px", color: "var(--gold)", flexShrink: 0 }}>{c.v}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+
+    <div style={{ display: "grid", gridTemplateColumns: "1.15fr 1fr", gap: "20px" }}>
+      <div style={{ background: "var(--panel)", border: "1px solid var(--line)", borderRadius: "4px", padding: "20px 22px" }}>
+        <div style={{ fontWeight: 900, fontSize: "15px", letterSpacing: ".1em" }}>BOX SCORE <span style={{ color: "var(--dim)", fontSize: "11px", fontWeight: 700, letterSpacing: ".06em" }}>— LOG IT FRIDAY, CUT TO COMMERCIAL</span></div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(5,1fr)", gap: "10px", marginTop: "16px" }}>
+          {ff5.map((f, i) => (
+            <div key={i} style={{ background: "var(--deep)", border: "1px solid " + f.edge, borderRadius: "4px", padding: "11px 7px", textAlign: "center" }}>
+              <label style={{ display: "block", fontSize: "8px", fontWeight: 800, letterSpacing: ".1em", color: "var(--dim)", textTransform: "uppercase", minHeight: "24px", lineHeight: "1.4" }}>{f.label}</label>
+              <input value={f.val} onChange={f.onChange} placeholder="0" style={{ width: "100%", background: "transparent", border: "none", borderBottom: "2px solid var(--line)", color: "var(--gold)", textAlign: "center", fontFamily: "var(--num)", fontWeight: 700, fontSize: "23px", padding: "3px 2px", marginTop: "4px" }} />
+              <div style={{ fontSize: "8px", fontWeight: 800, letterSpacing: ".1em", color: f.floorColor, marginTop: "6px" }}>{f.floor}</div>
+            </div>
+          ))}
+        </div>
+        {(warn) ? (
+          <div style={{ marginTop: "16px", display: "flex", gap: 0, borderRadius: "3px", overflow: "hidden", border: "1px solid rgba(255,48,64,.5)" }}>
+            <div style={{ background: "var(--live)", padding: "12px 14px", display: "flex", alignItems: "center" }}><span style={{ fontWeight: 900, fontSize: "10px", letterSpacing: ".18em", whiteSpace: "nowrap" }}>⚑ FLAG</span></div>
+            <div style={{ background: "rgba(255,48,64,.1)", padding: "10px 16px", fontSize: "12px", lineHeight: "1.55", color: "var(--white)" }}>{warn}</div>
+          </div>
+        ) : null}
+      </div>
+
+      <div style={{ background: "var(--panel)", border: "1px solid var(--line)", borderRadius: "4px", padding: "20px 22px" }}>
+        <div style={{ fontWeight: 900, fontSize: "15px", letterSpacing: ".1em" }}>KEYS TO THE GAME</div>
+        <div style={{ marginTop: "10px" }}>
+          {floor.map((g, i) => (
+            <div key={i} onClick={g.onClick} style={{ display: "flex", alignItems: "center", gap: "11px", padding: "8px 0", borderBottom: "1px solid var(--line)", fontSize: "12px", cursor: g.cursor, fontWeight: 500 }}>
+              <span style={{ width: "18px", height: "18px", borderRadius: "2px", background: g.box, border: "1px solid " + g.boxEdge, display: "flex", alignItems: "center", justifyContent: "center", fontSize: "11px", color: "var(--golddark)", flexShrink: 0, fontWeight: 900 }}>{g.check}</span>
+              <span style={{ color: g.tc }}>{g.text}</span>
+            </div>
+          ))}
+        </div>
+        <div style={{ fontWeight: 900, fontSize: "12.5px", letterSpacing: ".14em", color: "var(--gold)", marginTop: "18px" }}>SCORING CHANCES · RED ZONE</div>
+        <div style={{ marginTop: "6px" }}>
+          {next.map((n, i) => (
+            <Hover as="div" key={i} onClick={n.onClick} baseStyle={{ display: "flex", alignItems: "center", gap: "10px", padding: "8px 0", borderBottom: "1px solid var(--line)", fontSize: "11.5px", cursor: "pointer", fontWeight: 500 }} hoverStyle={{ color: "var(--white)" }}>
+              <span style={{ color: "var(--gold)", fontWeight: 900 }}>▸</span>
+              <span style={{ color: "var(--white)", fontWeight: 700 }}>{n.label}</span>
+              <span style={{ color: "var(--dim)" }}>{n.sub}</span>
+              <span style={{ marginLeft: "auto", fontFamily: "var(--num)", fontWeight: 600, fontSize: "13px", color: "var(--gold)" }}>{n.val}</span>
+            </Hover>
+          ))}
+          {!next.length ? <div style={{ padding: "10px 0", fontSize: "11.5px", color: "var(--dim)" }}>No open deals yet — hit 02 PIPELINE and add the first one.</div> : null}
+        </div>
+      </div>
+    </div>
+
+    <div style={{ background: "var(--panel)", border: "1px solid var(--line)", borderRadius: "4px", padding: "20px 22px", marginTop: "20px" }}>
+      <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", flexWrap: "wrap", gap: "8px" }}>
+        <div style={{ fontWeight: 900, fontSize: "15px", letterSpacing: ".1em" }}>BROADCAST SCHEDULE — {curMonthName} <span style={{ color: "var(--dim)", fontSize: "11px", fontWeight: 700, letterSpacing: ".06em" }}>— ONE HALF-DAY SHOOT PER CLIENT, PER MONTH</span></div>
+        <div style={{ fontSize: "9.5px", letterSpacing: ".14em", fontWeight: 800, color: "var(--muted)" }}>SPLICE: <span style={{ color: "var(--gold)" }}>{clipsFmt}</span> CLIPS SHIPPED</div>
+      </div>
+      {shoots.length ? (
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: "12px", marginTop: "16px" }}>
+          {shoots.map(shootCard)}
+        </div>
+      ) : (
+        <div style={{ border: "1px dashed var(--line)", borderRadius: "4px", padding: "26px", textAlign: "center", color: "var(--dim)", fontSize: "12px", marginTop: "16px" }}>
+          No capture days on the calendar. <button onClick={addShoot} style={{ background: "none", border: "none", color: "var(--gold)", fontWeight: 800, cursor: "pointer", fontSize: "12px", letterSpacing: ".08em" }}>+ ADD THE FIRST ONE</button>
+        </div>
+      )}
+    </div>
+
+    <div style={{ marginTop: "26px", borderRadius: "4px", overflow: "hidden", boxShadow: "0 10px 30px rgba(0,0,0,.45)" }}>
+      <div style={{ display: "flex", alignItems: "stretch" }}>
+        <div style={{ background: "var(--live)", display: "flex", flexDirection: "column", justifyContent: "center", padding: "0 18px" }}>
+          <div style={{ fontWeight: 900, fontSize: "10px", letterSpacing: ".2em", whiteSpace: "nowrap" }}>THE ONE</div>
+          <div style={{ fontWeight: 900, fontSize: "10px", letterSpacing: ".2em", whiteSpace: "nowrap" }}>THING</div>
+        </div>
+        <div style={{ flex: 1, background: "var(--gold)", color: "var(--golddark)", padding: "16px 22px" }}>
+          <div style={{ fontFamily: "var(--num)", fontWeight: 700, fontSize: "27px", lineHeight: 1, textTransform: "uppercase", letterSpacing: ".01em" }}>{oneThingTitle}</div>
+          <div style={{ fontSize: "12px", fontWeight: 600, lineHeight: "1.5", marginTop: "6px", maxWidth: "760px" }}>{oneThingBody}</div>
+        </div>
+        <div style={{ background: "var(--golddark)", color: "var(--gold)", display: "flex", alignItems: "center", padding: "0 20px", fontFamily: "var(--num)", fontWeight: 700, fontSize: "29px" }}>01</div>
+      </div>
+    </div>
+  </div>
+  ) : null}
+
+  {/* ============ 02 PIPELINE: THE STANDINGS ============ */}
+  {(isPipeline) ? (
+  <div style={screenPad}>
+    <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: "16px", flexWrap: "wrap", marginBottom: "22px" }}>
+      <div>
+        {kicker('SEGMENT 02 — EVERY LIVE DEAL, BY STAGE')}
+        <h1 style={h1s}>The Standings</h1>
+        <div style={{ ...subs, maxWidth: "600px" }}>Signed and Collected feed the scorebug upstairs. Nothing moves itself — you move it.</div>
+      </div>
+      <Hover as="button" onClick={addDeal} baseStyle={goldBtn} hoverStyle={{ background: "var(--gold2)" }}>+ New Deal</Hover>
+    </div>
+
+    <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: "16px", marginBottom: "20px" }}>
+      <div style={{ background: "var(--panel2)", border: "1px solid var(--line)", borderTop: "4px solid var(--line)", borderRadius: "4px", padding: "15px 18px" }}>
+        <div style={{ fontSize: "9.5px", fontWeight: 800, letterSpacing: ".2em", color: "var(--muted)" }}>WEIGHTED PIPELINE</div>
+        <div style={{ fontFamily: "var(--num)", fontWeight: 700, fontSize: "36px", lineHeight: 1, color: "var(--white)", marginTop: "8px" }}>{pStats.weighted}</div>
+        <div style={{ fontSize: "9px", fontWeight: 700, letterSpacing: ".12em", color: "var(--dim)", marginTop: "6px" }}>STAGE-PROBABILITY ADJUSTED</div>
+      </div>
+      <div style={{ background: "var(--panel2)", border: "1px solid var(--line)", borderTop: "4px solid var(--line)", borderRadius: "4px", padding: "15px 18px" }}>
+        <div style={{ fontSize: "9.5px", fontWeight: 800, letterSpacing: ".2em", color: "var(--muted)" }}>LIVE DEALS</div>
+        <div style={{ fontFamily: "var(--num)", fontWeight: 700, fontSize: "36px", lineHeight: 1, color: "var(--white)", marginTop: "8px" }}>{pStats.count}</div>
+        <div style={{ fontSize: "9px", fontWeight: 700, letterSpacing: ".12em", color: "var(--dim)", marginTop: "6px" }}>NOT WON / LOST</div>
+      </div>
+      <div style={{ background: "var(--panel2)", border: "1px solid var(--line)", borderTop: "4px solid var(--gold)", borderRadius: "4px", padding: "15px 18px" }}>
+        <div style={{ fontSize: "9.5px", fontWeight: 800, letterSpacing: ".2em", color: "var(--gold)" }}>SIGNED</div>
+        <div style={{ fontFamily: "var(--num)", fontWeight: 700, fontSize: "36px", lineHeight: 1, color: "var(--gold)", marginTop: "8px" }}>{pStats.signed}</div>
+        <div style={{ fontSize: "9px", fontWeight: 700, letterSpacing: ".12em", color: "var(--dim)", marginTop: "6px" }}>{pStats.signedN}</div>
+      </div>
+      <div style={{ background: "var(--panel2)", border: "1px solid var(--line)", borderTop: "4px solid var(--line)", borderRadius: "4px", padding: "15px 18px" }}>
+        <div style={{ fontSize: "9.5px", fontWeight: 800, letterSpacing: ".2em", color: "var(--muted)" }}>WIN RATE</div>
+        <div style={{ fontFamily: "var(--num)", fontWeight: 700, fontSize: "36px", lineHeight: 1, color: "var(--white)", marginTop: "8px" }}>{pStats.win}</div>
+        <div style={{ fontSize: "9px", fontWeight: 700, letterSpacing: ".12em", color: "var(--dim)", marginTop: "6px" }}>SIGNED ÷ CLOSED</div>
+      </div>
+    </div>
+
+    <div style={{ display: "grid", gridTemplateColumns: "repeat(6,minmax(178px,1fr))", gap: "12px", overflowX: "auto", paddingBottom: "10px" }}>
+      {pipeCols.map((c, i) => (
+        <div key={i} style={{ background: "var(--deep)", border: "1px solid var(--line)", borderRadius: "4px", padding: "11px", minHeight: "150px" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "11px", borderBottom: "1px solid var(--line)", paddingBottom: "9px" }}>
+            <span style={{ fontFamily: "var(--num)", fontWeight: 700, fontSize: "12px", letterSpacing: ".08em", textTransform: "uppercase", color: c.accent }}>{c.stage}</span>
+            <span style={{ fontFamily: "var(--num)", fontWeight: 600, fontSize: "12px", color: "var(--dim)" }}>{c.sum}</span>
+          </div>
+          {c.deals.map((dd, j) => (
+            <Hover as="div" key={j} onClick={dd.onClick} baseStyle={{ background: "var(--panel2)", border: "1px solid var(--line)", borderRadius: "3px", padding: "9px 10px", marginBottom: "8px", cursor: "pointer", transition: ".12s" }} hoverStyle={{ borderColor: "var(--gold)" }}>
+              <div style={{ fontWeight: 700, fontSize: "12.5px", color: "var(--white)", lineHeight: "1.2" }}>{dd.name}</div>
+              <div style={{ fontSize: "10px", color: "var(--muted)", marginTop: "3px" }}>{dd.offer}</div>
+              <div style={{ fontFamily: "var(--num)", fontWeight: 600, fontSize: "14px", color: "var(--gold)", marginTop: "5px" }}>{dd.val}</div>
+            </Hover>
+          ))}
+        </div>
+      ))}
+    </div>
+  </div>
+  ) : null}
+
+  {/* ============ 03 AUDITS: THE BOOTH ============ */}
+  {(isAudits) ? (
+  <div style={screenPad}>
+    <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: "16px", flexWrap: "wrap", marginBottom: "22px" }}>
+      <div>
+        {kicker('SEGMENT 03 — THE FIRST YES')}
+        <h1 style={h1s}>The Audit Booth</h1>
+        <div style={subs}>The free 30-minute Authority Audit. No pitch slap — they walk away with a plan either way. Read it off the prompter; don't wing it.</div>
+      </div>
+      <Hover as="button" onClick={toggleObj} baseStyle={ghostBtn} hoverStyle={{ borderColor: "var(--gold)", color: "var(--white)" }}>{objBtnLabel}</Hover>
+    </div>
+
+    {(showScript) ? (
+    <div style={{ display: "grid", gridTemplateColumns: "250px 1fr", gap: "16px" }}>
+      <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+        <div style={{ fontSize: "9px", fontWeight: 800, letterSpacing: ".22em", color: "var(--dim)", padding: "2px 2px 6px" }}>RUNDOWN</div>
+        {scriptSteps.map((s, i) => (
+          <button key={i} onClick={s.onClick} style={{ display: "flex", alignItems: "center", gap: "11px", textAlign: "left", padding: "11px 13px", background: s.bg, border: "1px solid " + s.bd, borderLeft: "4px solid " + s.blk, color: s.fg, cursor: "pointer", borderRadius: "3px", transition: ".14s", fontFamily: "var(--sans)" }}>
+            <span style={{ fontFamily: "var(--num)", fontWeight: 700, fontSize: "14px", color: s.nc, width: "20px", flexShrink: 0 }}>{s.n}</span>
+            <span style={{ fontWeight: 800, fontSize: "12px", letterSpacing: ".06em", textTransform: "uppercase", lineHeight: "1.15" }}>{s.l}</span>
+          </button>
+        ))}
+      </div>
+      <div style={{ background: "var(--panel)", border: "1px solid var(--line)", borderRadius: "4px", padding: "22px 24px", minHeight: "380px" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "16px", paddingBottom: "14px", borderBottom: "1px solid var(--line)" }}>
+          <span style={{ background: "var(--live)", fontWeight: 900, fontSize: "9px", letterSpacing: ".16em", padding: "4px 8px", borderRadius: "2px" }}>PROMPTER</span>
+          <span style={{ fontSize: "12.5px", color: "var(--gold)", fontWeight: 600, lineHeight: "1.5" }}>{curGoal}</span>
+        </div>
+        {curBlocks.map((b, i) => (
+          <React.Fragment key={i}>
+            {b.isSay ? <div style={{ background: "var(--deep)", borderLeft: "4px solid var(--gold)", borderRadius: "0 3px 3px 0", padding: "14px 17px", margin: "12px 0", fontSize: "14.5px", lineHeight: "1.6", color: "var(--white)" }}>{b.text}</div> : null}
+            {b.isAlt ? <div style={{ background: "var(--deep)", borderLeft: "4px solid var(--line)", borderRadius: "0 3px 3px 0", padding: "14px 17px", margin: "12px 0", fontSize: "14px", lineHeight: "1.6", color: "var(--muted)" }}>ALTERNATE READ — {b.text}</div> : null}
+            {b.isNote ? <div style={{ fontSize: "12px", color: "var(--dim)", margin: "10px 0", lineHeight: "1.55" }}><span style={{ color: "var(--gold)", fontWeight: 800, letterSpacing: ".1em", fontSize: "9.5px" }}>PRODUCER NOTE · </span>{b.text}</div> : null}
+            {b.isQ ? (
+              <div style={{ margin: "10px 0 4px" }}>
+                {b.items.map((q, j) => (
+                  <div key={j} style={{ padding: "9px 0 9px 22px", position: "relative", fontSize: "13.5px", lineHeight: "1.55", borderBottom: "1px solid var(--line)", color: "var(--white)" }}><span style={{ position: "absolute", left: "2px", color: "var(--gold)", fontWeight: 900 }}>›</span>{q}</div>
+                ))}
+              </div>
+            ) : null}
+          </React.Fragment>
+        ))}
+        <div style={{ display: "flex", justifyContent: "space-between", marginTop: "22px" }}>
+          <Hover as="button" onClick={backStep} baseStyle={{ background: "transparent", border: "1px solid var(--line)", color: "var(--muted)", fontWeight: 800, fontSize: "10.5px", letterSpacing: ".12em", padding: "9px 15px", cursor: "pointer", borderRadius: "3px", opacity: backOpacity }} hoverStyle={{ borderColor: "var(--gold)", color: "var(--white)" }}>← BACK</Hover>
+          <button onClick={nextStep} style={{ background: "var(--gold)", border: "none", color: "var(--golddark)", fontWeight: 900, fontSize: "10.5px", letterSpacing: ".12em", padding: "9px 17px", cursor: "pointer", borderRadius: "3px", opacity: nextOpacity }}>NEXT SEGMENT →</button>
+        </div>
+      </div>
+    </div>
+    ) : null}
+
+    {(showObj) ? (
+    <div>
+      <div style={{ fontSize: "10px", fontWeight: 800, letterSpacing: ".2em", color: "var(--gold)", marginBottom: "14px" }}>THE SEVEN YOU'LL ACTUALLY HEAR — AND THE TURN</div>
+      {objections.map((o, i) => (
+        <details key={i} style={{ border: "1px solid var(--line)", background: "var(--deep)", borderRadius: "4px", marginBottom: "9px" }}>
+          <summary style={{ padding: "14px 16px", cursor: "pointer", fontWeight: 800, fontSize: "14px", letterSpacing: ".02em", color: "var(--white)", listStyle: "none" }}>{o.q}</summary>
+          <div style={{ padding: "0 16px 16px" }}>
+            <div style={{ fontSize: "9.5px", fontWeight: 800, letterSpacing: ".16em", textTransform: "uppercase", color: "var(--dim)", margin: "4px 0 8px" }}>{o.lab}</div>
+            <div style={{ background: "var(--panel)", borderLeft: "4px solid var(--gold)", borderRadius: "0 3px 3px 0", padding: "13px 16px", fontSize: "13.5px", lineHeight: "1.6", color: "var(--white)" }}>{o.a}</div>
+          </div>
+        </details>
+      ))}
+    </div>
+    ) : null}
+
+    <div style={{ marginTop: "26px" }}>
+      <div style={{ fontSize: "10px", fontWeight: 800, letterSpacing: ".2em", color: "var(--gold)", marginBottom: "11px" }}>WHAT THIS CALL SELLS — THE LADDER</div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: "14px" }}>
+        {ladder.map((l, i) => (
+          <div key={i} style={{ background: "var(--panel2)", border: "1px solid var(--line)", borderTop: "4px solid " + l.accent, borderRadius: "4px", padding: "16px 18px" }}>
+            <div style={{ fontSize: "9.5px", fontWeight: 800, letterSpacing: ".16em", textTransform: "uppercase", color: l.accent }}>{l.p}</div>
+            <div style={{ fontFamily: "var(--num)", fontWeight: 700, fontSize: "21px", color: "var(--white)", marginTop: "7px", lineHeight: 1, textTransform: "uppercase" }}>{l.n}</div>
+            <div style={{ fontSize: "12px", color: "var(--muted)", lineHeight: "1.55", marginTop: "8px" }}>{l.d}</div>
+          </div>
+        ))}
+      </div>
+      <div style={{ display: "flex", gap: 0, borderRadius: "3px", overflow: "hidden", border: "1px solid rgba(255,184,28,.4)", marginTop: "14px" }}>
+        <div style={{ background: "var(--gold)", color: "var(--golddark)", padding: "12px 14px", display: "flex", alignItems: "center" }}><span style={{ fontWeight: 900, fontSize: "10px", letterSpacing: ".16em", whiteSpace: "nowrap" }}>PRICE INTEGRITY</span></div>
+        <div style={{ background: "rgba(255,184,28,.07)", padding: "10px 16px", fontSize: "12px", lineHeight: "1.55", color: "var(--white)" }}>The audit is free but never cheap — it ends with a plan, not a pitch. Retainer pricing is fixed; never discount month one. Ad spend is always separate, $500/mo minimum.</div>
+      </div>
+    </div>
+  </div>
+  ) : null}
+
+  {/* ============ 04 SHOOTS: THE PRODUCTION LINE ============ */}
+  {(isShoots) ? (
+  <div style={screenPad}>
+    <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: "16px", flexWrap: "wrap", marginBottom: "22px" }}>
+      <div>
+        {kicker('SEGMENT 04 — ONE HALF-DAY PER CLIENT, PER MONTH')}
+        <h1 style={h1s}>The Production Line</h1>
+        <div style={subs}>Four capture days a month is the whole factory. Each one feeds an Authority Video, a photo set, and 8–12 clips into Deploy.</div>
+      </div>
+      <Hover as="button" onClick={addShoot} baseStyle={goldBtn} hoverStyle={{ background: "var(--gold2)" }}>+ Capture Day</Hover>
+    </div>
+
+    <div style={{ background: "var(--panel)", border: "1px solid var(--line)", borderRadius: "4px", padding: "20px 22px", marginBottom: "16px" }}>
+      <div style={{ fontWeight: 900, fontSize: "15px", letterSpacing: ".1em", marginBottom: "14px" }}>{curMonthName} <span style={{ color: "var(--good)", fontSize: "11px", fontWeight: 800, letterSpacing: ".1em" }}>{curMonthLabel}</span></div>
+      {shootsAll.length ? (
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: "12px" }}>
+          {shootsAll.map(shootCard)}
+        </div>
+      ) : (
+        <div style={{ border: "1px dashed var(--line)", borderRadius: "4px", padding: "26px", textAlign: "center", color: "var(--dim)", fontSize: "12px" }}>
+          Nothing scheduled this month. <button onClick={addShoot} style={{ background: "none", border: "none", color: "var(--gold)", fontWeight: 800, cursor: "pointer", fontSize: "12px", letterSpacing: ".08em" }}>+ ADD A CAPTURE DAY</button>
+        </div>
+      )}
+    </div>
+
+    <div style={{ background: "var(--panel)", border: "1px solid rgba(255,184,28,.35)", borderRadius: "4px", padding: "20px 22px", marginBottom: "20px" }}>
+      <div style={{ fontWeight: 900, fontSize: "15px", letterSpacing: ".1em", marginBottom: "14px" }}>{nextMonthName} <span style={{ color: "var(--gold)", fontSize: "11px", fontWeight: 800, letterSpacing: ".1em" }}>{nextMonthLabel}</span></div>
+      {nextShootsView.length ? (
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: "12px" }}>
+          {nextShootsView.map((sh, i) => sh.status === 'OPEN' ? (
+            <Hover as="div" key={i} onClick={sh.onClick} baseStyle={{ background: "rgba(255,184,28,.06)", border: "1px dashed rgba(255,184,28,.45)", borderRadius: "4px", padding: "14px", textAlign: "center", cursor: "pointer", transition: ".12s" }} hoverStyle={{ borderColor: "var(--gold)" }}>
+              <div style={{ fontFamily: "var(--num)", fontWeight: 700, fontSize: "31px", lineHeight: ".9", color: "var(--gold)" }}>{sh.day}</div>
+              <div style={{ fontSize: "8px", fontWeight: 800, letterSpacing: ".24em", color: "var(--dim)", marginTop: "3px" }}>{sh.mon} · {sh.dow} 10:00</div>
+              <div style={{ fontWeight: 800, fontSize: "11.5px", color: "var(--gold2)", marginTop: "9px", letterSpacing: ".08em" }}>TICKETS AVAILABLE</div>
+              <div style={{ fontSize: "8.5px", fontWeight: 700, letterSpacing: ".1em", color: "var(--dim)", marginTop: "4px" }}>SELL THIS DAY</div>
+            </Hover>
+          ) : shootCard(sh, i))}
+        </div>
+      ) : (
+        <div style={{ border: "1px dashed rgba(255,184,28,.45)", borderRadius: "4px", padding: "26px", textAlign: "center", color: "var(--dim)", fontSize: "12px" }}>
+          The calendar for {nextMonthName.toLowerCase()} isn't published. <button onClick={addShoot} style={{ background: "none", border: "none", color: "var(--gold)", fontWeight: 800, cursor: "pointer", fontSize: "12px", letterSpacing: ".08em" }}>+ PUBLISH THE FIRST SLOT</button>
+        </div>
+      )}
+    </div>
+
+    <div style={{ display: "grid", gridTemplateColumns: "1fr 1.15fr", gap: "20px" }}>
+      <div style={{ background: "var(--panel)", border: "1px solid var(--line)", borderRadius: "4px", padding: "20px 22px" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+          <span style={{ background: "var(--gold)", color: "var(--golddark)", fontWeight: 900, fontSize: "9px", letterSpacing: ".14em", padding: "4px 8px", borderRadius: "2px" }}>RUN SHEET</span>
+          <span style={{ fontWeight: 900, fontSize: "15px", letterSpacing: ".1em" }}>CAPTURE DAY · HALF-DAY</span>
+        </div>
+        <ol style={{ margin: "14px 0 0 18px", padding: 0, fontSize: "13px", color: "var(--white)", lineHeight: "1.55" }}>
+          {runsheet.map((r, i) => (<li key={i} style={{ padding: "5px 0" }}>{r}</li>))}
+        </ol>
+        <div style={{ fontSize: "11.5px", color: "var(--muted)", lineHeight: "1.55", marginTop: "13px", paddingTop: "12px", borderTop: "1px solid var(--line)" }}>Output: one Authority Video, one photo set, 8–12 short cuts queued for Splice — per client, per month.</div>
+      </div>
+
+      <div style={{ background: "var(--panel)", border: "1px solid var(--line)", borderRadius: "4px", padding: "20px 22px" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "10px" }}>
+          <div style={{ fontWeight: 900, fontSize: "15px", letterSpacing: ".1em" }}>DELIVERABLES TRACKER <span style={{ color: "var(--dim)", fontSize: "11px", fontWeight: 700, letterSpacing: ".06em" }}>— LIVE CLIENTS · {curMonthName}</span></div>
+          <Hover as="button" onClick={addDeliv} baseStyle={{ ...ghostBtn, padding: "7px 12px", fontSize: "9.5px" }} hoverStyle={{ borderColor: "var(--gold)", color: "var(--white)" }}>+ Track</Hover>
+        </div>
+        <div style={{ marginTop: "12px" }}>
+          {delivs.map((d, i) => (
+            <Hover as="div" key={i} onClick={d.onClick} baseStyle={{ padding: "11px 0", borderBottom: "1px solid var(--line)", cursor: "pointer" }} hoverStyle={{ background: "rgba(255,184,28,.03)" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: "10px" }}>
+                <span style={{ fontWeight: 800, fontSize: "13px", color: "var(--white)" }}>{d.name}</span>
+                <span style={{ fontFamily: "var(--num)", fontWeight: 600, fontSize: "13px", color: d.clipColor }}>{d.clips} CLIPS</span>
+              </div>
+              <div style={{ height: "7px", background: "var(--deep)", border: "1px solid var(--line)", borderRadius: "3px", overflow: "hidden", marginTop: "7px" }}>
+                <div style={{ height: "100%", width: `${d.pct}%`, background: d.barColor }}></div>
+              </div>
+              <div style={{ fontSize: "9px", fontWeight: 700, letterSpacing: ".12em", color: "var(--dim)", marginTop: "6px" }}>{d.meta}</div>
+            </Hover>
+          ))}
+          {!delivs.length ? <div style={{ padding: "14px 0", fontSize: "12px", color: "var(--dim)" }}>No live clients tracked yet — hit + TRACK when the first Engine client signs.</div> : null}
+        </div>
+      </div>
+    </div>
+  </div>
+  ) : null}
+
+  {/* ============ 05 AGENT FLEET: THE CONTROL ROOM ============ */}
+  {(isAgents) ? (
+  <div style={screenPad}>
+    <div style={{ marginBottom: "22px" }}>
+      {kicker('SEGMENT 05 — THE FOUNDER-FREE ENGINE')}
+      <h1 style={h1s}>The Control Room</h1>
+      <div style={subs}>Six sources run the top of the funnel and the content machine, so four hands stay on sales and the lens. Your only manual jobs: take the calls, run the shoots, approve the proof.</div>
+    </div>
+
+    <div style={{ fontSize: "10px", fontWeight: 800, letterSpacing: ".2em", color: "var(--gold)", marginBottom: "10px" }}>THE DAILY LOOP</div>
+    <div style={{ display: "flex", alignItems: "center", gap: "9px", flexWrap: "wrap", background: "var(--deep)", border: "1px solid var(--line)", borderRadius: "4px", padding: "15px 18px", marginBottom: "18px" }}>
+      {loopNodes.map((n, i) => (
+        <React.Fragment key={i}>
+          <span style={{ fontWeight: 800, fontSize: "11.5px", letterSpacing: ".08em", textTransform: "uppercase", padding: "8px 13px", background: "var(--panel2)", border: "1px solid var(--line)", borderRadius: "3px", color: "var(--white)" }}>{n.label}</span>
+          <span style={{ color: "var(--gold)", fontWeight: 900, fontSize: "15px" }}>{n.arrow}</span>
+        </React.Fragment>
+      ))}
+    </div>
+
+    <div style={{ display: "grid", gridTemplateColumns: "1.3fr 1fr", gap: "20px" }}>
+      <div>
+        {fleet.map((a, i) => (
+          <div key={i} style={{ display: "flex", alignItems: "center", gap: "14px", background: "var(--panel)", border: "1px solid var(--line)", borderLeft: "4px solid " + a.accent, borderRadius: "4px", padding: "13px 16px", marginBottom: "9px" }}>
+            <div style={{ width: "46px", height: "46px", background: "var(--deep)", border: "1px solid var(--line)", borderRadius: "4px", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+              <span style={{ fontFamily: "var(--num)", fontWeight: 700, fontSize: "14px", color: a.accent, lineHeight: 1 }}>{a.init}</span>
+              <span style={{ fontSize: "6.5px", fontWeight: 800, letterSpacing: ".14em", color: "var(--dim)", marginTop: "2px" }}>SRC {a.ch}</span>
+            </div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontFamily: "var(--num)", fontWeight: 700, fontSize: "16px", letterSpacing: ".06em", color: "var(--white)", textTransform: "uppercase" }}>{a.name}</div>
+              <div style={{ fontSize: "11.5px", color: "var(--muted)", lineHeight: "1.45" }}>{a.role}</div>
+              <div style={{ fontSize: "9px", fontWeight: 700, letterSpacing: ".16em", textTransform: "uppercase", color: "var(--dim)", marginTop: "3px" }}>{a.cad}</div>
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: "10px", flexShrink: 0 }}>
+              <span style={{ width: "9px", height: "9px", borderRadius: "50%", background: a.dot }}></span>
+              <span style={{ fontSize: "9.5px", fontWeight: 800, letterSpacing: ".1em", color: "var(--muted)", minWidth: "64px" }}>{a.status}</span>
+              <Hover as="button" onClick={a.onToggle} baseStyle={{ background: "transparent", border: "1px solid var(--line)", color: "var(--muted)", fontWeight: 800, fontSize: "9px", letterSpacing: ".12em", padding: "7px 11px", cursor: "pointer", borderRadius: "3px", transition: ".15s" }} hoverStyle={{ borderColor: "var(--gold)", color: "var(--white)" }}>{a.btn}</Hover>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
+        <div style={{ background: "var(--deep)", border: "1px solid var(--line)", borderRadius: "4px", padding: "16px 18px" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "10px" }}>
+            <span style={{ width: "8px", height: "8px", borderRadius: "50%", background: "var(--live)", animation: animPulse }}></span>
+            <span style={{ fontSize: "10px", fontWeight: 800, letterSpacing: ".2em", color: "var(--muted)" }}>THE WIRE — LIVE FEED</span>
+          </div>
+          {log.map((l, i) => (
+            <div key={i} style={{ display: "flex", gap: "10px", padding: "5px 0", fontSize: "11px", lineHeight: "1.5", borderBottom: "1px solid rgba(36,56,92,.5)" }}>
+              <span style={{ color: "var(--dim)", fontFamily: "var(--num)", fontWeight: 500, flexShrink: 0 }}>{l.t}</span>
+              <span style={{ color: l.color, fontWeight: 800, flexShrink: 0, minWidth: "26px" }}>{l.tag}</span>
+              <span style={{ color: "var(--muted)" }}>{l.msg}</span>
+            </div>
+          ))}
+        </div>
+
+        <div style={{ background: "var(--panel)", border: "1px solid var(--line)", borderRadius: "4px", padding: "16px 18px" }}>
+          <div style={{ fontSize: "10px", fontWeight: 800, letterSpacing: ".2em", color: "var(--muted)" }}>TODAY'S OPERATING CHECKLIST</div>
+          <div style={{ marginTop: "8px" }}>
+            {opsChecklist.map((o, i) => (
+              <div key={i} onClick={o.onClick} style={{ display: "flex", alignItems: "center", gap: "11px", padding: "8px 0", borderBottom: "1px solid var(--line)", fontSize: "11.5px", cursor: "pointer" }}>
+                <span style={{ width: "17px", height: "17px", borderRadius: "2px", border: "1.5px solid " + o.box, background: o.boxBg, display: "flex", alignItems: "center", justifyContent: "center", fontSize: "10px", color: "var(--golddark)", flexShrink: 0, fontWeight: 900 }}>{o.check}</span>
+                <span style={{ color: o.tc }}>{o.text}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  ) : null}
+
+  {/* ============ 06 PARTNERS: THE TALENT ============ */}
+  {(isPartners) ? (
+  <div style={screenPad}>
+    <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: "16px", flexWrap: "wrap", marginBottom: "22px" }}>
+      <div>
+        {kicker('SEGMENT 06 — TWO OPERATORS, ONE SYSTEM')}
+        <h1 style={h1s}>The Talent</h1>
+        <div style={subs}>You two are the single points of failure. Energy in, calls out, camera on. Burnout in week 5 kills the number — this desk is non-optional.</div>
+      </div>
+      <div style={{ fontSize: "10.5px", fontWeight: 800, letterSpacing: ".16em", color: "var(--muted)" }}>{todayLabel}</div>
+    </div>
+
+    <div style={{ display: "flex", gap: "8px", marginBottom: "18px" }}>
+      {partnerTabs.map((p, i) => (
+        <Hover as="button" key={i} onClick={p.onClick} baseStyle={{ display: "flex", alignItems: "center", gap: "12px", background: p.bg, border: "1px solid " + p.bd, borderRadius: "4px", padding: "11px 18px", cursor: "pointer", textAlign: "left", transition: ".12s" }} hoverStyle={{ borderColor: "var(--gold)" }}>
+          <span style={{ fontFamily: "var(--num)", fontWeight: 700, fontSize: "19px", color: p.initC }}>{p.init}</span>
+          <span>
+            <span style={{ display: "block", fontWeight: 800, fontSize: "12.5px", color: p.nameC }}>{p.name}</span>
+            <span style={{ display: "block", fontSize: "9px", fontWeight: 700, letterSpacing: ".14em", color: "var(--dim)", marginTop: "2px" }}>{p.role}</span>
+          </span>
+        </Hover>
+      ))}
+    </div>
+
+    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "20px" }}>
+      <div style={{ background: "var(--panel)", border: "1px solid var(--line)", borderRadius: "4px", padding: "20px 22px" }}>
+        <div style={{ fontSize: "10px", fontWeight: 800, letterSpacing: ".2em", color: "var(--gold)" }}>TODAY'S CHECK-IN · {curPartnerName}</div>
+        <div style={{ marginTop: "14px" }}>
+          <div style={{ fontSize: "9.5px", fontWeight: 800, letterSpacing: ".14em", color: "var(--dim)", textTransform: "uppercase" }}>Energy</div>
+          <div style={{ display: "flex", gap: "6px", marginTop: "6px" }}>
+            {energyScale.map((e, i) => (
+              <button key={i} onClick={e.onClick} style={{ flex: 1, background: e.bg, border: "1px solid " + e.bd, color: e.fg, fontFamily: "var(--num)", fontWeight: 700, fontSize: "16px", padding: "9px 0", cursor: "pointer", borderRadius: "3px", transition: ".12s" }}>{e.n}</button>
+            ))}
+          </div>
+        </div>
+        <div style={{ marginTop: "14px" }}>
+          <div style={{ fontSize: "9.5px", fontWeight: 800, letterSpacing: ".14em", color: "var(--dim)", textTransform: "uppercase" }}>Sleep (hrs)</div>
+          <div style={{ display: "flex", gap: "6px", marginTop: "6px" }}>
+            {sleepScale.map((e, i) => (
+              <button key={i} onClick={e.onClick} style={{ flex: 1, background: e.bg, border: "1px solid " + e.bd, color: e.fg, fontFamily: "var(--num)", fontWeight: 700, fontSize: "16px", padding: "9px 0", cursor: "pointer", borderRadius: "3px", transition: ".12s" }}>{e.n}</button>
+            ))}
+          </div>
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "9px", marginTop: "14px" }}>
+          {fToggles.map((t, i) => (
+            <div key={i} onClick={t.onClick} style={{ display: "flex", alignItems: "center", gap: "9px", background: "var(--deep)", border: "1px solid " + t.bd, borderRadius: "3px", padding: "11px 12px", cursor: "pointer", transition: ".12s" }}>
+              <span style={{ width: "20px", height: "20px", borderRadius: "2px", border: "2px solid " + t.box, background: t.boxBg, display: "flex", alignItems: "center", justifyContent: "center", fontSize: "12px", fontWeight: 900, color: t.cc, flexShrink: 0 }}>{t.check}</span>
+              <span style={{ fontSize: "12.5px", color: "var(--white)" }}>{t.label}</span>
+            </div>
+          ))}
+        </div>
+        <div style={{ marginTop: "14px" }}>
+          <label style={{ display: "block", fontSize: "9.5px", fontWeight: 800, letterSpacing: ".14em", color: "var(--dim)", textTransform: "uppercase", marginBottom: "6px" }}>One line — how's the head today?</label>
+          <textarea value={noteVal} onChange={onNote} placeholder="Honest. Nobody reads this but you two." style={{ width: "100%", minHeight: "62px", background: "var(--deep)", border: "1px solid var(--line)", borderRadius: "3px", color: "var(--white)", padding: "10px 12px", fontFamily: "var(--sans)", fontSize: "12px", lineHeight: "1.5", resize: "vertical" }}></textarea>
+        </div>
+      </div>
+
+      <div style={{ background: "var(--panel)", border: "1px solid var(--line)", borderRadius: "4px", padding: "20px 22px" }}>
+        <div style={{ fontSize: "10px", fontWeight: 800, letterSpacing: ".2em", color: "var(--muted)" }}>LAST 7 DAYS · {curPartnerName}</div>
+        <div style={{ display: "flex", gap: "7px", marginTop: "8px" }}>
+          {weekStrip.map((d, i) => (
+            <div key={i} style={{ flex: 1, textAlign: "center", background: "var(--deep)", border: "1px solid var(--line)", borderRadius: "3px", padding: "9px 4px" }}>
+              <div style={{ fontSize: "9px", fontWeight: 800, color: "var(--dim)" }}>{d.dw}</div>
+              <div style={{ fontFamily: "var(--num)", fontWeight: 700, fontSize: "18px", margin: "3px 0", color: d.nc }}>{d.n}</div>
+              <div style={{ fontSize: "8px", letterSpacing: "1px" }}><span style={{ color: d.d1 }}>●</span><span style={{ color: d.d2 }}>●</span></div>
+            </div>
+          ))}
+        </div>
+        <div style={{ fontSize: "10px", fontWeight: 800, letterSpacing: ".2em", color: "var(--gold)", marginTop: "20px" }}>NON-NEGOTIABLE HABITS</div>
+        <div style={{ marginTop: "8px" }}>
+          {habitsView.map((h, i) => (
+            <div key={i} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 0", borderBottom: "1px solid var(--line)" }}>
+              <span style={{ fontSize: "13px", color: "var(--white)" }}>{h.name} <span style={{ fontSize: "8.5px", fontWeight: 800, letterSpacing: ".1em", color: "var(--dim)", border: "1px solid var(--line)", borderRadius: "2px", padding: "2px 6px", marginLeft: "6px" }}>{h.owner}</span></span>
+              <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                <span style={{ fontFamily: "var(--num)", fontWeight: 700, fontSize: "14px", color: "var(--gold)" }}>{h.streak}<span style={{ color: "var(--dim)", fontSize: "9px", fontWeight: 800, letterSpacing: ".08em" }}> {h.streakL}</span></span>
+                <div onClick={h.onToggle} style={{ width: "28px", height: "28px", borderRadius: "3px", border: "2px solid " + h.box, background: h.boxBg, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 900, fontSize: "13px", color: h.cc, cursor: "pointer", transition: ".12s" }}>{h.check}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+        <Hover as="button" onClick={addHabit} baseStyle={{ width: "100%", background: "transparent", border: "1px dashed var(--line)", borderRadius: "3px", color: "var(--muted)", fontWeight: 800, fontSize: "9.5px", letterSpacing: ".14em", textTransform: "uppercase", padding: "11px", marginTop: "10px", cursor: "pointer", transition: ".15s" }} hoverStyle={{ borderColor: "var(--gold)", color: "var(--white)" }}>+ ADD HABIT</Hover>
+      </div>
+    </div>
+
+    <div style={{ background: "var(--panel)", border: "1px solid var(--line)", borderRadius: "4px", padding: "20px 22px", marginTop: "20px" }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "12px" }}>
+        <div style={{ fontSize: "10px", fontWeight: 800, letterSpacing: ".2em", color: "var(--gold)" }}>GOALS — BUSINESS & THE REST OF YOUR LIVES</div>
+        <Hover as="button" onClick={addGoal} baseStyle={{ background: "transparent", border: "1px solid var(--line)", borderRadius: "3px", color: "var(--muted)", fontWeight: 800, fontSize: "9.5px", letterSpacing: ".12em", padding: "7px 12px", cursor: "pointer", transition: ".15s" }} hoverStyle={{ borderColor: "var(--gold)", color: "var(--white)" }}>+ ADD GOAL</Hover>
+      </div>
+      <div style={{ marginTop: "10px" }}>
+        {goalsView.map((g, i) => (
+          <div key={i} style={{ display: "flex", gap: "12px", alignItems: "flex-start", padding: "12px 0", borderBottom: "1px solid var(--line)" }}>
+            <div onClick={g.onToggle} style={{ marginTop: "1px", width: "22px", height: "22px", borderRadius: "3px", border: "2px solid " + g.box, background: g.boxBg, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 900, fontSize: "12px", color: g.cc, cursor: "pointer", flexShrink: 0, transition: ".12s" }}>{g.check}</div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <span style={{ fontSize: "13.5px", color: g.tc, textDecoration: g.deco }}>{g.text}</span>
+              <span style={{ fontWeight: 800, fontSize: "8.5px", letterSpacing: ".12em", padding: "2px 7px", marginLeft: "9px", border: "1px solid " + g.typeC, borderRadius: "2px", color: g.typeC, whiteSpace: "nowrap" }}>{g.type}</span>
+              <span style={{ fontWeight: 800, fontSize: "8.5px", letterSpacing: ".12em", padding: "2px 7px", marginLeft: "6px", border: "1px solid var(--line)", borderRadius: "2px", color: "var(--dim)", whiteSpace: "nowrap" }}>{g.owner}</span>
+              {(g.hasBar) ? (<>
+                <div style={{ height: "7px", background: "var(--deep)", border: "1px solid var(--line)", borderRadius: "3px", marginTop: "9px", overflow: "hidden" }}><div style={{ height: "100%", width: `${g.pct}%`, background: "var(--gold)" }}></div></div>
+                <div style={{ fontSize: "10.5px", color: "var(--dim)", marginTop: "4px" }}>{g.progLabel}</div>
+              </>) : null}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  </div>
+  ) : null}
+
+  {/* ============ 07 DOCUMENTS: TAPE LIBRARY ============ */}
+  {(isDocs) ? (
+  <div style={screenPad}>
+    <div style={{ marginBottom: "22px" }}>
+      {kicker('SEGMENT 07 — ONE SOURCE OF TRUTH')}
+      <h1 style={h1s}>Tape Library</h1>
+      <div style={{ ...subs, maxWidth: "600px" }}>Every artifact the OS runs on — the spec, the scripts, the brand, the lists. Click a tape to link or open it.</div>
+    </div>
+
+    {docsView.map((g, i) => (
+      <div key={i} style={{ marginBottom: "22px" }}>
+        <div style={{ fontSize: "10px", fontWeight: 800, letterSpacing: ".2em", color: "var(--gold)", marginBottom: "10px" }}>{g.cat}</div>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
+          {g.items.map((it, j) => (
+            <Hover as="div" key={j} onClick={it.onClick} baseStyle={{ display: "flex", alignItems: "center", gap: "13px", background: "var(--panel)", border: "1px solid var(--line)", borderRadius: "4px", padding: "12px 14px", cursor: "pointer", transition: ".12s" }} hoverStyle={{ borderColor: "var(--gold)" }}>
+              <div style={{ fontSize: "8.5px", fontWeight: 800, letterSpacing: ".08em", color: "var(--gold)", border: "1px solid var(--line)", borderRadius: "3px", padding: "5px 0", minWidth: "46px", textAlign: "center", flexShrink: 0 }}>{it.fmt}</div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: "13px", color: "var(--white)", fontWeight: 700, lineHeight: "1.2" }}>{it.name}</div>
+                <div style={{ fontSize: "10.5px", color: "var(--muted)", marginTop: "2px" }}>{it.meta}</div>
+              </div>
+              {(it.hasTag) ? (
+                <span style={{ fontSize: "8px", fontWeight: 900, letterSpacing: ".12em", color: "var(--golddark)", background: "var(--gold)", borderRadius: "2px", padding: "3px 6px", flexShrink: 0 }}>{it.tag}</span>
+              ) : null}
+            </Hover>
+          ))}
+        </div>
+      </div>
+    ))}
+  </div>
+  ) : null}
+
+  {/* ============ 08 STRATEGY: THE GAME PLAN ============ */}
+  {(isStrategy) ? (
+  <div style={screenPad}>
+    <div style={{ marginBottom: "22px" }}>
+      {kicker('SEGMENT 08 — WHY THE ENGINE IS BUILT THIS WAY')}
+      <h1 style={h1s}>The Game Plan</h1>
+      <div style={{ ...subs, maxWidth: "600px" }}>Read it when a shiny distraction shows up and threatens the one thing.</div>
+    </div>
+
+    <div style={{ position: "relative", background: "rgba(255,184,28,.07)", border: "1px solid rgba(255,184,28,.4)", borderLeft: "5px solid var(--gold)", borderRadius: "4px", padding: "24px 28px", marginBottom: "22px", overflow: "hidden" }}>
+      <div style={{ position: "absolute", right: "6px", top: "-38px", fontFamily: "var(--num)", fontWeight: 700, fontSize: "140px", color: "rgba(255,184,28,.08)", lineHeight: 1 }}>★</div>
+      <div style={{ fontSize: "10px", fontWeight: 800, letterSpacing: ".24em", color: "var(--gold)" }}>THE THESIS</div>
+      <div style={{ fontFamily: "var(--num)", fontWeight: 600, fontSize: "28px", lineHeight: "1.2", marginTop: "10px", maxWidth: "900px", color: "var(--white)" }}>{stratThesis}</div>
+    </div>
+
+    <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: "14px", marginBottom: "22px" }}>
+      {stratPillars.map((p, i) => (
+        <div key={i} style={{ background: "var(--panel)", border: "1px solid var(--line)", borderTop: "4px solid var(--gold)", borderRadius: "4px", padding: "18px 20px" }}>
+          <div style={{ fontSize: "9.5px", fontWeight: 800, letterSpacing: ".2em", color: "var(--gold)" }}>{p.k}</div>
+          <div style={{ fontFamily: "var(--num)", fontWeight: 700, fontSize: "19px", color: "var(--white)", marginTop: "7px", lineHeight: "1.1", textTransform: "uppercase" }}>{p.t}</div>
+          <div style={{ fontSize: "12px", color: "var(--muted)", lineHeight: "1.6", marginTop: "8px" }}>{p.d}</div>
+        </div>
+      ))}
+    </div>
+
+    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "14px" }}>
+      <div style={{ background: "var(--panel)", border: "1px solid var(--line)", borderRadius: "4px", padding: "18px 20px" }}>
+        <div style={{ fontSize: "10px", fontWeight: 800, letterSpacing: ".2em", color: "var(--gold)" }}>THE THREE BETS</div>
+        <div style={{ marginTop: "10px" }}>
+          {stratBets.map((b, i) => (
+            <div key={i} style={{ display: "flex", gap: "11px", padding: "10px 0", borderBottom: "1px solid var(--line)", fontSize: "12.5px", lineHeight: "1.55", color: "var(--white)" }}><span style={{ color: "var(--gold)", fontWeight: 900, flexShrink: 0 }}>›</span><span>{b}</span></div>
+          ))}
+        </div>
+      </div>
+      <div style={{ background: "var(--deep)", border: "1px solid var(--line)", borderRadius: "4px", padding: "18px 20px" }}>
+        <div style={{ fontSize: "10px", fontWeight: 800, letterSpacing: ".2em", color: "var(--dim)" }}>WHAT WE DON'T DO</div>
+        <div style={{ marginTop: "10px" }}>
+          {stratAnti.map((a, i) => (
+            <div key={i} style={{ display: "flex", gap: "11px", padding: "10px 0", borderBottom: "1px solid var(--line)", fontSize: "12.5px", lineHeight: "1.55", color: "var(--muted)" }}><span style={{ color: "var(--live)", fontWeight: 900, flexShrink: 0 }}>✕</span><span>{a}</span></div>
+          ))}
+        </div>
+      </div>
+    </div>
+  </div>
+  ) : null}
+
+  {/* ============ 09 PLANS: THE SEASON ============ */}
+  {(isPlans) ? (
+  <div style={screenPad}>
+    <div style={{ marginBottom: "22px" }}>
+      {kicker('SEGMENT 09 — FOUR QUARTERS, TWO DEADLINES, ONE NUMBER')}
+      <h1 style={h1s}>The Season</h1>
+      <div style={{ ...subs, maxWidth: "600px" }}>Sign {goalFmt} by {sellByLabel}. Collect it by {deadlineLabel}. Everything on this page serves that.</div>
+    </div>
+
+    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "14px", marginBottom: "22px" }}>
+      <div style={{ background: "var(--panel)", border: "1px solid var(--line)", borderTop: "4px solid var(--gold)", borderRadius: "4px", padding: "16px 20px", display: "flex", alignItems: "center", gap: "18px" }}>
+        <div style={{ fontFamily: "var(--num)", fontWeight: 700, fontSize: "46px", color: "var(--gold)", lineHeight: ".9" }}>{sellDays}</div>
+        <div><div style={{ fontSize: "9.5px", fontWeight: 800, letterSpacing: ".2em", color: "var(--dim)" }}>DAYS TO SIGN</div><div style={{ fontWeight: 800, fontSize: "15px", color: "var(--white)", marginTop: "3px" }}>{goalFmt} CONTRACTED · {sellByLabel}</div></div>
+      </div>
+      <div style={{ background: "var(--panel)", border: "1px solid var(--line)", borderTop: "4px solid var(--line)", borderRadius: "4px", padding: "16px 20px", display: "flex", alignItems: "center", gap: "18px" }}>
+        <div style={{ fontFamily: "var(--num)", fontWeight: 700, fontSize: "46px", color: "var(--white)", lineHeight: ".9" }}>{deadDays}</div>
+        <div><div style={{ fontSize: "9.5px", fontWeight: 800, letterSpacing: ".2em", color: "var(--dim)" }}>DAYS TO COLLECT</div><div style={{ fontWeight: 800, fontSize: "15px", color: "var(--white)", marginTop: "3px" }}>{goalFmt} BANKED · {deadlineLabel}</div></div>
+      </div>
+    </div>
+
+    <div style={{ fontSize: "10px", fontWeight: 800, letterSpacing: ".2em", color: "var(--gold)", marginBottom: "11px" }}>THE FOUR QUARTERS</div>
+    <div style={{ marginBottom: "22px" }}>
+      {plansPhases.map((p, i) => (
+        <div key={i} style={{ display: "flex", gap: "16px", alignItems: "flex-start", background: "var(--panel)", border: "1px solid var(--line)", borderLeft: "4px solid " + p.c, borderRadius: "4px", padding: "16px 18px", marginBottom: "10px" }}>
+          <div style={{ fontFamily: "var(--num)", fontWeight: 700, fontSize: "26px", color: p.c, flexShrink: 0, width: "44px", lineHeight: 1 }}>{p.n}</div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
+              <span style={{ fontFamily: "var(--num)", fontWeight: 700, fontSize: "18px", color: "var(--white)", textTransform: "uppercase" }}>{p.t}</span>
+              <span style={{ fontSize: "8.5px", fontWeight: 800, letterSpacing: ".12em", color: p.c, border: "1px solid " + p.c, borderRadius: "2px", padding: "2px 7px" }}>{p.when}</span>
+              <span style={{ fontSize: "8.5px", fontWeight: 800, letterSpacing: ".14em", color: "var(--dim)", marginLeft: "auto" }}>{p.state}</span>
+            </div>
+            <div style={{ fontSize: "12px", color: "var(--muted)", lineHeight: "1.6", marginTop: "6px" }}>{p.d}</div>
+          </div>
+        </div>
+      ))}
+    </div>
+
+    <div style={{ background: "var(--panel)", border: "1px solid var(--line)", borderRadius: "4px", padding: "18px 20px" }}>
+      <div style={{ fontSize: "10px", fontWeight: 800, letterSpacing: ".2em", color: "var(--gold)" }}>THIS WEEK'S MOVES · Q1</div>
+      <div style={{ marginTop: "10px" }}>
+        {planMoves.map((m, i) => (
+          <div key={i} onClick={m.onClick} style={{ display: "flex", alignItems: "center", gap: "11px", padding: "9px 0", borderBottom: "1px solid var(--line)", fontSize: "12px", cursor: "pointer" }}>
+            <span style={{ width: "17px", height: "17px", borderRadius: "2px", border: "1.5px solid " + m.box, background: m.boxBg, display: "flex", alignItems: "center", justifyContent: "center", fontSize: "10px", color: "var(--golddark)", flexShrink: 0, fontWeight: 900 }}>{m.check}</span>
+            <span style={{ color: m.tc }}>{m.text}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  </div>
+  ) : null}
+
+  {/* ============ 10-16: THE BACK OFFICE (engine screens, broadcast-toned) ============ */}
+  {(this.state.view === 'clients') ? this.renderClientsTab() : null}
+  {(this.state.view === 'invoices') ? this.renderInvoicesTab() : null}
+  {(this.state.view === 'proposals') ? this.renderProposalsTab() : null}
+  {(this.state.view === 'scheduling') ? this.renderSchedulingTab() : null}
+  {(this.state.view === 'kpis') ? this.renderKpisTab() : null}
+  {(this.state.view === 'expenses') ? this.renderExpensesTab() : null}
+  {(this.state.view === 'rookie') ? this.renderRookieTab() : null}
+
+  {/* BOTTOMLINE TICKER */}
+  {(tickerOn) ? (
+    <div style={{ position: "fixed", bottom: 0, left: 0, right: 0, zIndex: 35, display: "flex", alignItems: "stretch", background: "#04070d", borderTop: "1px solid var(--line)" }}>
+      <div style={{ background: "var(--gold)", color: "var(--golddark)", fontWeight: 900, fontSize: "10.5px", letterSpacing: ".18em", display: "flex", alignItems: "center", padding: "9px 16px", whiteSpace: "nowrap" }}>CI WIRE</div>
+      <div style={{ flex: 1, overflow: "hidden", display: "flex", alignItems: "center" }}>
+        <div style={{ display: "inline-flex", whiteSpace: "nowrap", animation: animTicker, fontSize: "11px", fontWeight: 600, letterSpacing: ".1em", color: "var(--muted)" }}>
+          {tickerSpan('a')}
+          {tickerSpan('b')}
+        </div>
+      </div>
+    </div>
+  ) : null}
+
+  {/* TOAST */}
+  {(toast) ? (
+    <div style={{ position: "fixed", bottom: "52px", left: "50%", transform: "translateX(-50%)", background: "var(--gold)", color: "var(--golddark)", padding: "10px 22px", fontWeight: 900, fontSize: "11px", letterSpacing: ".14em", zIndex: 90, borderRadius: "3px", boxShadow: "0 8px 20px rgba(0,0,0,.5)" }}>{toast}</div>
+  ) : null}
+
+  {/* ===================== BOOT: GOING LIVE ===================== */}
+  {(booting) ? (
+    <div onClick={dismissBoot} style={{ position: "fixed", inset: 0, zIndex: 120, background: "var(--deep)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", cursor: "pointer", padding: "24px", overflow: "hidden" }}>
+      <div style={{ position: "absolute", top: 0, left: 0, right: 0, display: "flex", height: "10px" }}>
+        <div style={{ flex: 1, background: "var(--gold)" }}></div><div style={{ flex: 1, background: "var(--white)" }}></div><div style={{ flex: 1, background: "var(--muted)" }}></div><div style={{ flex: 1, background: "var(--panel2)" }}></div><div style={{ flex: 1, background: "var(--live)" }}></div>
+      </div>
+      <div onClick={skipBoot} style={{ position: "absolute", top: "26px", right: "22px", fontSize: "9.5px", fontWeight: 900, letterSpacing: ".18em", color: "var(--golddark)", background: "var(--gold)", padding: "7px 12px", cursor: "pointer", zIndex: 3, borderRadius: "3px" }}>[ESC] SKIP →</div>
+
+      <div style={{ position: "relative", zIndex: 2, textAlign: "center" }}>
+        <div style={{ width: "84px", height: "84px", borderRadius: "12px", overflow: "hidden", margin: "0 auto 18px", border: "1px solid var(--line)" }}>
+          <img src="/brand/ci-mark.png" alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+        </div>
+        <div style={{ fontWeight: 900, fontSize: "26px", letterSpacing: ".1em" }}>CREATIVE IMPACT</div>
+        <div style={{ fontSize: "9px", fontWeight: 800, letterSpacing: ".4em", color: "var(--dim)", marginTop: "7px" }}>IMPACT SPORTS NET · CHARLOTTE, NC</div>
+
+        {(countShow) ? (
+          <div key={countNum} style={{ fontFamily: "var(--num)", fontWeight: 700, fontSize: "170px", lineHeight: 1, color: "var(--gold)", margin: "26px 0 10px", animation: animCount }}>{countNum}</div>
+        ) : null}
+        {(bootReady) ? (<>
+          <div style={{ margin: "30px 0 14px", display: "inline-flex", alignItems: "center", gap: "10px", background: "var(--live)", padding: "12px 24px", borderRadius: "4px" }}>
+            <span style={{ width: "10px", height: "10px", borderRadius: "50%", background: "#fff", animation: animPulse }}></span>
+            <span style={{ fontWeight: 900, fontSize: "17px", letterSpacing: ".22em" }}>WE'RE LIVE</span>
+          </div>
+          <div style={{ fontSize: "10px", fontWeight: 700, letterSpacing: ".2em", color: "var(--muted)" }}>CLICK ANYWHERE TO ENTER THE BOOTH<span style={{ animation: "blink 1s steps(1) infinite" }}>_</span></div>
+        </>) : null}
+        {(countShow) ? (
+          <div style={{ fontSize: "10px", fontWeight: 800, letterSpacing: ".26em", color: "var(--muted)" }}>GOING LIVE — STAND BY</div>
+        ) : null}
+      </div>
+    </div>
+  ) : null}
 
 </div>
 
-
-
-
-</>
+      </>
     );
   }
 }

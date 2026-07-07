@@ -53,10 +53,10 @@ export function esc(s: unknown) {
 
 // Minimal branded wrapper so emails match the cockpit.
 export function emailShell(inner: string) {
-  return `<div style="background:#0e0e11;color:#ece8e1;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;padding:28px;border-top:3px solid #e6322b;max-width:520px;margin:0 auto">
-    <div style="font-family:Arial Narrow,Arial,sans-serif;font-weight:900;font-size:20px;letter-spacing:.01em">CI<span style="color:#e6322b">/</span>OS</div>
-    <div style="height:1px;background:linear-gradient(90deg,#e6322b,transparent 60%);margin:14px 0 18px"></div>
+  return `<div style="background:#101d33;color:#f4f7fc;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;padding:28px;border-top:3px solid #ffb81c;max-width:520px;margin:0 auto">
+    <div style="font-family:Arial Narrow,Arial,sans-serif;font-weight:900;font-size:20px;letter-spacing:.01em">CI<span style="color:#ffb81c">/</span>OS</div>
+    <div style="height:1px;background:linear-gradient(90deg,#ffb81c,transparent 60%);margin:14px 0 18px"></div>
     ${inner}
-    <div style="color:#56524b;font-size:11px;margin-top:22px">Creative Impact · creativeimpactmedia.co</div>
+    <div style="color:#5c7096;font-size:11px;margin-top:22px">Creative Impact · creativeimpactmedia.co</div>
   </div>`;
 }

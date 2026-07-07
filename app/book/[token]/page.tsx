@@ -114,32 +114,32 @@ export default function BookPage() {
     setDone(true);
   }
 
-  const wrap: React.CSSProperties = { minHeight: "100vh", background: "#080809", color: "#ece8e1", display: "flex", justifyContent: "center", padding: "36px 20px", fontFamily: "'JetBrains Mono', ui-monospace, monospace" };
-  const card: React.CSSProperties = { width: "560px", maxWidth: "100%", background: "#0e0e11", border: "1px solid #26262c", borderTop: "3px solid #e6322b", height: "fit-content" };
-  const inp: React.CSSProperties = { width: "100%", background: "#0a0a0c", border: "1px solid #34343c", color: "#ece8e1", padding: "10px 12px", fontFamily: "'JetBrains Mono', monospace", fontSize: 13, marginBottom: 10 };
+  const wrap: React.CSSProperties = { minHeight: "100vh", background: "#0a1322", color: "#f4f7fc", display: "flex", justifyContent: "center", padding: "36px 20px", fontFamily: "'Archivo', sans-serif" };
+  const card: React.CSSProperties = { width: "560px", maxWidth: "100%", background: "#101d33", border: "1px solid #24385c", borderTop: "3px solid #ffb81c", height: "fit-content" };
+  const inp: React.CSSProperties = { width: "100%", background: "#060c17", border: "1px solid #33455f", color: "#f4f7fc", padding: "10px 12px", fontFamily: "'Archivo', sans-serif", fontSize: 13, marginBottom: 10 };
 
-  if (loading) return <div style={wrap}><div style={{ color: "#56524b", fontSize: 13 }}>Loading…</div></div>;
-  if (err && !cfg) return <div style={wrap}><div style={{ color: "#8b867d", fontSize: 13, textAlign: "center" }}>{err}</div></div>;
+  if (loading) return <div style={wrap}><div style={{ color: "#5c7096", fontSize: 13 }}>Loading…</div></div>;
+  if (err && !cfg) return <div style={wrap}><div style={{ color: "#8ea3c4", fontSize: 13, textAlign: "center" }}>{err}</div></div>;
 
   const days = buildDays();
 
   return (
     <div style={wrap}>
       <div style={card}>
-        <div style={{ padding: "22px 26px", borderBottom: "1px solid #26262c", display: "flex", alignItems: "center", gap: 12 }}>
-          <div style={{ position: "relative", width: 34, height: 34, border: "2px solid #e6322b", display: "flex", alignItems: "center", justifyContent: "center", background: "#0a0707", flexShrink: 0 }}>
-            <div style={{ width: 0, height: 0, borderTop: "6px solid transparent", borderBottom: "6px solid transparent", borderLeft: "10px solid #e6322b", marginLeft: 3 }} />
+        <div style={{ padding: "22px 26px", borderBottom: "1px solid #24385c", display: "flex", alignItems: "center", gap: 12 }}>
+          <div style={{ position: "relative", width: 34, height: 34, border: "2px solid #ffb81c", display: "flex", alignItems: "center", justifyContent: "center", background: "#1a1608", flexShrink: 0 }}>
+            <div style={{ width: 0, height: 0, borderTop: "6px solid transparent", borderBottom: "6px solid transparent", borderLeft: "10px solid #ffb81c", marginLeft: 3 }} />
           </div>
           <div>
-            <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 900, fontSize: 19, lineHeight: 0.86 }}>{cfg?.title || "Book a call"}</div>
-            <div style={{ fontSize: 8.5, letterSpacing: ".28em", color: "#56524b", marginTop: 3 }}>CI/OS · {slotMins} MIN · {tz}</div>
+            <div style={{ fontFamily: "'Oswald', sans-serif", fontWeight: 900, fontSize: 19, lineHeight: 0.86 }}>{cfg?.title || "Book a call"}</div>
+            <div style={{ fontSize: 8.5, letterSpacing: ".28em", color: "#5c7096", marginTop: 3 }}>CI/OS · {slotMins} MIN · {tz}</div>
           </div>
         </div>
 
         <div style={{ padding: "24px 26px" }}>
           {done ? (
             <div>
-              <div style={{ background: "#0c1f14", border: "1px solid #1d3d2a", color: "#3fb97a", padding: 16, fontSize: 13, lineHeight: 1.5, marginBottom: 14 }}>
+              <div style={{ background: "#0c1f14", border: "1px solid #1d3d2a", color: "#2ee06f", padding: 16, fontSize: 13, lineHeight: 1.5, marginBottom: 14 }}>
                 ✓ Booked{picked ? " for " + new Date(picked.utc).toLocaleString("en-US", { timeZone: tz, weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) : ""}. Talk soon.
               </div>
               {picked ? (() => {
@@ -148,7 +148,7 @@ export default function BookPage() {
                 const endMs = picked.utc + slotMins * 60000;
                 const gcal = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(title)}&dates=${fmt(picked.utc)}/${fmt(endMs)}`;
                 const ics = "data:text/calendar;charset=utf-8," + encodeURIComponent(["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//CreativeImpact//OS//EN", "BEGIN:VEVENT", "UID:" + picked.utc + "@creativeimpactos", "DTSTART:" + fmt(picked.utc), "DTEND:" + fmt(endMs), "SUMMARY:" + title, "END:VEVENT", "END:VCALENDAR"].join("\r\n"));
-                const btn: React.CSSProperties = { flex: 1, textAlign: "center", background: "transparent", border: "1px solid #34343c", color: "#ece8e1", padding: "10px", fontFamily: "'JetBrains Mono', monospace", fontSize: 11, letterSpacing: ".1em", textTransform: "uppercase", textDecoration: "none" };
+                const btn: React.CSSProperties = { flex: 1, textAlign: "center", background: "transparent", border: "1px solid #33455f", color: "#f4f7fc", padding: "10px", fontFamily: "'Archivo', sans-serif", fontSize: 11, letterSpacing: ".1em", textTransform: "uppercase", textDecoration: "none" };
                 return (
                   <div style={{ display: "flex", gap: 10 }}>
                     <a href={gcal} target="_blank" rel="noopener noreferrer" style={btn}>+ Google Calendar</a>
@@ -159,34 +159,34 @@ export default function BookPage() {
             </div>
           ) : picked ? (
             <div>
-              <div style={{ fontSize: 12, color: "#8b867d", marginBottom: 14 }}>You picked <span style={{ color: "#e6322b" }}>{new Date(picked.utc).toLocaleString("en-US", { timeZone: tz, weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}</span> ({tz}).</div>
+              <div style={{ fontSize: 12, color: "#8ea3c4", marginBottom: 14 }}>You picked <span style={{ color: "#ffb81c" }}>{new Date(picked.utc).toLocaleString("en-US", { timeZone: tz, weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}</span> ({tz}).</div>
               <input style={inp} placeholder="Your name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
               <input style={inp} placeholder="Email" type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
               <input style={inp} placeholder="Phone (optional)" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
               <textarea style={{ ...inp, minHeight: 60, resize: "vertical" }} placeholder="What do you want to cover? (optional)" value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
               <div style={{ display: "flex", gap: 10 }}>
-                <button onClick={() => setPicked(null)} style={{ flex: "0 0 auto", background: "transparent", border: "1px solid #34343c", color: "#8b867d", padding: 12, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, letterSpacing: ".12em", textTransform: "uppercase", cursor: "pointer" }}>Back</button>
-                <button onClick={confirm} disabled={busy || !form.name.trim() || !form.email.trim()} style={{ flex: 1, background: "#e6322b", color: "#0a0707", border: "none", padding: 12, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, fontWeight: 700, letterSpacing: ".14em", textTransform: "uppercase", cursor: (busy || !form.name.trim() || !form.email.trim()) ? "default" : "pointer", opacity: (busy || !form.name.trim() || !form.email.trim()) ? 0.5 : 1 }}>{busy ? "Booking…" : "Confirm →"}</button>
+                <button onClick={() => setPicked(null)} style={{ flex: "0 0 auto", background: "transparent", border: "1px solid #33455f", color: "#8ea3c4", padding: 12, fontFamily: "'Archivo', sans-serif", fontSize: 11, letterSpacing: ".12em", textTransform: "uppercase", cursor: "pointer" }}>Back</button>
+                <button onClick={confirm} disabled={busy || !form.name.trim() || !form.email.trim()} style={{ flex: 1, background: "#ffb81c", color: "#1a1608", border: "none", padding: 12, fontFamily: "'Archivo', sans-serif", fontSize: 11, fontWeight: 700, letterSpacing: ".14em", textTransform: "uppercase", cursor: (busy || !form.name.trim() || !form.email.trim()) ? "default" : "pointer", opacity: (busy || !form.name.trim() || !form.email.trim()) ? 0.5 : 1 }}>{busy ? "Booking…" : "Confirm →"}</button>
               </div>
-              {err ? <div style={{ color: "#e6322b", fontSize: 12, marginTop: 10, textAlign: "center" }}>{err}</div> : null}
+              {err ? <div style={{ color: "#ffb81c", fontSize: 12, marginTop: 10, textAlign: "center" }}>{err}</div> : null}
             </div>
           ) : days.length === 0 ? (
-            <div style={{ color: "#8b867d", fontSize: 13, textAlign: "center", padding: "20px 0" }}>No open times right now. Please check back soon.</div>
+            <div style={{ color: "#8ea3c4", fontSize: 13, textAlign: "center", padding: "20px 0" }}>No open times right now. Please check back soon.</div>
           ) : (
             <div>
               {days.map((d) => (
                 <div key={d.key} style={{ marginBottom: 18 }}>
-                  <div style={{ fontSize: 10, letterSpacing: ".16em", color: "#56524b", textTransform: "uppercase", marginBottom: 8 }}>{d.label}</div>
+                  <div style={{ fontSize: 10, letterSpacing: ".16em", color: "#5c7096", textTransform: "uppercase", marginBottom: 8 }}>{d.label}</div>
                   <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
                     {d.slots.map((s) => (
-                      <button key={s.utc} onClick={() => setPicked(s)} style={{ background: "transparent", border: "1px solid #34343c", color: "#ece8e1", padding: "9px 13px", fontFamily: "'JetBrains Mono', monospace", fontSize: 12.5, cursor: "pointer" }}>{s.label}</button>
+                      <button key={s.utc} onClick={() => setPicked(s)} style={{ background: "transparent", border: "1px solid #33455f", color: "#f4f7fc", padding: "9px 13px", fontFamily: "'Archivo', sans-serif", fontSize: 12.5, cursor: "pointer" }}>{s.label}</button>
                     ))}
                   </div>
                 </div>
               ))}
             </div>
           )}
-          <div style={{ fontSize: 10, color: "#56524b", marginTop: 16, textAlign: "center" }}>Times shown in {tz} · Creative Impact</div>
+          <div style={{ fontSize: 10, color: "#5c7096", marginTop: 16, textAlign: "center" }}>Times shown in {tz} · Creative Impact</div>
         </div>
       </div>
     </div>

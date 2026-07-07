@@ -12,9 +12,9 @@ type Ev = { id: string; kind: string; message: string; created_at: string };
 type Client = { id: string; name: string; contact_name?: string; email?: string; industry?: string; status?: string; ladder?: string; pipeline_stage_id?: string | null; offer_id?: string | null; notes?: string; portal_token?: string | null };
 type Doc = { id: string; title: string; updated_at: string };
 
-const C = { bg: "#080809", panel: "#0e0e11", line: "#26262c", line2: "#34343c", cream: "#ece8e1", muted: "#8b867d", dim: "#56524b", red: "#e6322b", red2: "#b81f1a", green: "#3fb97a" };
-const mono = "'JetBrains Mono', ui-monospace, monospace";
-const cond = "'Barlow Condensed','Arial Narrow',sans-serif";
+const C = { bg: "#0a1322", panel: "#101d33", line: "#24385c", line2: "#33455f", cream: "#f4f7fc", muted: "#8ea3c4", dim: "#5c7096", red: "#ffb81c", red2: "#ffd06a", green: "#2ee06f" };
+const mono = "'Archivo', sans-serif";
+const cond = "'Oswald',sans-serif";
 
 const ACTIVE_STATES = ["backlog", "in_progress", "in_review"];
 const TYPE_ICON: Record<string, string> = { video: "▶", ad: "◎", doc: "▤", web: "◫", social: "✦", strategy: "★", other: "•" };
@@ -258,7 +258,7 @@ export default function ClientDashboard() {
       </div>
 
       {/* hero — themed with the CLIENT'S brand */}
-      <div style={{ background: primary || "#141418", borderBottom: `1px solid ${C.line}`, padding: "34px 26px" }}>
+      <div style={{ background: primary || "#16263f", borderBottom: `1px solid ${C.line}`, padding: "34px 26px" }}>
         <div style={{ maxWidth: 1240, margin: "0 auto", display: "flex", alignItems: "center", gap: 22, flexWrap: "wrap" }}>
           {kit?.logo_url ? (
             <img src={kit.logo_url} alt="logo" style={{ height: 64, maxWidth: 200, objectFit: "contain", background: "rgba(0,0,0,.25)", padding: 8 }} />
@@ -291,14 +291,14 @@ export default function ClientDashboard() {
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
               <div style={h2}>PIPELINE</div>
               {nextStage ? (
-                <button onClick={advanceStage} style={{ background: C.red, border: "none", color: "#0a0707", fontFamily: mono, fontWeight: 700, fontSize: 10, letterSpacing: ".12em", padding: "8px 14px", cursor: "pointer", textTransform: "uppercase" }}>Advance → {nextStage.name}</button>
+                <button onClick={advanceStage} style={{ background: C.red, border: "none", color: "#1a1608", fontFamily: mono, fontWeight: 700, fontSize: 10, letterSpacing: ".12em", padding: "8px 14px", cursor: "pointer", textTransform: "uppercase" }}>Advance → {nextStage.name}</button>
               ) : null}
             </div>
             <div style={{ display: "flex", gap: 4, overflowX: "auto" }}>
               {stages.map((s, i) => {
                 const isCur = i === curIdx, isPast = curIdx >= 0 && i < curIdx;
                 return (
-                  <div key={s.id} style={{ flex: 1, minWidth: 92, textAlign: "center", padding: "9px 6px", background: isCur ? C.red : isPast ? "#1a2e22" : "#0a0a0c", border: `1px solid ${isCur ? C.red : C.line2}`, color: isCur ? "#0a0707" : isPast ? C.green : C.dim, fontFamily: cond, fontWeight: 800, fontSize: 12.5, letterSpacing: ".04em", textTransform: "uppercase", whiteSpace: "nowrap" }}>
+                  <div key={s.id} style={{ flex: 1, minWidth: 92, textAlign: "center", padding: "9px 6px", background: isCur ? C.red : isPast ? "#1a2e22" : "#060c17", border: `1px solid ${isCur ? C.red : C.line2}`, color: isCur ? "#1a1608" : isPast ? C.green : C.dim, fontFamily: cond, fontWeight: 800, fontSize: 12.5, letterSpacing: ".04em", textTransform: "uppercase", whiteSpace: "nowrap" }}>
                     {isPast ? "✓ " : ""}{s.name}
                   </div>
                 );
@@ -316,7 +316,7 @@ export default function ClientDashboard() {
                 <div>
                   <div style={{ ...label, marginBottom: 8 }}>Active · {active.length}</div>
                   {active.map((w) => (
-                    <div key={w.id} style={{ background: "#0a0a0c", border: `1px solid ${C.line2}`, padding: "10px 12px", marginBottom: 8 }}>
+                    <div key={w.id} style={{ background: "#060c17", border: `1px solid ${C.line2}`, padding: "10px 12px", marginBottom: 8 }}>
                       <div style={{ fontSize: 12.5, color: C.cream, fontWeight: 600 }}>{TYPE_ICON[w.type] || "•"} {w.title}</div>
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 7 }}>
                         <span style={{ fontSize: 9.5, color: w.status === "in_review" ? C.cream : C.dim, letterSpacing: ".1em", textTransform: "uppercase" }}>{w.status.replace("_", " ")}{w.due_date ? " · due " + w.due_date : ""}</span>
@@ -327,14 +327,14 @@ export default function ClientDashboard() {
                   ))}
                   <div style={{ display: "flex", gap: 6 }}>
                     <input value={newWork} onChange={(e) => setNewWork(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") addWork(); }} placeholder="+ add work item"
-                      style={{ flex: 1, background: "#0a0a0c", border: `1px dashed ${C.line2}`, color: C.cream, fontFamily: mono, fontSize: 11.5, padding: "8px 10px" }} />
+                      style={{ flex: 1, background: "#060c17", border: `1px dashed ${C.line2}`, color: C.cream, fontFamily: mono, fontSize: 11.5, padding: "8px 10px" }} />
                     <button onClick={addWork} style={{ background: "transparent", border: `1px solid ${C.line2}`, color: C.muted, fontFamily: mono, fontSize: 10, padding: "8px 11px", cursor: "pointer" }}>ADD</button>
                   </div>
                 </div>
                 <div>
                   <div style={{ ...label, marginBottom: 8 }}>Delivered / Completed · {done.length}</div>
                   {done.map((w) => (
-                    <div key={w.id} style={{ background: "#0a0a0c", border: `1px solid ${C.line}`, padding: "10px 12px", marginBottom: 8, opacity: w.status === "completed" ? 0.65 : 1 }}>
+                    <div key={w.id} style={{ background: "#060c17", border: `1px solid ${C.line}`, padding: "10px 12px", marginBottom: 8, opacity: w.status === "completed" ? 0.65 : 1 }}>
                       <div style={{ fontSize: 12.5, color: C.cream }}>{TYPE_ICON[w.type] || "•"} {w.title}</div>
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 7 }}>
                         <span style={{ fontSize: 9.5, color: w.status === "completed" ? C.dim : C.green, letterSpacing: ".1em", textTransform: "uppercase" }}>{w.status}</span>
@@ -353,7 +353,7 @@ export default function ClientDashboard() {
               {comms.length === 0 ? <div style={{ color: C.dim, fontSize: 12 }}>No agent emails yet — sending an onboarding form queues the welcome draft here.</div> : comms.map((m) => {
                 const pending = m.status === "draft_pending_approval";
                 return (
-                  <div key={m.id} style={{ border: `1px solid ${pending ? "#5a4a20" : C.line}`, borderLeft: `3px solid ${pending ? "#c8960a" : m.status === "sent" ? C.green : m.status === "rejected" ? C.line2 : C.red}`, padding: "10px 13px", marginBottom: 9, background: "#0a0a0c" }}>
+                  <div key={m.id} style={{ border: `1px solid ${pending ? "#5a4a20" : C.line}`, borderLeft: `3px solid ${pending ? "#c8960a" : m.status === "sent" ? C.green : m.status === "rejected" ? C.line2 : C.red}`, padding: "10px 13px", marginBottom: 9, background: "#060c17" }}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 10 }}>
                       <div style={{ fontSize: 12.5, color: C.cream, fontWeight: 600 }}>{m.subject}</div>
                       <span style={{ fontSize: 8.5, letterSpacing: ".12em", color: pending ? "#c8960a" : m.status === "sent" ? C.green : C.dim, textTransform: "uppercase", flexShrink: 0 }}>{pending ? "awaiting approval" : m.status}</span>
@@ -361,7 +361,7 @@ export default function ClientDashboard() {
                     <div style={{ fontSize: 11.5, color: C.muted, lineHeight: 1.6, whiteSpace: "pre-wrap", margin: "7px 0", maxHeight: 130, overflowY: "auto" }}>{m.body}</div>
                     {pending ? (
                       <div style={{ display: "flex", gap: 8 }}>
-                        <button disabled={commBusy === m.id} onClick={() => commAction(m.id, "approve")} style={{ background: C.red, border: "none", color: "#0a0707", fontFamily: mono, fontWeight: 700, fontSize: 9.5, letterSpacing: ".1em", padding: "7px 14px", cursor: "pointer", textTransform: "uppercase", opacity: commBusy === m.id ? 0.5 : 1 }}>Approve & send</button>
+                        <button disabled={commBusy === m.id} onClick={() => commAction(m.id, "approve")} style={{ background: C.red, border: "none", color: "#1a1608", fontFamily: mono, fontWeight: 700, fontSize: 9.5, letterSpacing: ".1em", padding: "7px 14px", cursor: "pointer", textTransform: "uppercase", opacity: commBusy === m.id ? 0.5 : 1 }}>Approve & send</button>
                         <button disabled={commBusy === m.id} onClick={() => commAction(m.id, "reject")} style={{ background: "transparent", border: `1px solid ${C.line2}`, color: C.muted, fontFamily: mono, fontSize: 9.5, letterSpacing: ".1em", padding: "7px 12px", cursor: "pointer", textTransform: "uppercase" }}>Reject</button>
                       </div>
                     ) : null}
@@ -374,7 +374,7 @@ export default function ClientDashboard() {
             <div style={panel}>
               <div style={h2}>ACTIVITY</div>
               {events.length === 0 ? <div style={{ color: C.dim, fontSize: 12 }}>Nothing yet.</div> : events.map((e) => (
-                <div key={e.id} style={{ display: "flex", gap: 10, padding: "8px 0", borderBottom: `1px solid #1a1a1f`, fontSize: 12 }}>
+                <div key={e.id} style={{ display: "flex", gap: 10, padding: "8px 0", borderBottom: `1px solid #16263f`, fontSize: 12 }}>
                   <span style={{ color: e.kind === "stage" ? C.red : e.kind === "work" ? C.green : e.kind === "email" ? C.cream : C.dim, width: 84, flexShrink: 0, fontSize: 9.5, letterSpacing: ".1em", textTransform: "uppercase", paddingTop: 2 }}>{e.kind}</span>
                   <span style={{ color: C.muted, flex: 1 }}>{e.message}</span>
                   <span style={{ color: C.dim, fontSize: 10, flexShrink: 0 }}>{new Date(e.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric" })}</span>
@@ -449,7 +449,7 @@ export default function ClientDashboard() {
               <div style={{ color: C.dim, fontSize: 12, lineHeight: 1.7 }}>No docs yet — strategy briefs, meeting notes, and the avatar bible live here.</div>
             ) : docs.map((d) => (
               <a key={d.id} href={`/clients/${client.id}/docs/${d.id}`}
-                style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 10, padding: "9px 11px", marginBottom: 6, background: "#0a0a0c", border: `1px solid ${C.line2}`, textDecoration: "none" }}>
+                style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 10, padding: "9px 11px", marginBottom: 6, background: "#060c17", border: `1px solid ${C.line2}`, textDecoration: "none" }}>
                 <span style={{ fontSize: 12.5, color: C.cream, fontWeight: 600 }}>▤ {d.title || "Untitled"}</span>
                 <span style={{ fontSize: 9.5, color: C.dim, flexShrink: 0 }}>{new Date(d.updated_at).toLocaleDateString("en-US", { month: "short", day: "numeric" })}</span>
               </a>
@@ -482,7 +482,7 @@ export default function ClientDashboard() {
               <div style={h2}>REFERRAL</div>
               <div style={{ ...label, marginBottom: 6 }}>Tracked link · click to copy</div>
               <button onClick={() => { const l = window.location.origin + "/r/" + referral.code; navigator.clipboard?.writeText(l).then(() => flash("REFERRAL LINK COPIED")); }}
-                style={{ background: "#0a0a0c", border: `1px solid ${C.line2}`, color: C.cream, fontFamily: mono, fontSize: 11.5, padding: "9px 12px", cursor: "pointer", width: "100%", textAlign: "left", wordBreak: "break-all" }}>
+                style={{ background: "#060c17", border: `1px solid ${C.line2}`, color: C.cream, fontFamily: mono, fontSize: 11.5, padding: "9px 12px", cursor: "pointer", width: "100%", textAlign: "left", wordBreak: "break-all" }}>
                 /r/{referral.code}
               </button>
               <div style={{ fontSize: 11, color: referral.clicks ? C.green : C.dim, marginTop: 8, letterSpacing: ".06em" }}>
@@ -494,7 +494,7 @@ export default function ClientDashboard() {
         </div>
       </div>
 
-      {toast ? <div style={{ position: "fixed", bottom: 18, left: "50%", transform: "translateX(-50%)", background: "#141418", border: `1px solid ${C.red}`, color: C.cream, fontFamily: mono, fontSize: 11, letterSpacing: ".1em", padding: "10px 18px", zIndex: 99 }}>{toast}</div> : null}
+      {toast ? <div style={{ position: "fixed", bottom: 18, left: "50%", transform: "translateX(-50%)", background: "#16263f", border: `1px solid ${C.red}`, color: C.cream, fontFamily: mono, fontSize: 11, letterSpacing: ".1em", padding: "10px 18px", zIndex: 99 }}>{toast}</div> : null}
     </div>
   );
 }

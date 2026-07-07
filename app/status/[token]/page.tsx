@@ -13,9 +13,9 @@ type Ev = { kind: string; message: string; at: string };
 type Kit = { logo?: string | null; colors?: { name?: string; hex?: string; usage?: string }[]; fonts?: { role?: string; family?: string; weight?: number; source?: string }[] } | null;
 type Data = { client: { name: string; contact: string }; stage_id: string | null; stages: Stage[]; work: Work[]; kit: Kit; events: Ev[] };
 
-const C = { bg: "#080809", panel: "#0e0e11", line: "#26262c", line2: "#34343c", cream: "#ece8e1", muted: "#8b867d", dim: "#56524b", red: "#e6322b", green: "#3fb97a" };
-const mono = "'JetBrains Mono', ui-monospace, monospace";
-const cond = "'Barlow Condensed','Arial Narrow',sans-serif";
+const C = { bg: "#0a1322", panel: "#101d33", line: "#24385c", line2: "#33455f", cream: "#f4f7fc", muted: "#8ea3c4", dim: "#5c7096", red: "#ffb81c", green: "#2ee06f" };
+const mono = "'Archivo', sans-serif";
+const cond = "'Oswald',sans-serif";
 
 const ACTIVE = ["backlog", "in_progress", "in_review"];
 const TYPE_ICON: Record<string, string> = { video: "▶", ad: "◎", doc: "▤", web: "◫", social: "✦", strategy: "★", other: "•" };
@@ -68,7 +68,7 @@ export default function StatusPage() {
   return (
     <div style={wrap}>
       {/* brand hero */}
-      <div style={{ background: primary || "#141418", borderBottom: `1px solid ${C.line}`, padding: "38px 26px" }}>
+      <div style={{ background: primary || "#16263f", borderBottom: `1px solid ${C.line}`, padding: "38px 26px" }}>
         <div style={{ maxWidth: 940, margin: "0 auto", display: "flex", alignItems: "center", gap: 22, flexWrap: "wrap" }}>
           {data.kit?.logo ? (
             <img src={data.kit.logo} alt="logo" style={{ height: 60, maxWidth: 190, objectFit: "contain", background: "rgba(0,0,0,.25)", padding: 8 }} />
@@ -92,7 +92,7 @@ export default function StatusPage() {
               {data.stages.map((s, i) => {
                 const isCur = i === curIdx, isPast = curIdx >= 0 && i < curIdx;
                 return (
-                  <div key={s.id} style={{ flex: 1, minWidth: 88, textAlign: "center", padding: "9px 6px", background: isCur ? C.red : isPast ? "#1a2e22" : "#0a0a0c", border: `1px solid ${isCur ? C.red : C.line2}`, color: isCur ? "#0a0707" : isPast ? C.green : C.dim, fontFamily: cond, fontWeight: 800, fontSize: 12.5, letterSpacing: ".04em", textTransform: "uppercase", whiteSpace: "nowrap" }}>
+                  <div key={s.id} style={{ flex: 1, minWidth: 88, textAlign: "center", padding: "9px 6px", background: isCur ? C.red : isPast ? "#1a2e22" : "#060c17", border: `1px solid ${isCur ? C.red : C.line2}`, color: isCur ? "#1a1608" : isPast ? C.green : C.dim, fontFamily: cond, fontWeight: 800, fontSize: 12.5, letterSpacing: ".04em", textTransform: "uppercase", whiteSpace: "nowrap" }}>
                     {isPast ? "✓ " : ""}{s.name}
                   </div>
                 );
@@ -106,7 +106,7 @@ export default function StatusPage() {
           <div style={panel}>
             <div style={h2}>IN PRODUCTION <span style={{ color: C.dim, fontSize: 11, fontFamily: mono }}>· {active.length}</span></div>
             {active.length === 0 ? <div style={{ color: C.dim, fontSize: 12 }}>Nothing in flight right now.</div> : active.map((w) => (
-              <div key={w.id} style={{ background: "#0a0a0c", border: `1px solid ${C.line2}`, padding: "10px 12px", marginBottom: 8 }}>
+              <div key={w.id} style={{ background: "#060c17", border: `1px solid ${C.line2}`, padding: "10px 12px", marginBottom: 8 }}>
                 <div style={{ fontSize: 12.5, color: C.cream, fontWeight: 600 }}>{TYPE_ICON[w.type] || "•"} {w.title}</div>
                 <div style={{ fontSize: 9.5, color: w.status === "in_review" ? C.cream : C.dim, letterSpacing: ".1em", textTransform: "uppercase", marginTop: 6 }}>{STATUS_LABEL[w.status] || w.status}{w.due ? " · due " + w.due : ""}</div>
                 {w.link ? <a href={w.link} target="_blank" rel="noopener noreferrer" style={{ fontSize: 10, color: C.red, textDecoration: "none" }}>view ↗</a> : null}
@@ -118,7 +118,7 @@ export default function StatusPage() {
           <div style={panel}>
             <div style={h2}>DELIVERED <span style={{ color: C.dim, fontSize: 11, fontFamily: mono }}>· {done.length}</span></div>
             {done.length === 0 ? <div style={{ color: C.dim, fontSize: 12 }}>First deliveries land here.</div> : done.map((w) => (
-              <div key={w.id} style={{ background: "#0a0a0c", border: `1px solid ${C.line}`, padding: "10px 12px", marginBottom: 8, opacity: w.status === "completed" ? 0.7 : 1 }}>
+              <div key={w.id} style={{ background: "#060c17", border: `1px solid ${C.line}`, padding: "10px 12px", marginBottom: 8, opacity: w.status === "completed" ? 0.7 : 1 }}>
                 <div style={{ fontSize: 12.5, color: C.cream }}>{TYPE_ICON[w.type] || "•"} {w.title}</div>
                 <div style={{ display: "flex", justifyContent: "space-between", marginTop: 6 }}>
                   <span style={{ fontSize: 9.5, color: w.status === "completed" ? C.dim : C.green, letterSpacing: ".1em", textTransform: "uppercase" }}>{STATUS_LABEL[w.status] || w.status}</span>
@@ -133,7 +133,7 @@ export default function StatusPage() {
         <div style={{ ...panel, marginTop: 18 }}>
           <div style={h2}>RECENT MILESTONES</div>
           {data.events.length === 0 ? <div style={{ color: C.dim, fontSize: 12 }}>Nothing yet.</div> : data.events.map((e, i) => (
-            <div key={i} style={{ display: "flex", gap: 10, padding: "8px 0", borderBottom: "1px solid #1a1a1f", fontSize: 12 }}>
+            <div key={i} style={{ display: "flex", gap: 10, padding: "8px 0", borderBottom: "1px solid #16263f", fontSize: 12 }}>
               <span style={{ color: e.kind === "stage" ? C.red : e.kind === "work" ? C.green : C.dim, width: 90, flexShrink: 0, fontSize: 9.5, letterSpacing: ".1em", textTransform: "uppercase", paddingTop: 2 }}>{e.kind}</span>
               <span style={{ color: C.muted, flex: 1 }}>{e.message}</span>
               <span style={{ color: C.dim, fontSize: 10, flexShrink: 0 }}>{new Date(e.at).toLocaleDateString("en-US", { month: "short", day: "numeric" })}</span>

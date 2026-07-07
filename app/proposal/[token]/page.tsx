@@ -61,12 +61,12 @@ export default function ProposalPage() {
     setBusy(false);
   }
 
-  const wrap: React.CSSProperties = { minHeight: "100vh", background: "#080809", color: "#ece8e1", display: "flex", justifyContent: "center", padding: "36px 20px", fontFamily: "'JetBrains Mono', ui-monospace, monospace" };
-  const card: React.CSSProperties = { width: "640px", maxWidth: "100%", background: "#0e0e11", border: "1px solid #26262c", borderTop: "3px solid #e6322b", height: "fit-content" };
+  const wrap: React.CSSProperties = { minHeight: "100vh", background: "#0a1322", color: "#f4f7fc", display: "flex", justifyContent: "center", padding: "36px 20px", fontFamily: "'Archivo', sans-serif" };
+  const card: React.CSSProperties = { width: "640px", maxWidth: "100%", background: "#101d33", border: "1px solid #24385c", borderTop: "3px solid #ffb81c", height: "fit-content" };
 
-  if (loading) return <div style={wrap}><div style={{ color: "#56524b", fontSize: 13 }}>Loading proposal…</div></div>;
-  if (err && !p) return <div style={wrap}><div style={{ color: "#8b867d", fontSize: 13, textAlign: "center" }}>{err}</div></div>;
-  if (!p) return <div style={wrap}><div style={{ color: "#8b867d" }}>Not found.</div></div>;
+  if (loading) return <div style={wrap}><div style={{ color: "#5c7096", fontSize: 13 }}>Loading proposal…</div></div>;
+  if (err && !p) return <div style={wrap}><div style={{ color: "#8ea3c4", fontSize: 13, textAlign: "center" }}>{err}</div></div>;
+  if (!p) return <div style={wrap}><div style={{ color: "#8ea3c4" }}>Not found.</div></div>;
 
   const isAccepted = accepted || p.status === "accepted";
   const filledTerms = (p.terms || "")
@@ -80,62 +80,62 @@ export default function ProposalPage() {
   return (
     <div style={wrap}>
       <div style={card}>
-        <div style={{ padding: "22px 28px", borderBottom: "1px solid #26262c", display: "flex", alignItems: "center", gap: 12 }}>
-          <div style={{ position: "relative", width: 34, height: 34, border: "2px solid #e6322b", display: "flex", alignItems: "center", justifyContent: "center", background: "#0a0707", flexShrink: 0 }}>
-            <div style={{ width: 0, height: 0, borderTop: "6px solid transparent", borderBottom: "6px solid transparent", borderLeft: "10px solid #e6322b", marginLeft: 3 }} />
+        <div style={{ padding: "22px 28px", borderBottom: "1px solid #24385c", display: "flex", alignItems: "center", gap: 12 }}>
+          <div style={{ position: "relative", width: 34, height: 34, border: "2px solid #ffb81c", display: "flex", alignItems: "center", justifyContent: "center", background: "#1a1608", flexShrink: 0 }}>
+            <div style={{ width: 0, height: 0, borderTop: "6px solid transparent", borderBottom: "6px solid transparent", borderLeft: "10px solid #ffb81c", marginLeft: 3 }} />
           </div>
           <div>
-            <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 900, fontSize: 19, lineHeight: 0.86 }}>CI<span style={{ color: "#e6322b" }}>/</span>OS</div>
-            <div style={{ fontSize: 8.5, letterSpacing: ".28em", color: "#56524b", marginTop: 3 }}>PROPOSAL {p.number}</div>
+            <div style={{ fontFamily: "'Oswald', sans-serif", fontWeight: 900, fontSize: 19, lineHeight: 0.86 }}>CI<span style={{ color: "#ffb81c" }}>/</span>OS</div>
+            <div style={{ fontSize: 8.5, letterSpacing: ".28em", color: "#5c7096", marginTop: 3 }}>PROPOSAL {p.number}</div>
           </div>
         </div>
 
         <div style={{ padding: "26px 28px" }}>
-          {p.client ? <div style={{ fontSize: 11, letterSpacing: ".14em", color: "#56524b", textTransform: "uppercase", marginBottom: 4 }}>Prepared for {p.client}</div> : null}
-          {p.title ? <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 900, fontSize: 34, lineHeight: 1, marginBottom: 10 }}>{p.title}</div> : null}
-          {p.intro ? <div style={{ fontSize: 13.5, color: "#c9c4bb", lineHeight: 1.65, marginBottom: 20, whiteSpace: "pre-wrap" }}>{p.intro}</div> : null}
+          {p.client ? <div style={{ fontSize: 11, letterSpacing: ".14em", color: "#5c7096", textTransform: "uppercase", marginBottom: 4 }}>Prepared for {p.client}</div> : null}
+          {p.title ? <div style={{ fontFamily: "'Oswald', sans-serif", fontWeight: 900, fontSize: 34, lineHeight: 1, marginBottom: 10 }}>{p.title}</div> : null}
+          {p.intro ? <div style={{ fontSize: 13.5, color: "#b9c8e0", lineHeight: 1.65, marginBottom: 20, whiteSpace: "pre-wrap" }}>{p.intro}</div> : null}
 
-          <div style={{ border: "1px solid #34343c", marginBottom: 20 }}>
+          <div style={{ border: "1px solid #33455f", marginBottom: 20 }}>
             {(p.items || []).map((it, i) => (
-              <div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "11px 14px", borderBottom: i < p.items.length - 1 ? "1px solid #1a1a1f" : "none", fontSize: 13.5 }}>
-                <div style={{ color: "#ece8e1" }}>{it.desc || "Item"}<span style={{ color: "#56524b" }}>{it.qty > 1 ? "  ×" + it.qty : ""}</span></div>
-                <div style={{ color: "#8b867d" }}>{money(it.qty * it.unit_cents)}</div>
+              <div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "11px 14px", borderBottom: i < p.items.length - 1 ? "1px solid #16263f" : "none", fontSize: 13.5 }}>
+                <div style={{ color: "#f4f7fc" }}>{it.desc || "Item"}<span style={{ color: "#5c7096" }}>{it.qty > 1 ? "  ×" + it.qty : ""}</span></div>
+                <div style={{ color: "#8ea3c4" }}>{money(it.qty * it.unit_cents)}</div>
               </div>
             ))}
-            <div style={{ display: "flex", justifyContent: "space-between", padding: "13px 14px", background: "#0a0a0c" }}>
-              <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 900, fontSize: 19, letterSpacing: ".02em" }}>TOTAL</div>
-              <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 900, fontSize: 24, color: "#e6322b" }}>{money(p.amount_cents)}</div>
+            <div style={{ display: "flex", justifyContent: "space-between", padding: "13px 14px", background: "#060c17" }}>
+              <div style={{ fontFamily: "'Oswald', sans-serif", fontWeight: 900, fontSize: 19, letterSpacing: ".02em" }}>TOTAL</div>
+              <div style={{ fontFamily: "'Oswald', sans-serif", fontWeight: 900, fontSize: 24, color: "#ffb81c" }}>{money(p.amount_cents)}</div>
             </div>
           </div>
 
           {p.terms ? (
             <div style={{ marginBottom: 22 }}>
-              <div style={{ fontSize: 10, letterSpacing: ".2em", color: "#56524b", textTransform: "uppercase", marginBottom: 6 }}>Agreement</div>
-              <div style={{ fontSize: 12, color: "#8b867d", lineHeight: 1.6, whiteSpace: "pre-wrap" }}>{filledTerms}</div>
+              <div style={{ fontSize: 10, letterSpacing: ".2em", color: "#5c7096", textTransform: "uppercase", marginBottom: 6 }}>Agreement</div>
+              <div style={{ fontSize: 12, color: "#8ea3c4", lineHeight: 1.6, whiteSpace: "pre-wrap" }}>{filledTerms}</div>
             </div>
           ) : null}
 
           {isAccepted ? (
-            <div style={{ background: "#0c1f14", border: "1px solid #1d3d2a", color: "#3fb97a", padding: "16px", fontSize: 13, lineHeight: 1.5 }}>
+            <div style={{ background: "#0c1f14", border: "1px solid #1d3d2a", color: "#2ee06f", padding: "16px", fontSize: 13, lineHeight: 1.5 }}>
               ✓ Accepted &amp; signed{p.signer_name ? " by " + p.signer_name : ""}{p.accepted_at ? " · " + new Date(p.accepted_at).toLocaleDateString() : ""}. Thank you — we'll be in touch with next steps.
             </div>
           ) : (
-            <div style={{ borderTop: "1px solid #26262c", paddingTop: 20 }}>
-              <div style={{ fontSize: 10, letterSpacing: ".2em", color: "#56524b", textTransform: "uppercase", marginBottom: 10 }}>Accept &amp; sign</div>
+            <div style={{ borderTop: "1px solid #24385c", paddingTop: 20 }}>
+              <div style={{ fontSize: 10, letterSpacing: ".2em", color: "#5c7096", textTransform: "uppercase", marginBottom: 10 }}>Accept &amp; sign</div>
               <input value={signer} onChange={(e) => setSigner(e.target.value)} placeholder="Type your full name"
-                style={{ width: "100%", background: "#0a0a0c", border: "1px solid #34343c", color: "#ece8e1", padding: "11px 13px", fontFamily: "'JetBrains Mono', monospace", fontSize: 14, marginBottom: 12 }} />
-              <label style={{ display: "flex", gap: 9, alignItems: "flex-start", fontSize: 12, color: "#8b867d", cursor: "pointer", marginBottom: 16, lineHeight: 1.5 }}>
+                style={{ width: "100%", background: "#060c17", border: "1px solid #33455f", color: "#f4f7fc", padding: "11px 13px", fontFamily: "'Archivo', sans-serif", fontSize: 14, marginBottom: 12 }} />
+              <label style={{ display: "flex", gap: 9, alignItems: "flex-start", fontSize: 12, color: "#8ea3c4", cursor: "pointer", marginBottom: 16, lineHeight: 1.5 }}>
                 <input type="checkbox" checked={agree} onChange={(e) => setAgree(e.target.checked)} style={{ marginTop: 2 }} />
                 <span>I agree to the scope and terms above, and understand typing my name is my electronic signature.</span>
               </label>
               <button onClick={accept} disabled={busy || !signer.trim() || !agree}
-                style={{ width: "100%", background: "#e6322b", color: "#0a0707", border: "none", padding: 14, fontFamily: "'JetBrains Mono', monospace", fontSize: 12, fontWeight: 700, letterSpacing: ".16em", textTransform: "uppercase", cursor: (busy || !signer.trim() || !agree) ? "default" : "pointer", opacity: (busy || !signer.trim() || !agree) ? 0.5 : 1 }}>
+                style={{ width: "100%", background: "#ffb81c", color: "#1a1608", border: "none", padding: 14, fontFamily: "'Archivo', sans-serif", fontSize: 12, fontWeight: 700, letterSpacing: ".16em", textTransform: "uppercase", cursor: (busy || !signer.trim() || !agree) ? "default" : "pointer", opacity: (busy || !signer.trim() || !agree) ? 0.5 : 1 }}>
                 {busy ? "Recording…" : "Accept & Sign →"}
               </button>
-              {err ? <div style={{ color: "#e6322b", fontSize: 12, marginTop: 12, textAlign: "center" }}>{err}</div> : null}
+              {err ? <div style={{ color: "#ffb81c", fontSize: 12, marginTop: 12, textAlign: "center" }}>{err}</div> : null}
             </div>
           )}
-          <div style={{ fontSize: 10, color: "#56524b", marginTop: 18, textAlign: "center" }}>Creative Impact</div>
+          <div style={{ fontSize: 10, color: "#5c7096", marginTop: 18, textAlign: "center" }}>Creative Impact</div>
         </div>
       </div>
     </div>

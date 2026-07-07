@@ -7,7 +7,7 @@ import dynamic from "next/dynamic";
 // server/client mismatches, so we load it client-only.
 const Cockpit = dynamic(() => import("./cockpit/Cockpit"), {
   ssr: false,
-  loading: () => <div style={{ minHeight: "100vh", background: "#080809" }} />,
+  loading: () => <div style={{ minHeight: "100vh", background: "#0a1322" }} />,
 });
 
 export default function CockpitClient(props: Record<string, unknown>) {

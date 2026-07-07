@@ -29,9 +29,9 @@ export default function LoginPage() {
 
   const field: React.CSSProperties = {
     width: "100%",
-    background: "#0a0a0c",
-    border: "1px solid var(--line2, #34343c)",
-    color: "var(--cream, #ece8e1)",
+    background: "#060c17",
+    border: "1px solid var(--line2, #33455f)",
+    color: "var(--cream, #f4f7fc)",
     padding: "11px 13px",
     fontFamily: "var(--mono, ui-monospace, monospace)",
     fontSize: "14px",
@@ -41,7 +41,7 @@ export default function LoginPage() {
     fontFamily: "var(--mono, monospace)",
     fontSize: "10px",
     letterSpacing: ".22em",
-    color: "var(--dim, #56524b)",
+    color: "var(--dim, #5c7096)",
     textTransform: "uppercase",
   };
 
@@ -49,8 +49,8 @@ export default function LoginPage() {
     <div
       style={{
         minHeight: "100vh",
-        background: "var(--bg, #080809)",
-        color: "var(--cream, #ece8e1)",
+        background: "var(--bg, #0a1322)",
+        color: "var(--cream, #f4f7fc)",
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
@@ -61,8 +61,8 @@ export default function LoginPage() {
         onSubmit={submit}
         style={{
           width: "340px",
-          background: "#0e0e11",
-          border: "1px solid var(--line, #26262c)",
+          background: "#101d33",
+          border: "1px solid var(--line, #24385c)",
           padding: "30px 26px",
         }}
       >
@@ -72,11 +72,11 @@ export default function LoginPage() {
               position: "relative",
               width: "38px",
               height: "38px",
-              border: "2px solid var(--red, #e6322b)",
+              border: "2px solid var(--red, #ffb81c)",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              background: "#0a0707",
+              background: "#1a1608",
               flexShrink: 0,
             }}
           >
@@ -86,16 +86,16 @@ export default function LoginPage() {
                 height: 0,
                 borderTop: "7px solid transparent",
                 borderBottom: "7px solid transparent",
-                borderLeft: "11px solid var(--red, #e6322b)",
+                borderLeft: "11px solid var(--red, #ffb81c)",
                 marginLeft: "3px",
               }}
             />
           </div>
           <div>
-            <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 900, fontSize: "21px", lineHeight: 0.86 }}>
-              CI<span style={{ color: "var(--red, #e6322b)" }}>/</span>OS
+            <div style={{ fontFamily: "'Oswald', sans-serif", fontWeight: 900, fontSize: "21px", lineHeight: 0.86 }}>
+              CI<span style={{ color: "var(--red, #ffb81c)" }}>/</span>OS
             </div>
-            <div style={{ fontSize: "8px", letterSpacing: ".3em", color: "var(--dim, #56524b)", marginTop: "3px" }}>
+            <div style={{ fontSize: "8px", letterSpacing: ".3em", color: "var(--dim, #5c7096)", marginTop: "3px" }}>
               OPERATING SYSTEM
             </div>
           </div>
@@ -125,7 +125,7 @@ export default function LoginPage() {
         </div>
 
         {err ? (
-          <div style={{ color: "var(--red, #e6322b)", fontSize: "12px", marginBottom: "14px", lineHeight: 1.4 }}>{err}</div>
+          <div style={{ color: "var(--red, #ffb81c)", fontSize: "12px", marginBottom: "14px", lineHeight: 1.4 }}>{err}</div>
         ) : null}
 
         <button
@@ -133,8 +133,8 @@ export default function LoginPage() {
           disabled={busy}
           style={{
             width: "100%",
-            background: "var(--red, #e6322b)",
-            color: "#0a0707",
+            background: "var(--red, #ffb81c)",
+            color: "#1a1608",
             border: "none",
             padding: "12px",
             fontFamily: "var(--mono, monospace)",
@@ -150,7 +150,7 @@ export default function LoginPage() {
         </button>
 
         {!supabaseConfigured ? (
-          <div style={{ fontSize: "11px", color: "var(--dim, #56524b)", marginTop: "16px", lineHeight: 1.5 }}>
+          <div style={{ fontSize: "11px", color: "var(--dim, #5c7096)", marginTop: "16px", lineHeight: 1.5 }}>
             Supabase not configured. Add NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY to .env.local.
           </div>
         ) : null}

@@ -28,8 +28,8 @@ export async function POST(req: Request) {
       to: email,
       subject: `Booked: ${evTitle} — ${when}`,
       html: emailShell(`<div style="font-size:15px;margin-bottom:10px">You're booked in.</div>
-        <div style="color:#8b867d;font-size:13px;line-height:1.7">${esc(evTitle)}<br><b style="color:#ece8e1">${esc(when)}</b>${notes ? `<br><br>Notes: ${esc(notes)}` : ""}</div>
-        <div style="color:#8b867d;font-size:12px;margin-top:16px">The calendar invite is attached. Talk soon.</div>`),
+        <div style="color:#8ea3c4;font-size:13px;line-height:1.7">${esc(evTitle)}<br><b style="color:#f4f7fc">${esc(when)}</b>${notes ? `<br><br>Notes: ${esc(notes)}` : ""}</div>
+        <div style="color:#8ea3c4;font-size:12px;margin-top:16px">The calendar invite is attached. Talk soon.</div>`),
       ics,
     });
   } else {

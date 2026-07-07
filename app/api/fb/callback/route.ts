@@ -14,7 +14,7 @@ const G = "https://graph.facebook.com/v25.0";
 
 function html(body: string, status = 200) {
   return new Response(
-    `<!doctype html><html><body style="background:#080809;color:#ece8e1;font-family:ui-monospace,monospace;display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0"><div style="max-width:480px;padding:32px;border:1px solid #26262c;border-top:3px solid #e6322b;background:#0e0e11">${body}</div></body></html>`,
+    `<!doctype html><html><body style="background:#0a1322;color:#f4f7fc;font-family:ui-monospace,monospace;display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0"><div style="max-width:480px;padding:32px;border:1px solid #24385c;border-top:3px solid #ffb81c;background:#101d33">${body}</div></body></html>`,
     { status, headers: { "content-type": "text/html" } }
   );
 }
@@ -29,7 +29,7 @@ async function saveOps(admin: NonNullable<ReturnType<typeof getAdminClient>>, ui
 async function completeWithPage(admin: NonNullable<ReturnType<typeof getAdminClient>>, uid: string, llut: string, pageId: string, origin: string) {
   const acc = await fetch(`${G}/me/accounts?fields=id,name,access_token&limit=100&access_token=${encodeURIComponent(llut)}`).then((r) => r.json());
   const page = (acc.data || []).find((p: { id: string }) => p.id === pageId);
-  if (!page?.access_token) return html(`<b style="color:#e6322b">Page not found or no access.</b><div style="margin-top:10px;font-size:13px;color:#8b867d">Close this tab and try Connect again.</div>`, 400);
+  if (!page?.access_token) return html(`<b style="color:#ffb81c">Page not found or no access.</b><div style="margin-top:10px;font-size:13px;color:#8ea3c4">Close this tab and try Connect again.</div>`, 400);
 
   // Subscribe the page's leadgen feed to this app
   const sub = await fetch(`${G}/${pageId}/subscribed_apps?subscribed_fields=leadgen&access_token=${encodeURIComponent(page.access_token)}`, { method: "POST" }).then((r) => r.json());
@@ -63,7 +63,7 @@ export async function GET(req: Request) {
   if (choosePage) {
     const { data: st } = await admin.from("app_state").select("ops").eq("user_id", user.id).maybeSingle();
     const llut = st?.ops?.__fb_pending?.llut;
-    if (!llut) return html(`<b style="color:#e6322b">Session expired.</b><div style="margin-top:10px;font-size:13px;color:#8b867d">Start Connect again from the OS.</div>`, 400);
+    if (!llut) return html(`<b style="color:#ffb81c">Session expired.</b><div style="margin-top:10px;font-size:13px;color:#8ea3c4">Start Connect again from the OS.</div>`, 400);
     return completeWithPage(admin, user.id, llut, choosePage, origin);
   }
 
@@ -71,25 +71,25 @@ export async function GET(req: Request) {
   const code = u.searchParams.get("code");
   const state = u.searchParams.get("state");
   const cookieState = cookieStore.get("fb_oauth_state")?.value;
-  if (!code) return html(`<b style="color:#e6322b">Connection cancelled.</b><div style="margin-top:10px;font-size:13px;color:#8b867d">${esc(u.searchParams.get("error_description") || "No code returned.")} <a style="color:#e6322b" href="/">Back to the OS</a></div>`, 400);
-  if (!state || state !== cookieState) return html(`<b style="color:#e6322b">State mismatch.</b><div style="margin-top:10px;font-size:13px;color:#8b867d">Start Connect again from the OS.</div>`, 400);
+  if (!code) return html(`<b style="color:#ffb81c">Connection cancelled.</b><div style="margin-top:10px;font-size:13px;color:#8ea3c4">${esc(u.searchParams.get("error_description") || "No code returned.")} <a style="color:#ffb81c" href="/">Back to the OS</a></div>`, 400);
+  if (!state || state !== cookieState) return html(`<b style="color:#ffb81c">State mismatch.</b><div style="margin-top:10px;font-size:13px;color:#8ea3c4">Start Connect again from the OS.</div>`, 400);
   if (!secret) return html("Missing FB_APP_SECRET in Vercel.", 400);
 
   const redirectUri = `${origin}/api/fb/callback`;
   const tok = await fetch(`${G}/oauth/access_token?client_id=${appId}&redirect_uri=${encodeURIComponent(redirectUri)}&client_secret=${secret}&code=${encodeURIComponent(code)}`).then((r) => r.json());
-  if (!tok.access_token) return html(`<b style="color:#e6322b">Token exchange failed.</b><div style="margin-top:10px;font-size:12px;color:#8b867d">${esc(tok.error?.message || "")}</div>`, 400);
+  if (!tok.access_token) return html(`<b style="color:#ffb81c">Token exchange failed.</b><div style="margin-top:10px;font-size:12px;color:#8ea3c4">${esc(tok.error?.message || "")}</div>`, 400);
 
   const ll = await fetch(`${G}/oauth/access_token?grant_type=fb_exchange_token&client_id=${appId}&client_secret=${secret}&fb_exchange_token=${encodeURIComponent(tok.access_token)}`).then((r) => r.json());
   const llut = ll.access_token || tok.access_token;
 
   const acc = await fetch(`${G}/me/accounts?fields=id,name&limit=100&access_token=${encodeURIComponent(llut)}`).then((r) => r.json());
   const pages: { id: string; name: string }[] = acc.data || [];
-  if (!pages.length) return html(`<b style="color:#e6322b">No pages found.</b><div style="margin-top:10px;font-size:13px;color:#8b867d">Make sure you granted page access in the Facebook dialog, then try again.</div>`, 400);
+  if (!pages.length) return html(`<b style="color:#ffb81c">No pages found.</b><div style="margin-top:10px;font-size:13px;color:#8ea3c4">Make sure you granted page access in the Facebook dialog, then try again.</div>`, 400);
 
   if (pages.length === 1) return completeWithPage(admin, user.id, llut, pages[0].id, origin);
 
   // Multiple pages: stash the token briefly and show a picker
   await saveOps(admin, user.id, { __fb_pending: { llut, at: Date.now() } });
-  const list = pages.map((p) => `<a href="/api/fb/callback?page_id=${esc(p.id)}" style="display:block;padding:12px 14px;border:1px solid #34343c;margin-bottom:8px;color:#ece8e1;text-decoration:none;font-size:14px">▸ ${esc(p.name)}</a>`).join("");
-  return html(`<div style="font-weight:900;font-size:20px;margin-bottom:6px">PICK THE PAGE</div><div style="font-size:12px;color:#8b867d;margin-bottom:16px">Which Page do your lead ads run on?</div>${list}`);
+  const list = pages.map((p) => `<a href="/api/fb/callback?page_id=${esc(p.id)}" style="display:block;padding:12px 14px;border:1px solid #34343c;margin-bottom:8px;color:#f4f7fc;text-decoration:none;font-size:14px">▸ ${esc(p.name)}</a>`).join("");
+  return html(`<div style="font-weight:900;font-size:20px;margin-bottom:6px">PICK THE PAGE</div><div style="font-size:12px;color:#8ea3c4;margin-bottom:16px">Which Page do your lead ads run on?</div>${list}`);
 }

@@ -42,7 +42,7 @@ export async function POST(req: Request) {
         bcc: null,
         subject: `✍️ Signed: ${title}${amount ? " · " + amount : ""} by ${signer}`,
         html: emailShell(`<div style="font-size:15px">Proposal accepted &amp; signed.</div>
-          <div style="color:#8b867d;font-size:13px;line-height:1.7;margin-top:8px">${esc(title)}${amount ? " · <b style='color:#e6322b'>" + esc(amount) + "</b>" : ""}<br>Signed by <b style="color:#ece8e1">${esc(signer)}</b><br>A Signed deal was added to your pipeline.</div>`),
+          <div style="color:#8ea3c4;font-size:13px;line-height:1.7;margin-top:8px">${esc(title)}${amount ? " · <b style='color:#ffb81c'>" + esc(amount) + "</b>" : ""}<br>Signed by <b style="color:#f4f7fc">${esc(signer)}</b><br>A Signed deal was added to your pipeline.</div>`),
       });
       const admin = getAdminClient();
       if (admin) {
@@ -50,7 +50,7 @@ export async function POST(req: Request) {
         if (prow?.client_id) {
           const { data: c } = await admin.from("clients").select("email").eq("id", prow.client_id).maybeSingle();
           if (c?.email) {
-            await sendEmail({ to: c.email, subject: `Signed: ${title}`, html: emailShell(`<div style="font-size:15px">Thanks, ${esc(signer)} — you're all set.</div><div style="color:#8b867d;font-size:13px;line-height:1.7;margin-top:8px">We've received your signed agreement for <b style="color:#ece8e1">${esc(title)}</b>. We'll be in touch with next steps.</div>`) });
+            await sendEmail({ to: c.email, subject: `Signed: ${title}`, html: emailShell(`<div style="font-size:15px">Thanks, ${esc(signer)} — you're all set.</div><div style="color:#8ea3c4;font-size:13px;line-height:1.7;margin-top:8px">We've received your signed agreement for <b style="color:#f4f7fc">${esc(title)}</b>. We'll be in touch with next steps.</div>`) });
           }
         }
       }

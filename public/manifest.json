@@ -1,13 +1,13 @@
 {
   "name": "Creative Impact OS",
-  "short_name": "Creative Impact OS",
+  "short_name": "CI OS",
   "description": "The internal operating system for Creative Impact.",
   "id": "/",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
-  "background_color": "#080809",
-  "theme_color": "#080809",
+  "background_color": "#060c17",
+  "theme_color": "#060c17",
   "categories": ["productivity", "business"],
   "icons": [
     {

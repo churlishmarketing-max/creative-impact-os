@@ -1,0 +1,1456 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=Archivo:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box}
+html,body{margin:0;padding:0;background:#0a1322}
+a{color:#ffb81c;text-decoration:none}
+a:hover{color:#ffd06a}
+::selection{background:#ffb81c;color:#0a1322}
+::-webkit-scrollbar{width:9px;height:9px}
+::-webkit-scrollbar-track{background:#0a1322}
+::-webkit-scrollbar-thumb{background:#24385c}
+summary::-webkit-details-marker{display:none}
+@keyframes blink{0%,48%{opacity:1}49%,100%{opacity:.1}}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+@keyframes marq{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+@keyframes popcount{0%{transform:scale(1.6);opacity:0}20%{transform:scale(1);opacity:1}85%{transform:scale(1);opacity:1}100%{transform:scale(.9);opacity:0}}
+</style>
+</helmet>
+
+<div style="position:relative;width:100%;min-height:100vh;background:var(--navy);color:var(--white);font-family:var(--sans);overflow-x:hidden;--navy:#0a1322;--deep:#060c17;--panel:#101d33;--panel2:#16263f;--line:#24385c;--gold:#ffb81c;--gold2:#ffd06a;--golddark:#1a1608;--white:#f4f7fc;--muted:#8ea3c4;--dim:#5c7096;--live:#ff3040;--good:#2ee06f;--sans:'Archivo',sans-serif;--num:'Oswald',sans-serif">
+
+  <!-- ===================== SCOREBUG ===================== -->
+  <header style="position:sticky;top:0;z-index:30;background:var(--deep);border-bottom:3px solid var(--gold)">
+    <div style="display:flex;align-items:stretch;gap:0;padding:0 22px;height:62px">
+      <div style="display:flex;align-items:center;gap:12px;padding-right:18px;border-right:1px solid var(--line)">
+        <div style="width:38px;height:38px;border-radius:6px;overflow:hidden;flex-shrink:0;border:1px solid var(--line)">
+          <img src="brand/ci-mark.png" alt="Creative Impact" style="width:100%;height:100%;object-fit:cover;display:block" />
+        </div>
+        <div>
+          <div style="font-weight:900;font-size:14px;letter-spacing:.08em;line-height:1">CREATIVE IMPACT</div>
+          <div style="font-size:8.5px;font-weight:700;letter-spacing:.3em;color:var(--dim);margin-top:3px">IMPACT SPORTS NET · CLT</div>
+        </div>
+      </div>
+
+      <div style="display:flex;align-items:center;gap:0;padding:0 18px;border-right:1px solid var(--line)">
+        <div style="display:flex;align-items:center;gap:10px">
+          <span style="font-weight:800;font-size:12px;letter-spacing:.1em;color:var(--muted)">CI</span>
+          <span style="font-family:var(--num);font-weight:700;font-size:27px;color:var(--gold);line-height:1">{{ scoreUs }}</span>
+        </div>
+        <span style="margin:0 14px;font-family:var(--num);font-weight:500;font-size:13px;color:var(--dim)">VS</span>
+        <div style="display:flex;align-items:center;gap:10px">
+          <span style="font-weight:800;font-size:12px;letter-spacing:.1em;color:var(--muted)">GOAL</span>
+          <span style="font-family:var(--num);font-weight:700;font-size:27px;color:var(--white);line-height:1">100K</span>
+        </div>
+      </div>
+
+      <div style="display:flex;align-items:center;gap:16px;padding:0 18px;border-right:1px solid var(--line)">
+        <div style="text-align:center">
+          <div style="font-family:var(--num);font-weight:600;font-size:19px;line-height:1;color:var(--white)">{{ quarter }}</div>
+          <div style="font-size:8px;font-weight:700;letter-spacing:.22em;color:var(--dim);margin-top:2px">PERIOD</div>
+        </div>
+        <div style="text-align:center">
+          <div style="font-family:var(--num);font-weight:600;font-size:19px;line-height:1;color:var(--gold)">{{ sellDays }}</div>
+          <div style="font-size:8px;font-weight:700;letter-spacing:.22em;color:var(--dim);margin-top:2px">TO SIGN-BY</div>
+        </div>
+        <div style="text-align:center">
+          <div style="font-family:var(--num);font-weight:600;font-size:19px;line-height:1;color:var(--white)">{{ deadDays }}</div>
+          <div style="font-size:8px;font-weight:700;letter-spacing:.22em;color:var(--dim);margin-top:2px">TO FINAL</div>
+        </div>
+      </div>
+
+      <div style="flex:1"></div>
+
+      <div style="display:flex;align-items:center;gap:18px">
+        <div style="text-align:right">
+          <div style="font-family:var(--num);font-weight:600;font-size:19px;letter-spacing:.06em;line-height:1">{{ clock }}</div>
+          <div style="font-size:8.5px;font-weight:700;letter-spacing:.2em;color:var(--dim);margin-top:2px">{{ date }}</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;background:var(--live);padding:7px 13px;border-radius:3px">
+          <span style="width:8px;height:8px;border-radius:50%;background:#fff;animation:{{ animPulse }}"></span>
+          <span style="font-weight:900;font-size:11px;letter-spacing:.18em">LIVE · CLT</span>
+        </div>
+      </div>
+    </div>
+
+    <nav style="display:flex;gap:2px;padding:0 22px;background:var(--deep);overflow-x:auto">
+      <sc-for list="{{ sections }}" as="s" hint-placeholder-count="9">
+        <button onClick="{{ s.onSelect }}" style="flex-shrink:0;background:transparent;border:none;border-bottom:3px solid {{ s.bar }};color:{{ s.fg }};cursor:pointer;padding:10px 15px 9px;font-family:var(--sans);font-weight:800;font-size:11.5px;letter-spacing:.12em;text-transform:uppercase;transition:.12s" style-hover="color:var(--white)">
+        <span style="color:{{ s.code }};margin-right:7px;font-weight:700">{{ s.num }}</span>{{ s.label }}
+        </button>
+      </sc-for>
+    </nav>
+  </header>
+
+  <!-- ===================== DRIVE METER ===================== -->
+  <section style="padding:20px 26px;background:var(--panel);border-bottom:1px solid var(--line)">
+    <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:10px;flex-wrap:wrap;gap:8px">
+      <span style="font-weight:900;font-size:13px;letter-spacing:.14em">THE DRIVE TO 100K <span style="color:var(--gold)">· COLLECTED CASH = FIELD POSITION</span></span>
+      <span style="font-family:var(--num);font-weight:600;font-size:15px"><span style="color:var(--gold)">{{ collectedFmt }}</span> <span style="color:var(--dim);font-size:12px">/ $100,000 · {{ gapText }}</span></span>
+    </div>
+    <div style="position:relative;height:34px;background:var(--deep);border:1px solid var(--line);border-radius:3px;overflow:hidden">
+      <div style="position:absolute;inset:0;background:repeating-linear-gradient(90deg,transparent 0 calc(10% - 1px),rgba(142,163,196,.25) calc(10% - 1px) 10%)"></div>
+      <div style="position:absolute;right:0;top:0;bottom:0;width:9%;background:rgba(255,184,28,.16);border-left:2px solid var(--gold)"></div>
+      <div style="position:absolute;left:0;top:0;bottom:0;width:{{ pct }}%;background:linear-gradient(90deg,rgba(255,184,28,.12),rgba(255,184,28,.4))"></div>
+      <div style="position:absolute;left:{{ pct }}%;top:50%;width:16px;height:16px;margin:-8px 0 0 -8px;background:var(--gold);border-radius:50% / 42%;box-shadow:0 0 12px rgba(255,184,28,.8)"></div>
+      <div style="position:absolute;right:8px;top:50%;transform:translateY(-50%);font-family:var(--num);font-weight:700;font-size:12px;letter-spacing:.14em;color:var(--gold)">END ZONE</div>
+    </div>
+    <div style="display:flex;justify-content:space-between;margin-top:7px;font-size:9px;font-weight:700;letter-spacing:.14em;color:var(--dim)">
+      <span>OWN {{ yardLine }} YARD LINE</span><span>{{ pctLabel }} OF THE FIELD COVERED</span>
+    </div>
+  </section>
+
+  <!-- ============ 01 COMMAND: THE BIG BOARD ============ -->
+  <sc-if value="{{ isCommand }}" hint-placeholder-val="{{ true }}">
+  <div data-screen-label="Command — The Big Board" style="padding:28px 26px 96px;max-width:1240px;margin:0 auto">
+
+    <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:22px">
+      <div>
+        <div style="display:inline-flex;align-items:center;gap:8px;background:var(--panel2);border:1px solid var(--line);border-radius:3px;padding:5px 11px">
+          <span style="width:7px;height:7px;background:var(--gold)"></span>
+          <span style="font-size:9.5px;font-weight:800;letter-spacing:.24em;color:var(--muted)">SEGMENT 01 — THE SCREEN YOU LIVE IN</span>
+        </div>
+        <h1 style="font-family:var(--num);font-weight:700;font-size:52px;line-height:.98;margin:12px 0 0;letter-spacing:.02em;text-transform:uppercase">The Big Board</h1>
+        <div style="font-size:12.5px;color:var(--muted);margin-top:10px;max-width:600px;line-height:1.65">Sign by <span style="color:var(--white);font-weight:700">Oct 31</span>, collect by <span style="color:var(--white);font-weight:700">Dec 31</span>. Charlotte is watching the other guy's highlight reel — take the broadcast back.</div>
+      </div>
+      <button onClick="{{ newWeek }}" style="background:var(--gold);border:none;color:var(--golddark);font-weight:900;font-size:11.5px;letter-spacing:.16em;padding:13px 20px;cursor:pointer;border-radius:3px" style-hover="background:var(--gold2)">↻ NEW WEEK</button>
+    </div>
+
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:22px">
+      <sc-for list="{{ tiles }}" as="t" hint-placeholder-count="4">
+        <div style="background:var(--panel2);border:1px solid {{ t.edge }};border-top:4px solid {{ t.top }};border-radius:4px;padding:16px 18px">
+          <div style="font-size:9.5px;font-weight:800;letter-spacing:.2em;color:{{ t.labelColor }}">{{ t.label }}</div>
+          <div style="font-family:var(--num);font-weight:700;font-size:41px;line-height:1;color:{{ t.valColor }};margin-top:9px">{{ t.val }}</div>
+          <div style="font-size:9px;font-weight:700;letter-spacing:.12em;color:{{ t.subColor }};margin-top:7px">{{ t.sub }}</div>
+        </div>
+      </sc-for>
+    </div>
+
+    <div style="background:var(--panel);border:1px solid var(--line);border-radius:4px;padding:20px 22px;margin-bottom:20px">
+      <div style="display:flex;align-items:baseline;justify-content:space-between;flex-wrap:wrap;gap:8px">
+        <div style="font-weight:900;font-size:15px;letter-spacing:.1em">DRIVE CHART <span style="color:var(--dim);font-size:11px;font-weight:700;letter-spacing:.06em">— EVERY CLIENT ADVANCES FOUR DOWNS</span></div>
+        <div style="font-size:9px;letter-spacing:.22em;color:var(--gold);font-weight:800">AUDIT ▸ CAPTURE ▸ DEPLOY ▸ LOOP</div>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-top:16px">
+        <sc-for list="{{ engine }}" as="st" hint-placeholder-count="4">
+          <div style="background:var(--deep);border:1px solid var(--line);border-radius:4px;overflow:hidden">
+            <div style="display:flex;justify-content:space-between;align-items:center;background:{{ st.headBg }};padding:8px 12px">
+              <span style="font-family:var(--num);font-weight:700;font-size:13.5px;letter-spacing:.1em;color:{{ st.headFg }}">{{ st.down }} · {{ st.name }}</span>
+              <span style="font-size:8.5px;font-weight:800;letter-spacing:.1em;color:{{ st.headSub }}">{{ st.count }}</span>
+            </div>
+            <div style="padding:10px 10px 4px">
+              <div style="font-size:8.5px;font-weight:700;letter-spacing:.14em;color:var(--dim);text-transform:uppercase;margin-bottom:8px">{{ st.tag }}</div>
+              <sc-for list="{{ st.clients }}" as="c" hint-placeholder-count="2">
+                <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;background:var(--panel2);border-left:3px solid var(--gold);padding:6px 9px;margin-bottom:6px;border-radius:2px">
+                  <span style="font-size:10.5px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ c.n }}</span>
+                  <span style="font-family:var(--num);font-weight:600;font-size:11.5px;color:var(--gold);flex-shrink:0">{{ c.v }}</span>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:1.15fr 1fr;gap:20px">
+      <div style="background:var(--panel);border:1px solid var(--line);border-radius:4px;padding:20px 22px">
+        <div style="font-weight:900;font-size:15px;letter-spacing:.1em">BOX SCORE <span style="color:var(--dim);font-size:11px;font-weight:700;letter-spacing:.06em">— LOG IT FRIDAY, CUT TO COMMERCIAL</span></div>
+        <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-top:16px">
+          <sc-for list="{{ ff5 }}" as="f" hint-placeholder-count="5">
+            <div style="background:var(--deep);border:1px solid {{ f.edge }};border-radius:4px;padding:11px 7px;text-align:center">
+              <label style="display:block;font-size:8px;font-weight:800;letter-spacing:.1em;color:var(--dim);text-transform:uppercase;min-height:24px;line-height:1.4">{{ f.label }}</label>
+              <input value="{{ f.val }}" onChange="{{ f.onChange }}" placeholder="0" style="width:100%;background:transparent;border:none;border-bottom:2px solid var(--line);color:var(--gold);text-align:center;font-family:var(--num);font-weight:700;font-size:23px;padding:3px 2px;margin-top:4px" />
+              <div style="font-size:8px;font-weight:800;letter-spacing:.1em;color:{{ f.floorColor }};margin-top:6px">{{ f.floor }}</div>
+            </div>
+          </sc-for>
+        </div>
+        <sc-if value="{{ warn }}" hint-placeholder-val="">
+          <div style="margin-top:16px;display:flex;gap:0;border-radius:3px;overflow:hidden;border:1px solid rgba(255,48,64,.5)">
+            <div style="background:var(--live);padding:12px 14px;display:flex;align-items:center"><span style="font-weight:900;font-size:10px;letter-spacing:.18em;white-space:nowrap">⚑ FLAG</span></div>
+            <div style="background:rgba(255,48,64,.1);padding:10px 16px;font-size:12px;line-height:1.55;color:var(--white)">{{ warn }}</div>
+          </div>
+        </sc-if>
+      </div>
+
+      <div style="background:var(--panel);border:1px solid var(--line);border-radius:4px;padding:20px 22px">
+        <div style="font-weight:900;font-size:15px;letter-spacing:.1em">KEYS TO THE GAME</div>
+        <div style="margin-top:10px">
+          <sc-for list="{{ floor }}" as="g" hint-placeholder-count="5">
+            <div onClick="{{ g.onClick }}" style="display:flex;align-items:center;gap:11px;padding:8px 0;border-bottom:1px solid var(--line);font-size:12px;cursor:{{ g.cursor }};font-weight:500">
+              <span style="width:18px;height:18px;border-radius:2px;background:{{ g.box }};border:1px solid {{ g.boxEdge }};display:flex;align-items:center;justify-content:center;font-size:11px;color:var(--golddark);flex-shrink:0;font-weight:900">{{ g.check }}</span>
+              <span style="color:{{ g.tc }}">{{ g.text }}</span>
+            </div>
+          </sc-for>
+        </div>
+        <div style="font-weight:900;font-size:12.5px;letter-spacing:.14em;color:var(--gold);margin-top:18px">SCORING CHANCES · RED ZONE</div>
+        <div style="margin-top:6px">
+          <sc-for list="{{ next }}" as="n" hint-placeholder-count="5">
+            <div onClick="{{ n.onClick }}" style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--line);font-size:11.5px;cursor:pointer;font-weight:500" style-hover="color:var(--white)">
+              <span style="color:var(--gold);font-weight:900">▸</span>
+              <span style="color:var(--white);font-weight:700">{{ n.label }}</span>
+              <span style="color:var(--dim)">{{ n.sub }}</span>
+              <span style="margin-left:auto;font-family:var(--num);font-weight:600;font-size:13px;color:var(--gold)">{{ n.val }}</span>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+    </div>
+
+    <div style="background:var(--panel);border:1px solid var(--line);border-radius:4px;padding:20px 22px;margin-top:20px">
+      <div style="display:flex;align-items:baseline;justify-content:space-between;flex-wrap:wrap;gap:8px">
+        <div style="font-weight:900;font-size:15px;letter-spacing:.1em">BROADCAST SCHEDULE — JULY <span style="color:var(--dim);font-size:11px;font-weight:700;letter-spacing:.06em">— ONE HALF-DAY SHOOT PER CLIENT, PER MONTH</span></div>
+        <div style="font-size:9.5px;letter-spacing:.14em;font-weight:800;color:var(--muted)">SPLICE: <span style="color:var(--gold)">{{ clipsFmt }}</span> JULY CLIPS SHIPPED</div>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-top:16px">
+        <sc-for list="{{ shoots }}" as="sh" hint-placeholder-count="4">
+          <div style="background:{{ sh.bg }};border:1px solid {{ sh.edge }};border-radius:4px;overflow:hidden">
+            <div style="display:flex;justify-content:space-between;align-items:center;background:{{ sh.headBg }};padding:6px 12px">
+              <span style="font-size:8.5px;font-weight:800;letter-spacing:.18em;color:{{ sh.headFg }}">{{ sh.mon }} {{ sh.day }} · SAT 10:00</span>
+              <span style="font-size:8.5px;font-weight:800;letter-spacing:.12em;color:{{ sh.statusColor }}">● {{ sh.status }}</span>
+            </div>
+            <div style="padding:12px 14px;display:flex;gap:12px;align-items:center">
+              <div style="font-family:var(--num);font-weight:700;font-size:33px;line-height:.9;color:{{ sh.dayColor }};flex-shrink:0">{{ sh.day }}</div>
+              <div style="min-width:0">
+                <div style="font-weight:800;font-size:13px;line-height:1.15;color:{{ sh.clientColor }}">{{ sh.client }}</div>
+                <div style="font-size:8.5px;font-weight:700;letter-spacing:.1em;color:var(--dim);margin-top:4px">{{ sh.kind }}</div>
+              </div>
+            </div>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+
+    <div style="margin-top:26px;border-radius:4px;overflow:hidden;box-shadow:0 10px 30px rgba(0,0,0,.45)">
+      <div style="display:flex;align-items:stretch">
+        <div style="background:var(--live);display:flex;flex-direction:column;justify-content:center;padding:0 18px">
+          <div style="font-weight:900;font-size:10px;letter-spacing:.2em;white-space:nowrap">THE ONE</div>
+          <div style="font-weight:900;font-size:10px;letter-spacing:.2em;white-space:nowrap">THING</div>
+        </div>
+        <div style="flex:1;background:var(--gold);color:var(--golddark);padding:16px 22px">
+          <div style="font-family:var(--num);font-weight:700;font-size:27px;line-height:1;text-transform:uppercase;letter-spacing:.01em">Sell out August's four capture days</div>
+          <div style="font-size:12px;font-weight:600;line-height:1.5;margin-top:6px;max-width:760px">Free 30-minute Authority Audit as the door-opener, booked from the Charlotte cold list. Until all four slots are sold, nothing else on this board matters.</div>
+        </div>
+        <div style="background:var(--golddark);color:var(--gold);display:flex;align-items:center;padding:0 20px;font-family:var(--num);font-weight:700;font-size:29px">01</div>
+      </div>
+    </div>
+  </div>
+  </sc-if>
+
+  <!-- ============ 02 PIPELINE: THE STANDINGS ============ -->
+  <sc-if value="{{ isPipeline }}" hint-placeholder-val="">
+  <div data-screen-label="Pipeline — The Standings" style="padding:28px 26px 96px;max-width:1240px;margin:0 auto">
+    <div style="margin-bottom:22px">
+      <div style="display:inline-flex;align-items:center;gap:8px;background:var(--panel2);border:1px solid var(--line);border-radius:3px;padding:5px 11px">
+        <span style="width:7px;height:7px;background:var(--gold)"></span>
+        <span style="font-size:9.5px;font-weight:800;letter-spacing:.24em;color:var(--muted)">SEGMENT 02 — EVERY LIVE DEAL, BY STAGE</span>
+      </div>
+      <h1 style="font-family:var(--num);font-weight:700;font-size:52px;line-height:.98;margin:12px 0 0;letter-spacing:.02em;text-transform:uppercase">The Standings</h1>
+      <div style="font-size:12.5px;color:var(--muted);margin-top:10px;max-width:600px;line-height:1.65">Signed and Collected feed the scorebug upstairs. Nothing moves itself — you move it.</div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:20px">
+      <div style="background:var(--panel2);border:1px solid var(--line);border-top:4px solid var(--line);border-radius:4px;padding:15px 18px">
+        <div style="font-size:9.5px;font-weight:800;letter-spacing:.2em;color:var(--muted)">WEIGHTED PIPELINE</div>
+        <div style="font-family:var(--num);font-weight:700;font-size:36px;line-height:1;color:var(--white);margin-top:8px">{{ pStats.weighted }}</div>
+        <div style="font-size:9px;font-weight:700;letter-spacing:.12em;color:var(--dim);margin-top:6px">STAGE-PROBABILITY ADJUSTED</div>
+      </div>
+      <div style="background:var(--panel2);border:1px solid var(--line);border-top:4px solid var(--line);border-radius:4px;padding:15px 18px">
+        <div style="font-size:9.5px;font-weight:800;letter-spacing:.2em;color:var(--muted)">LIVE DEALS</div>
+        <div style="font-family:var(--num);font-weight:700;font-size:36px;line-height:1;color:var(--white);margin-top:8px">{{ pStats.count }}</div>
+        <div style="font-size:9px;font-weight:700;letter-spacing:.12em;color:var(--dim);margin-top:6px">NOT WON / LOST</div>
+      </div>
+      <div style="background:var(--panel2);border:1px solid var(--line);border-top:4px solid var(--gold);border-radius:4px;padding:15px 18px">
+        <div style="font-size:9.5px;font-weight:800;letter-spacing:.2em;color:var(--gold)">SIGNED</div>
+        <div style="font-family:var(--num);font-weight:700;font-size:36px;line-height:1;color:var(--gold);margin-top:8px">{{ pStats.signed }}</div>
+        <div style="font-size:9px;font-weight:700;letter-spacing:.12em;color:var(--dim);margin-top:6px">{{ pStats.signedN }}</div>
+      </div>
+      <div style="background:var(--panel2);border:1px solid var(--line);border-top:4px solid var(--line);border-radius:4px;padding:15px 18px">
+        <div style="font-size:9.5px;font-weight:800;letter-spacing:.2em;color:var(--muted)">WIN RATE</div>
+        <div style="font-family:var(--num);font-weight:700;font-size:36px;line-height:1;color:var(--white);margin-top:8px">{{ pStats.win }}</div>
+        <div style="font-size:9px;font-weight:700;letter-spacing:.12em;color:var(--dim);margin-top:6px">SIGNED ÷ CLOSED</div>
+      </div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:repeat(6,minmax(178px,1fr));gap:12px;overflow-x:auto;padding-bottom:10px">
+      <sc-for list="{{ pipeCols }}" as="c" hint-placeholder-count="6">
+        <div style="background:var(--deep);border:1px solid var(--line);border-radius:4px;padding:11px;min-height:150px">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:11px;border-bottom:1px solid var(--line);padding-bottom:9px">
+            <span style="font-family:var(--num);font-weight:700;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:{{ c.accent }}">{{ c.stage }}</span>
+            <span style="font-family:var(--num);font-weight:600;font-size:12px;color:var(--dim)">{{ c.sum }}</span>
+          </div>
+          <sc-for list="{{ c.deals }}" as="d" hint-placeholder-count="2">
+            <div style="background:var(--panel2);border:1px solid var(--line);border-radius:3px;padding:9px 10px;margin-bottom:8px;cursor:default;transition:.12s" style-hover="border-color:var(--gold)">
+              <div style="font-weight:700;font-size:12.5px;color:var(--white);line-height:1.2">{{ d.name }}</div>
+              <div style="font-size:10px;color:var(--muted);margin-top:3px">{{ d.offer }}</div>
+              <div style="font-family:var(--num);font-weight:600;font-size:14px;color:var(--gold);margin-top:5px">{{ d.val }}</div>
+            </div>
+          </sc-for>
+        </div>
+      </sc-for>
+    </div>
+  </div>
+  </sc-if>
+
+  <!-- ============ 03 AUDITS: THE BOOTH ============ -->
+  <sc-if value="{{ isAudits }}" hint-placeholder-val="">
+  <div data-screen-label="Audits — The Booth" style="padding:28px 26px 96px;max-width:1240px;margin:0 auto">
+    <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:22px">
+      <div>
+        <div style="display:inline-flex;align-items:center;gap:8px;background:var(--panel2);border:1px solid var(--line);border-radius:3px;padding:5px 11px">
+          <span style="width:7px;height:7px;background:var(--gold)"></span>
+          <span style="font-size:9.5px;font-weight:800;letter-spacing:.24em;color:var(--muted)">SEGMENT 03 — THE FIRST YES</span>
+        </div>
+        <h1 style="font-family:var(--num);font-weight:700;font-size:52px;line-height:.98;margin:12px 0 0;letter-spacing:.02em;text-transform:uppercase">The Audit Booth</h1>
+        <div style="font-size:12.5px;color:var(--muted);margin-top:10px;max-width:620px;line-height:1.65">The free 30-minute Authority Audit. No pitch slap — they walk away with a plan either way. Read it off the prompter; don't wing it.</div>
+      </div>
+      <button onClick="{{ toggleObj }}" style="background:transparent;border:1px solid var(--line);color:var(--muted);font-weight:800;font-size:10.5px;letter-spacing:.14em;padding:11px 16px;cursor:pointer;border-radius:3px;text-transform:uppercase;white-space:nowrap;transition:.15s" style-hover="border-color:var(--gold);color:var(--white)">{{ objBtnLabel }}</button>
+    </div>
+
+    <sc-if value="{{ showScript }}" hint-placeholder-val="{{ true }}">
+    <div style="display:grid;grid-template-columns:250px 1fr;gap:16px">
+      <div style="display:flex;flex-direction:column;gap:6px">
+        <div style="font-size:9px;font-weight:800;letter-spacing:.22em;color:var(--dim);padding:2px 2px 6px">RUNDOWN</div>
+        <sc-for list="{{ scriptSteps }}" as="s" hint-placeholder-count="6">
+          <button onClick="{{ s.onClick }}" style="display:flex;align-items:center;gap:11px;text-align:left;padding:11px 13px;background:{{ s.bg }};border:1px solid {{ s.bd }};border-left:4px solid {{ s.blk }};color:{{ s.fg }};cursor:pointer;border-radius:3px;transition:.14s">
+            <span style="font-family:var(--num);font-weight:700;font-size:14px;color:{{ s.nc }};width:20px;flex-shrink:0">{{ s.n }}</span>
+            <span style="font-weight:800;font-size:12px;letter-spacing:.06em;text-transform:uppercase;line-height:1.15">{{ s.l }}</span>
+          </button>
+        </sc-for>
+      </div>
+      <div style="background:var(--panel);border:1px solid var(--line);border-radius:4px;padding:22px 24px;min-height:380px">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;padding-bottom:14px;border-bottom:1px solid var(--line)">
+          <span style="background:var(--live);font-weight:900;font-size:9px;letter-spacing:.16em;padding:4px 8px;border-radius:2px">PROMPTER</span>
+          <span style="font-size:12.5px;color:var(--gold);font-weight:600;line-height:1.5">{{ curGoal }}</span>
+        </div>
+        <sc-for list="{{ curBlocks }}" as="b" hint-placeholder-count="3">
+          <sc-if value="{{ b.isSay }}" hint-placeholder-val="">
+            <div style="background:var(--deep);border-left:4px solid var(--gold);border-radius:0 3px 3px 0;padding:14px 17px;margin:12px 0;font-size:14.5px;line-height:1.6;color:var(--white)">{{ b.text }}</div>
+          </sc-if>
+          <sc-if value="{{ b.isAlt }}" hint-placeholder-val="">
+            <div style="background:var(--deep);border-left:4px solid var(--line);border-radius:0 3px 3px 0;padding:14px 17px;margin:12px 0;font-size:14px;line-height:1.6;color:var(--muted)">ALTERNATE READ — {{ b.text }}</div>
+          </sc-if>
+          <sc-if value="{{ b.isNote }}" hint-placeholder-val="">
+            <div style="font-size:12px;color:var(--dim);margin:10px 0;line-height:1.55"><span style="color:var(--gold);font-weight:800;letter-spacing:.1em;font-size:9.5px">PRODUCER NOTE · </span>{{ b.text }}</div>
+          </sc-if>
+          <sc-if value="{{ b.isQ }}" hint-placeholder-val="">
+            <div style="margin:10px 0 4px">
+              <sc-for list="{{ b.items }}" as="q" hint-placeholder-count="3">
+                <div style="padding:9px 0 9px 22px;position:relative;font-size:13.5px;line-height:1.55;border-bottom:1px solid var(--line);color:var(--white)"><span style="position:absolute;left:2px;color:var(--gold);font-weight:900">›</span>{{ q }}</div>
+              </sc-for>
+            </div>
+          </sc-if>
+        </sc-for>
+        <div style="display:flex;justify-content:space-between;margin-top:22px">
+          <button onClick="{{ backStep }}" style="background:transparent;border:1px solid var(--line);color:var(--muted);font-weight:800;font-size:10.5px;letter-spacing:.12em;padding:9px 15px;cursor:pointer;border-radius:3px;opacity:{{ backOpacity }}" style-hover="border-color:var(--gold);color:var(--white)">← BACK</button>
+          <button onClick="{{ nextStep }}" style="background:var(--gold);border:none;color:var(--golddark);font-weight:900;font-size:10.5px;letter-spacing:.12em;padding:9px 17px;cursor:pointer;border-radius:3px;opacity:{{ nextOpacity }}">NEXT SEGMENT →</button>
+        </div>
+      </div>
+    </div>
+    </sc-if>
+
+    <sc-if value="{{ showObj }}" hint-placeholder-val="">
+    <div>
+      <div style="font-size:10px;font-weight:800;letter-spacing:.2em;color:var(--gold);margin-bottom:14px">THE SEVEN YOU'LL ACTUALLY HEAR — AND THE TURN</div>
+      <sc-for list="{{ objections }}" as="o" hint-placeholder-count="7">
+        <details style="border:1px solid var(--line);background:var(--deep);border-radius:4px;margin-bottom:9px">
+          <summary style="padding:14px 16px;cursor:pointer;font-weight:800;font-size:14px;letter-spacing:.02em;color:var(--white);list-style:none">{{ o.q }}</summary>
+          <div style="padding:0 16px 16px">
+            <div style="font-size:9.5px;font-weight:800;letter-spacing:.16em;text-transform:uppercase;color:var(--dim);margin:4px 0 8px">{{ o.lab }}</div>
+            <div style="background:var(--panel);border-left:4px solid var(--gold);border-radius:0 3px 3px 0;padding:13px 16px;font-size:13.5px;line-height:1.6;color:var(--white)">{{ o.a }}</div>
+          </div>
+        </details>
+      </sc-for>
+    </div>
+    </sc-if>
+
+    <div style="margin-top:26px">
+      <div style="font-size:10px;font-weight:800;letter-spacing:.2em;color:var(--gold);margin-bottom:11px">WHAT THIS CALL SELLS — THE LADDER</div>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px">
+        <sc-for list="{{ ladder }}" as="l" hint-placeholder-count="3">
+          <div style="background:var(--panel2);border:1px solid var(--line);border-top:4px solid {{ l.accent }};border-radius:4px;padding:16px 18px">
+            <div style="font-size:9.5px;font-weight:800;letter-spacing:.16em;text-transform:uppercase;color:{{ l.accent }}">{{ l.p }}</div>
+            <div style="font-family:var(--num);font-weight:700;font-size:21px;color:var(--white);margin-top:7px;line-height:1;text-transform:uppercase">{{ l.n }}</div>
+            <div style="font-size:12px;color:var(--muted);line-height:1.55;margin-top:8px">{{ l.d }}</div>
+          </div>
+        </sc-for>
+      </div>
+      <div style="display:flex;gap:0;border-radius:3px;overflow:hidden;border:1px solid rgba(255,184,28,.4);margin-top:14px">
+        <div style="background:var(--gold);color:var(--golddark);padding:12px 14px;display:flex;align-items:center"><span style="font-weight:900;font-size:10px;letter-spacing:.16em;white-space:nowrap">PRICE INTEGRITY</span></div>
+        <div style="background:rgba(255,184,28,.07);padding:10px 16px;font-size:12px;line-height:1.55;color:var(--white)">The audit is free but never cheap — it ends with a plan, not a pitch. Retainer pricing is fixed; never discount month one. Ad spend is always separate, $500/mo minimum.</div>
+      </div>
+    </div>
+  </div>
+  </sc-if>
+
+  <!-- ============ 04 SHOOTS: THE PRODUCTION LINE ============ -->
+  <sc-if value="{{ isShoots }}" hint-placeholder-val="">
+  <div data-screen-label="Shoots — The Production Line" style="padding:28px 26px 96px;max-width:1240px;margin:0 auto">
+    <div style="margin-bottom:22px">
+      <div style="display:inline-flex;align-items:center;gap:8px;background:var(--panel2);border:1px solid var(--line);border-radius:3px;padding:5px 11px">
+        <span style="width:7px;height:7px;background:var(--gold)"></span>
+        <span style="font-size:9.5px;font-weight:800;letter-spacing:.24em;color:var(--muted)">SEGMENT 04 — ONE HALF-DAY PER CLIENT, PER MONTH</span>
+      </div>
+      <h1 style="font-family:var(--num);font-weight:700;font-size:52px;line-height:.98;margin:12px 0 0;letter-spacing:.02em;text-transform:uppercase">The Production Line</h1>
+      <div style="font-size:12.5px;color:var(--muted);margin-top:10px;max-width:620px;line-height:1.65">Four capture days a month is the whole factory. Each one feeds an Authority Video, a photo set, and 8–12 clips into Deploy.</div>
+    </div>
+
+    <div style="background:var(--panel);border:1px solid var(--line);border-radius:4px;padding:20px 22px;margin-bottom:16px">
+      <div style="font-weight:900;font-size:15px;letter-spacing:.1em;margin-bottom:14px">JULY <span style="color:var(--good);font-size:11px;font-weight:800;letter-spacing:.1em">· 3 OF 4 BOOKED</span></div>
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px">
+        <sc-for list="{{ shoots }}" as="sh" hint-placeholder-count="4">
+          <div style="background:{{ sh.bg }};border:1px solid {{ sh.edge }};border-radius:4px;overflow:hidden">
+            <div style="display:flex;justify-content:space-between;align-items:center;background:{{ sh.headBg }};padding:6px 12px">
+              <span style="font-size:8.5px;font-weight:800;letter-spacing:.18em;color:{{ sh.headFg }}">{{ sh.mon }} {{ sh.day }} · SAT 10:00</span>
+              <span style="font-size:8.5px;font-weight:800;letter-spacing:.12em;color:{{ sh.statusColor }}">● {{ sh.status }}</span>
+            </div>
+            <div style="padding:12px 14px;display:flex;gap:12px;align-items:center">
+              <div style="font-family:var(--num);font-weight:700;font-size:33px;line-height:.9;color:{{ sh.dayColor }};flex-shrink:0">{{ sh.day }}</div>
+              <div style="min-width:0">
+                <div style="font-weight:800;font-size:13px;line-height:1.15;color:{{ sh.clientColor }}">{{ sh.client }}</div>
+                <div style="font-size:8.5px;font-weight:700;letter-spacing:.1em;color:var(--dim);margin-top:4px">{{ sh.kind }}</div>
+              </div>
+            </div>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+
+    <div style="background:var(--panel);border:1px solid rgba(255,184,28,.35);border-radius:4px;padding:20px 22px;margin-bottom:20px">
+      <div style="font-weight:900;font-size:15px;letter-spacing:.1em;margin-bottom:14px">AUGUST <span style="color:var(--gold);font-size:11px;font-weight:800;letter-spacing:.1em">· 0 OF 4 SOLD — THE ONE THING</span></div>
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px">
+        <sc-for list="{{ augShoots }}" as="sh" hint-placeholder-count="4">
+          <div style="background:rgba(255,184,28,.06);border:1px dashed rgba(255,184,28,.45);border-radius:4px;padding:14px;text-align:center">
+            <div style="font-family:var(--num);font-weight:700;font-size:31px;line-height:.9;color:var(--gold)">{{ sh.day }}</div>
+            <div style="font-size:8px;font-weight:800;letter-spacing:.24em;color:var(--dim);margin-top:3px">AUG · SAT 10:00</div>
+            <div style="font-weight:800;font-size:11.5px;color:var(--gold2);margin-top:9px;letter-spacing:.08em">TICKETS AVAILABLE</div>
+            <div style="font-size:8.5px;font-weight:700;letter-spacing:.1em;color:var(--dim);margin-top:4px">SELL THIS DAY</div>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1.15fr;gap:20px">
+      <div style="background:var(--panel);border:1px solid var(--line);border-radius:4px;padding:20px 22px">
+        <div style="display:flex;align-items:center;gap:10px">
+          <span style="background:var(--gold);color:var(--golddark);font-weight:900;font-size:9px;letter-spacing:.14em;padding:4px 8px;border-radius:2px">RUN SHEET</span>
+          <span style="font-weight:900;font-size:15px;letter-spacing:.1em">CAPTURE DAY · HALF-DAY</span>
+        </div>
+        <ol style="margin:14px 0 0 18px;padding:0;font-size:13px;color:var(--white);line-height:1.55">
+          <sc-for list="{{ runsheet }}" as="r" hint-placeholder-count="5">
+            <li style="padding:5px 0">{{ r }}</li>
+          </sc-for>
+        </ol>
+        <div style="font-size:11.5px;color:var(--muted);line-height:1.55;margin-top:13px;padding-top:12px;border-top:1px solid var(--line)">Output: one Authority Video, one photo set, 8–12 short cuts queued for Splice — per client, per month.</div>
+      </div>
+
+      <div style="background:var(--panel);border:1px solid var(--line);border-radius:4px;padding:20px 22px">
+        <div style="font-weight:900;font-size:15px;letter-spacing:.1em">DELIVERABLES TRACKER <span style="color:var(--dim);font-size:11px;font-weight:700;letter-spacing:.06em">— LIVE CLIENTS · JULY</span></div>
+        <div style="margin-top:12px">
+          <sc-for list="{{ delivs }}" as="d" hint-placeholder-count="4">
+            <div style="padding:11px 0;border-bottom:1px solid var(--line)">
+              <div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px">
+                <span style="font-weight:800;font-size:13px;color:var(--white)">{{ d.name }}</span>
+                <span style="font-family:var(--num);font-weight:600;font-size:13px;color:{{ d.clipColor }}">{{ d.clips }} CLIPS</span>
+              </div>
+              <div style="height:7px;background:var(--deep);border:1px solid var(--line);border-radius:3px;overflow:hidden;margin-top:7px">
+                <div style="height:100%;width:{{ d.pct }}%;background:{{ d.barColor }}"></div>
+              </div>
+              <div style="font-size:9px;font-weight:700;letter-spacing:.12em;color:var(--dim);margin-top:6px">{{ d.meta }}</div>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+    </div>
+  </div>
+  </sc-if>
+
+  <!-- ============ 05 AGENT FLEET: THE CONTROL ROOM ============ -->
+  <sc-if value="{{ isAgents }}" hint-placeholder-val="">
+  <div data-screen-label="Agent Fleet — The Control Room" style="padding:28px 26px 96px;max-width:1240px;margin:0 auto">
+    <div style="margin-bottom:22px">
+      <div style="display:inline-flex;align-items:center;gap:8px;background:var(--panel2);border:1px solid var(--line);border-radius:3px;padding:5px 11px">
+        <span style="width:7px;height:7px;background:var(--gold)"></span>
+        <span style="font-size:9.5px;font-weight:800;letter-spacing:.24em;color:var(--muted)">SEGMENT 05 — THE FOUNDER-FREE ENGINE</span>
+      </div>
+      <h1 style="font-family:var(--num);font-weight:700;font-size:52px;line-height:.98;margin:12px 0 0;letter-spacing:.02em;text-transform:uppercase">The Control Room</h1>
+      <div style="font-size:12.5px;color:var(--muted);margin-top:10px;max-width:620px;line-height:1.65">Six sources run the top of the funnel and the content machine, so four hands stay on sales and the lens. Your only manual jobs: take the calls, run the shoots, approve the proof.</div>
+    </div>
+
+    <div style="font-size:10px;font-weight:800;letter-spacing:.2em;color:var(--gold);margin-bottom:10px">THE DAILY LOOP</div>
+    <div style="display:flex;align-items:center;gap:9px;flex-wrap:wrap;background:var(--deep);border:1px solid var(--line);border-radius:4px;padding:15px 18px;margin-bottom:18px">
+      <sc-for list="{{ loopNodes }}" as="n" hint-placeholder-count="6">
+        <span style="font-weight:800;font-size:11.5px;letter-spacing:.08em;text-transform:uppercase;padding:8px 13px;background:var(--panel2);border:1px solid var(--line);border-radius:3px;color:var(--white)">{{ n.label }}</span>
+        <span style="color:var(--gold);font-weight:900;font-size:15px">{{ n.arrow }}</span>
+      </sc-for>
+    </div>
+
+    <div style="display:grid;grid-template-columns:1.3fr 1fr;gap:20px">
+      <div>
+        <sc-for list="{{ fleet }}" as="a" hint-placeholder-count="6">
+          <div style="display:flex;align-items:center;gap:14px;background:var(--panel);border:1px solid var(--line);border-left:4px solid {{ a.accent }};border-radius:4px;padding:13px 16px;margin-bottom:9px">
+            <div style="width:46px;height:46px;background:var(--deep);border:1px solid var(--line);border-radius:4px;display:flex;flex-direction:column;align-items:center;justify-content:center;flex-shrink:0">
+              <span style="font-family:var(--num);font-weight:700;font-size:14px;color:{{ a.accent }};line-height:1">{{ a.init }}</span>
+              <span style="font-size:6.5px;font-weight:800;letter-spacing:.14em;color:var(--dim);margin-top:2px">SRC {{ a.ch }}</span>
+            </div>
+            <div style="flex:1;min-width:0">
+              <div style="font-family:var(--num);font-weight:700;font-size:16px;letter-spacing:.06em;color:var(--white);text-transform:uppercase">{{ a.name }}</div>
+              <div style="font-size:11.5px;color:var(--muted);line-height:1.45">{{ a.role }}</div>
+              <div style="font-size:9px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--dim);margin-top:3px">{{ a.cad }}</div>
+            </div>
+            <div style="display:flex;align-items:center;gap:10px;flex-shrink:0">
+              <span style="width:9px;height:9px;border-radius:50%;background:{{ a.dot }}"></span>
+              <span style="font-size:9.5px;font-weight:800;letter-spacing:.1em;color:var(--muted);min-width:64px">{{ a.status }}</span>
+              <button onClick="{{ a.onToggle }}" style="background:transparent;border:1px solid var(--line);color:var(--muted);font-weight:800;font-size:9px;letter-spacing:.12em;padding:7px 11px;cursor:pointer;border-radius:3px;transition:.15s" style-hover="border-color:var(--gold);color:var(--white)">{{ a.btn }}</button>
+            </div>
+          </div>
+        </sc-for>
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:20px">
+        <div style="background:var(--deep);border:1px solid var(--line);border-radius:4px;padding:16px 18px">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+            <span style="width:8px;height:8px;border-radius:50%;background:var(--live);animation:{{ animPulse }}"></span>
+            <span style="font-size:10px;font-weight:800;letter-spacing:.2em;color:var(--muted)">THE WIRE — LIVE FEED</span>
+          </div>
+          <sc-for list="{{ log }}" as="l" hint-placeholder-count="7">
+            <div style="display:flex;gap:10px;padding:5px 0;font-size:11px;line-height:1.5;border-bottom:1px solid rgba(36,56,92,.5)">
+              <span style="color:var(--dim);font-family:var(--num);font-weight:500;flex-shrink:0">{{ l.t }}</span>
+              <span style="color:{{ l.color }};font-weight:800;flex-shrink:0;min-width:26px">{{ l.tag }}</span>
+              <span style="color:var(--muted)">{{ l.msg }}</span>
+            </div>
+          </sc-for>
+        </div>
+
+        <div style="background:var(--panel);border:1px solid var(--line);border-radius:4px;padding:16px 18px">
+          <div style="font-size:10px;font-weight:800;letter-spacing:.2em;color:var(--muted)">TODAY'S OPERATING CHECKLIST</div>
+          <div style="margin-top:8px">
+            <sc-for list="{{ opsChecklist }}" as="o" hint-placeholder-count="6">
+              <div onClick="{{ o.onClick }}" style="display:flex;align-items:center;gap:11px;padding:8px 0;border-bottom:1px solid var(--line);font-size:11.5px;cursor:pointer">
+                <span style="width:17px;height:17px;border-radius:2px;border:1.5px solid {{ o.box }};background:{{ o.boxBg }};display:flex;align-items:center;justify-content:center;font-size:10px;color:var(--golddark);flex-shrink:0;font-weight:900">{{ o.check }}</span>
+                <span style="color:{{ o.tc }}">{{ o.text }}</span>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  </sc-if>
+
+  <!-- ============ 06 PARTNERS: THE TALENT ============ -->
+  <sc-if value="{{ isPartners }}" hint-placeholder-val="">
+  <div data-screen-label="Partners — The Talent" style="padding:28px 26px 96px;max-width:1240px;margin:0 auto">
+    <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:22px">
+      <div>
+        <div style="display:inline-flex;align-items:center;gap:8px;background:var(--panel2);border:1px solid var(--line);border-radius:3px;padding:5px 11px">
+          <span style="width:7px;height:7px;background:var(--gold)"></span>
+          <span style="font-size:9.5px;font-weight:800;letter-spacing:.24em;color:var(--muted)">SEGMENT 06 — TWO OPERATORS, ONE SYSTEM</span>
+        </div>
+        <h1 style="font-family:var(--num);font-weight:700;font-size:52px;line-height:.98;margin:12px 0 0;letter-spacing:.02em;text-transform:uppercase">The Talent</h1>
+        <div style="font-size:12.5px;color:var(--muted);margin-top:10px;max-width:620px;line-height:1.65">You two are the single points of failure. Energy in, calls out, camera on. Burnout in week 5 kills the number — this desk is non-optional.</div>
+      </div>
+      <div style="font-size:10.5px;font-weight:800;letter-spacing:.16em;color:var(--muted)">{{ todayLabel }}</div>
+    </div>
+
+    <div style="display:flex;gap:8px;margin-bottom:18px">
+      <sc-for list="{{ partnerTabs }}" as="p" hint-placeholder-count="2">
+        <button onClick="{{ p.onClick }}" style="display:flex;align-items:center;gap:12px;background:{{ p.bg }};border:1px solid {{ p.bd }};border-radius:4px;padding:11px 18px;cursor:pointer;text-align:left;transition:.12s" style-hover="border-color:var(--gold)">
+          <span style="font-family:var(--num);font-weight:700;font-size:19px;color:{{ p.initC }}">{{ p.init }}</span>
+          <span>
+            <span style="display:block;font-weight:800;font-size:12.5px;color:{{ p.nameC }}">{{ p.name }}</span>
+            <span style="display:block;font-size:9px;font-weight:700;letter-spacing:.14em;color:var(--dim);margin-top:2px">{{ p.role }}</span>
+          </span>
+        </button>
+      </sc-for>
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
+      <div style="background:var(--panel);border:1px solid var(--line);border-radius:4px;padding:20px 22px">
+        <div style="font-size:10px;font-weight:800;letter-spacing:.2em;color:var(--gold)">TODAY'S CHECK-IN · {{ curPartnerName }}</div>
+        <div style="margin-top:14px">
+          <div style="font-size:9.5px;font-weight:800;letter-spacing:.14em;color:var(--dim);text-transform:uppercase">Energy</div>
+          <div style="display:flex;gap:6px;margin-top:6px">
+            <sc-for list="{{ energyScale }}" as="e" hint-placeholder-count="5">
+              <button onClick="{{ e.onClick }}" style="flex:1;background:{{ e.bg }};border:1px solid {{ e.bd }};color:{{ e.fg }};font-family:var(--num);font-weight:700;font-size:16px;padding:9px 0;cursor:pointer;border-radius:3px;transition:.12s">{{ e.n }}</button>
+            </sc-for>
+          </div>
+        </div>
+        <div style="margin-top:14px">
+          <div style="font-size:9.5px;font-weight:800;letter-spacing:.14em;color:var(--dim);text-transform:uppercase">Sleep (hrs)</div>
+          <div style="display:flex;gap:6px;margin-top:6px">
+            <sc-for list="{{ sleepScale }}" as="e" hint-placeholder-count="5">
+              <button onClick="{{ e.onClick }}" style="flex:1;background:{{ e.bg }};border:1px solid {{ e.bd }};color:{{ e.fg }};font-family:var(--num);font-weight:700;font-size:16px;padding:9px 0;cursor:pointer;border-radius:3px;transition:.12s">{{ e.n }}</button>
+            </sc-for>
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-top:14px">
+          <sc-for list="{{ fToggles }}" as="t" hint-placeholder-count="4">
+            <div onClick="{{ t.onClick }}" style="display:flex;align-items:center;gap:9px;background:var(--deep);border:1px solid {{ t.bd }};border-radius:3px;padding:11px 12px;cursor:pointer;transition:.12s">
+              <span style="width:20px;height:20px;border-radius:2px;border:2px solid {{ t.box }};background:{{ t.boxBg }};display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:900;color:{{ t.cc }};flex-shrink:0">{{ t.check }}</span>
+              <span style="font-size:12.5px;color:var(--white)">{{ t.label }}</span>
+            </div>
+          </sc-for>
+        </div>
+        <div style="margin-top:14px">
+          <label style="display:block;font-size:9.5px;font-weight:800;letter-spacing:.14em;color:var(--dim);text-transform:uppercase;margin-bottom:6px">One line — how's the head today?</label>
+          <textarea value="{{ noteVal }}" onChange="{{ onNote }}" placeholder="Honest. Nobody reads this but you two." style="width:100%;min-height:62px;background:var(--deep);border:1px solid var(--line);border-radius:3px;color:var(--white);padding:10px 12px;font-family:var(--sans);font-size:12px;line-height:1.5;resize:vertical"></textarea>
+        </div>
+      </div>
+
+      <div style="background:var(--panel);border:1px solid var(--line);border-radius:4px;padding:20px 22px">
+        <div style="font-size:10px;font-weight:800;letter-spacing:.2em;color:var(--muted)">LAST 7 DAYS · {{ curPartnerName }}</div>
+        <div style="display:flex;gap:7px;margin-top:8px">
+          <sc-for list="{{ weekStrip }}" as="d" hint-placeholder-count="7">
+            <div style="flex:1;text-align:center;background:var(--deep);border:1px solid var(--line);border-radius:3px;padding:9px 4px">
+              <div style="font-size:9px;font-weight:800;color:var(--dim)">{{ d.dw }}</div>
+              <div style="font-family:var(--num);font-weight:700;font-size:18px;margin:3px 0;color:{{ d.nc }}">{{ d.n }}</div>
+              <div style="font-size:8px;letter-spacing:1px"><span style="color:{{ d.d1 }}">●</span><span style="color:{{ d.d2 }}">●</span></div>
+            </div>
+          </sc-for>
+        </div>
+        <div style="font-size:10px;font-weight:800;letter-spacing:.2em;color:var(--gold);margin-top:20px">NON-NEGOTIABLE HABITS</div>
+        <div style="margin-top:8px">
+          <sc-for list="{{ habitsView }}" as="h" hint-placeholder-count="3">
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--line)">
+              <span style="font-size:13px;color:var(--white)">{{ h.name }} <span style="font-size:8.5px;font-weight:800;letter-spacing:.1em;color:var(--dim);border:1px solid var(--line);border-radius:2px;padding:2px 6px;margin-left:6px">{{ h.owner }}</span></span>
+              <div style="display:flex;align-items:center;gap:12px">
+                <span style="font-family:var(--num);font-weight:700;font-size:14px;color:var(--gold)">{{ h.streak }}<span style="color:var(--dim);font-size:9px;font-weight:800;letter-spacing:.08em"> {{ h.streakL }}</span></span>
+                <div onClick="{{ h.onToggle }}" style="width:28px;height:28px;border-radius:3px;border:2px solid {{ h.box }};background:{{ h.boxBg }};display:flex;align-items:center;justify-content:center;font-weight:900;font-size:13px;color:{{ h.cc }};cursor:pointer;transition:.12s">{{ h.check }}</div>
+              </div>
+            </div>
+          </sc-for>
+        </div>
+        <button onClick="{{ addHabit }}" style="width:100%;background:transparent;border:1px dashed var(--line);border-radius:3px;color:var(--muted);font-weight:800;font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;padding:11px;margin-top:10px;cursor:pointer;transition:.15s" style-hover="border-color:var(--gold);color:var(--white)">+ ADD HABIT</button>
+      </div>
+    </div>
+
+    <div style="background:var(--panel);border:1px solid var(--line);border-radius:4px;padding:20px 22px;margin-top:20px">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:12px">
+        <div style="font-size:10px;font-weight:800;letter-spacing:.2em;color:var(--gold)">GOALS — BUSINESS & THE REST OF YOUR LIVES</div>
+        <button onClick="{{ addGoal }}" style="background:transparent;border:1px solid var(--line);border-radius:3px;color:var(--muted);font-weight:800;font-size:9.5px;letter-spacing:.12em;padding:7px 12px;cursor:pointer;transition:.15s" style-hover="border-color:var(--gold);color:var(--white)">+ ADD GOAL</button>
+      </div>
+      <div style="margin-top:10px">
+        <sc-for list="{{ goalsView }}" as="g" hint-placeholder-count="4">
+          <div style="display:flex;gap:12px;align-items:flex-start;padding:12px 0;border-bottom:1px solid var(--line)">
+            <div onClick="{{ g.onToggle }}" style="margin-top:1px;width:22px;height:22px;border-radius:3px;border:2px solid {{ g.box }};background:{{ g.boxBg }};display:flex;align-items:center;justify-content:center;font-weight:900;font-size:12px;color:{{ g.cc }};cursor:pointer;flex-shrink:0;transition:.12s">{{ g.check }}</div>
+            <div style="flex:1;min-width:0">
+              <span style="font-size:13.5px;color:{{ g.tc }};text-decoration:{{ g.deco }}">{{ g.text }}</span>
+              <span style="font-weight:800;font-size:8.5px;letter-spacing:.12em;padding:2px 7px;margin-left:9px;border:1px solid {{ g.typeC }};border-radius:2px;color:{{ g.typeC }};white-space:nowrap">{{ g.type }}</span>
+              <span style="font-weight:800;font-size:8.5px;letter-spacing:.12em;padding:2px 7px;margin-left:6px;border:1px solid var(--line);border-radius:2px;color:var(--dim);white-space:nowrap">{{ g.owner }}</span>
+              <sc-if value="{{ g.hasBar }}" hint-placeholder-val="">
+                <div style="height:7px;background:var(--deep);border:1px solid var(--line);border-radius:3px;margin-top:9px;overflow:hidden"><div style="height:100%;width:{{ g.pct }}%;background:var(--gold)"></div></div>
+                <div style="font-size:10.5px;color:var(--dim);margin-top:4px">{{ g.progLabel }}</div>
+              </sc-if>
+            </div>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+  </div>
+  </sc-if>
+
+  <!-- ============ 07 DOCUMENTS: TAPE LIBRARY ============ -->
+  <sc-if value="{{ isDocs }}" hint-placeholder-val="">
+  <div data-screen-label="Documents — Tape Library" style="padding:28px 26px 96px;max-width:1240px;margin:0 auto">
+    <div style="margin-bottom:22px">
+      <div style="display:inline-flex;align-items:center;gap:8px;background:var(--panel2);border:1px solid var(--line);border-radius:3px;padding:5px 11px">
+        <span style="width:7px;height:7px;background:var(--gold)"></span>
+        <span style="font-size:9.5px;font-weight:800;letter-spacing:.24em;color:var(--muted)">SEGMENT 07 — ONE SOURCE OF TRUTH</span>
+      </div>
+      <h1 style="font-family:var(--num);font-weight:700;font-size:52px;line-height:.98;margin:12px 0 0;letter-spacing:.02em;text-transform:uppercase">Tape Library</h1>
+      <div style="font-size:12.5px;color:var(--muted);margin-top:10px;max-width:600px;line-height:1.65">Every artifact the OS runs on — the spec, the scripts, the brand, the lists. Version-locked.</div>
+    </div>
+
+    <sc-for list="{{ docsView }}" as="g" hint-placeholder-count="4">
+      <div style="margin-bottom:22px">
+        <div style="font-size:10px;font-weight:800;letter-spacing:.2em;color:var(--gold);margin-bottom:10px">{{ g.cat }}</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+          <sc-for list="{{ g.items }}" as="it" hint-placeholder-count="3">
+            <div onClick="{{ it.onClick }}" style="display:flex;align-items:center;gap:13px;background:var(--panel);border:1px solid var(--line);border-radius:4px;padding:12px 14px;cursor:pointer;transition:.12s" style-hover="border-color:var(--gold)">
+              <div style="font-size:8.5px;font-weight:800;letter-spacing:.08em;color:var(--gold);border:1px solid var(--line);border-radius:3px;padding:5px 0;min-width:46px;text-align:center;flex-shrink:0">{{ it.fmt }}</div>
+              <div style="flex:1;min-width:0">
+                <div style="font-size:13px;color:var(--white);font-weight:700;line-height:1.2">{{ it.name }}</div>
+                <div style="font-size:10.5px;color:var(--muted);margin-top:2px">{{ it.meta }}</div>
+              </div>
+              <sc-if value="{{ it.hasTag }}" hint-placeholder-val="">
+                <span style="font-size:8px;font-weight:900;letter-spacing:.12em;color:var(--golddark);background:var(--gold);border-radius:2px;padding:3px 6px;flex-shrink:0">{{ it.tag }}</span>
+              </sc-if>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+    </sc-for>
+  </div>
+  </sc-if>
+
+  <!-- ============ 08 STRATEGY: THE GAME PLAN ============ -->
+  <sc-if value="{{ isStrategy }}" hint-placeholder-val="">
+  <div data-screen-label="Strategy — The Game Plan" style="padding:28px 26px 96px;max-width:1240px;margin:0 auto">
+    <div style="margin-bottom:22px">
+      <div style="display:inline-flex;align-items:center;gap:8px;background:var(--panel2);border:1px solid var(--line);border-radius:3px;padding:5px 11px">
+        <span style="width:7px;height:7px;background:var(--gold)"></span>
+        <span style="font-size:9.5px;font-weight:800;letter-spacing:.24em;color:var(--muted)">SEGMENT 08 — WHY THE ENGINE IS BUILT THIS WAY</span>
+      </div>
+      <h1 style="font-family:var(--num);font-weight:700;font-size:52px;line-height:.98;margin:12px 0 0;letter-spacing:.02em;text-transform:uppercase">The Game Plan</h1>
+      <div style="font-size:12.5px;color:var(--muted);margin-top:10px;max-width:600px;line-height:1.65">Read it when a shiny distraction shows up and threatens the one thing.</div>
+    </div>
+
+    <div style="position:relative;background:rgba(255,184,28,.07);border:1px solid rgba(255,184,28,.4);border-left:5px solid var(--gold);border-radius:4px;padding:24px 28px;margin-bottom:22px;overflow:hidden">
+      <div style="position:absolute;right:6px;top:-38px;font-family:var(--num);font-weight:700;font-size:140px;color:rgba(255,184,28,.08);line-height:1">★</div>
+      <div style="font-size:10px;font-weight:800;letter-spacing:.24em;color:var(--gold)">THE THESIS</div>
+      <div style="font-family:var(--num);font-weight:600;font-size:28px;line-height:1.2;margin-top:10px;max-width:900px;color:var(--white)">{{ stratThesis }}</div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:22px">
+      <sc-for list="{{ stratPillars }}" as="p" hint-placeholder-count="3">
+        <div style="background:var(--panel);border:1px solid var(--line);border-top:4px solid var(--gold);border-radius:4px;padding:18px 20px">
+          <div style="font-size:9.5px;font-weight:800;letter-spacing:.2em;color:var(--gold)">{{ p.k }}</div>
+          <div style="font-family:var(--num);font-weight:700;font-size:19px;color:var(--white);margin-top:7px;line-height:1.1;text-transform:uppercase">{{ p.t }}</div>
+          <div style="font-size:12px;color:var(--muted);line-height:1.6;margin-top:8px">{{ p.d }}</div>
+        </div>
+      </sc-for>
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+      <div style="background:var(--panel);border:1px solid var(--line);border-radius:4px;padding:18px 20px">
+        <div style="font-size:10px;font-weight:800;letter-spacing:.2em;color:var(--gold)">THE THREE BETS</div>
+        <div style="margin-top:10px">
+          <sc-for list="{{ stratBets }}" as="b" hint-placeholder-count="3">
+            <div style="display:flex;gap:11px;padding:10px 0;border-bottom:1px solid var(--line);font-size:12.5px;line-height:1.55;color:var(--white)"><span style="color:var(--gold);font-weight:900;flex-shrink:0">›</span><span>{{ b }}</span></div>
+          </sc-for>
+        </div>
+      </div>
+      <div style="background:var(--deep);border:1px solid var(--line);border-radius:4px;padding:18px 20px">
+        <div style="font-size:10px;font-weight:800;letter-spacing:.2em;color:var(--dim)">WHAT WE DON'T DO</div>
+        <div style="margin-top:10px">
+          <sc-for list="{{ stratAnti }}" as="a" hint-placeholder-count="4">
+            <div style="display:flex;gap:11px;padding:10px 0;border-bottom:1px solid var(--line);font-size:12.5px;line-height:1.55;color:var(--muted)"><span style="color:var(--live);font-weight:900;flex-shrink:0">✕</span><span>{{ a }}</span></div>
+          </sc-for>
+        </div>
+      </div>
+    </div>
+  </div>
+  </sc-if>
+
+  <!-- ============ 09 PLANS: THE SEASON ============ -->
+  <sc-if value="{{ isPlans }}" hint-placeholder-val="">
+  <div data-screen-label="Plans — The Season" style="padding:28px 26px 96px;max-width:1240px;margin:0 auto">
+    <div style="margin-bottom:22px">
+      <div style="display:inline-flex;align-items:center;gap:8px;background:var(--panel2);border:1px solid var(--line);border-radius:3px;padding:5px 11px">
+        <span style="width:7px;height:7px;background:var(--gold)"></span>
+        <span style="font-size:9.5px;font-weight:800;letter-spacing:.24em;color:var(--muted)">SEGMENT 09 — FOUR QUARTERS, TWO DEADLINES, ONE NUMBER</span>
+      </div>
+      <h1 style="font-family:var(--num);font-weight:700;font-size:52px;line-height:.98;margin:12px 0 0;letter-spacing:.02em;text-transform:uppercase">The Season</h1>
+      <div style="font-size:12.5px;color:var(--muted);margin-top:10px;max-width:600px;line-height:1.65">Sign $100K by October 31. Collect it by December 31. Everything on this page serves that.</div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:22px">
+      <div style="background:var(--panel);border:1px solid var(--line);border-top:4px solid var(--gold);border-radius:4px;padding:16px 20px;display:flex;align-items:center;gap:18px">
+        <div style="font-family:var(--num);font-weight:700;font-size:46px;color:var(--gold);line-height:.9">{{ sellDays }}</div>
+        <div><div style="font-size:9.5px;font-weight:800;letter-spacing:.2em;color:var(--dim)">DAYS TO SIGN</div><div style="font-weight:800;font-size:15px;color:var(--white);margin-top:3px">$100K CONTRACTED · OCT 31</div></div>
+      </div>
+      <div style="background:var(--panel);border:1px solid var(--line);border-top:4px solid var(--line);border-radius:4px;padding:16px 20px;display:flex;align-items:center;gap:18px">
+        <div style="font-family:var(--num);font-weight:700;font-size:46px;color:var(--white);line-height:.9">{{ deadDays }}</div>
+        <div><div style="font-size:9.5px;font-weight:800;letter-spacing:.2em;color:var(--dim)">DAYS TO COLLECT</div><div style="font-weight:800;font-size:15px;color:var(--white);margin-top:3px">$100K BANKED · DEC 31</div></div>
+      </div>
+    </div>
+
+    <div style="font-size:10px;font-weight:800;letter-spacing:.2em;color:var(--gold);margin-bottom:11px">THE FOUR QUARTERS</div>
+    <div style="margin-bottom:22px">
+      <sc-for list="{{ plansPhases }}" as="p" hint-placeholder-count="4">
+        <div style="display:flex;gap:16px;align-items:flex-start;background:var(--panel);border:1px solid var(--line);border-left:4px solid {{ p.c }};border-radius:4px;padding:16px 18px;margin-bottom:10px">
+          <div style="font-family:var(--num);font-weight:700;font-size:26px;color:{{ p.c }};flex-shrink:0;width:44px;line-height:1">{{ p.n }}</div>
+          <div style="flex:1;min-width:0">
+            <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+              <span style="font-family:var(--num);font-weight:700;font-size:18px;color:var(--white);text-transform:uppercase">{{ p.t }}</span>
+              <span style="font-size:8.5px;font-weight:800;letter-spacing:.12em;color:{{ p.c }};border:1px solid {{ p.c }};border-radius:2px;padding:2px 7px">{{ p.when }}</span>
+              <span style="font-size:8.5px;font-weight:800;letter-spacing:.14em;color:var(--dim);margin-left:auto">{{ p.state }}</span>
+            </div>
+            <div style="font-size:12px;color:var(--muted);line-height:1.6;margin-top:6px">{{ p.d }}</div>
+          </div>
+        </div>
+      </sc-for>
+    </div>
+
+    <div style="background:var(--panel);border:1px solid var(--line);border-radius:4px;padding:18px 20px">
+      <div style="font-size:10px;font-weight:800;letter-spacing:.2em;color:var(--gold)">THIS WEEK'S MOVES · Q1</div>
+      <div style="margin-top:10px">
+        <sc-for list="{{ planMoves }}" as="m" hint-placeholder-count="5">
+          <div onClick="{{ m.onClick }}" style="display:flex;align-items:center;gap:11px;padding:9px 0;border-bottom:1px solid var(--line);font-size:12px;cursor:pointer">
+            <span style="width:17px;height:17px;border-radius:2px;border:1.5px solid {{ m.box }};background:{{ m.boxBg }};display:flex;align-items:center;justify-content:center;font-size:10px;color:var(--golddark);flex-shrink:0;font-weight:900">{{ m.check }}</span>
+            <span style="color:{{ m.tc }}">{{ m.text }}</span>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+  </div>
+  </sc-if>
+
+  <!-- BOTTOMLINE TICKER -->
+  <sc-if value="{{ tickerOn }}" hint-placeholder-val="{{ true }}">
+    <div style="position:fixed;bottom:0;left:0;right:0;z-index:35;display:flex;align-items:stretch;background:#04070d;border-top:1px solid var(--line)">
+      <div style="background:var(--gold);color:var(--golddark);font-weight:900;font-size:10.5px;letter-spacing:.18em;display:flex;align-items:center;padding:9px 16px;white-space:nowrap">CI WIRE</div>
+      <div style="flex:1;overflow:hidden;display:flex;align-items:center">
+        <div style="display:inline-flex;white-space:nowrap;animation:{{ animTicker }};font-size:11px;font-weight:600;letter-spacing:.1em;color:var(--muted)">
+          <span style="padding-right:70px">SCOUT: 128 CLT LEADS <span style="color:var(--gold)">▸</span> GAFFER: 12 AD SEQUENCES <span style="color:var(--gold)">▸</span> SPLICE: 26 CLIPS <span style="color:var(--gold)">▸</span> DARKROOM: 340 FRAMES GRADED <span style="color:var(--gold)">▸</span> ANCHOR: 6 AUDITS BOOKED <span style="color:var(--gold)">▸</span> SHOWRUNNER: ALL CLEAR <span style="color:var(--gold)">▸</span> TARGET: CHARLOTTE AUTHORITY <span style="color:var(--gold)">▸</span></span>
+          <span style="padding-right:70px">SCOUT: 128 CLT LEADS <span style="color:var(--gold)">▸</span> GAFFER: 12 AD SEQUENCES <span style="color:var(--gold)">▸</span> SPLICE: 26 CLIPS <span style="color:var(--gold)">▸</span> DARKROOM: 340 FRAMES GRADED <span style="color:var(--gold)">▸</span> ANCHOR: 6 AUDITS BOOKED <span style="color:var(--gold)">▸</span> SHOWRUNNER: ALL CLEAR <span style="color:var(--gold)">▸</span> TARGET: CHARLOTTE AUTHORITY <span style="color:var(--gold)">▸</span></span>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- TOAST -->
+  <sc-if value="{{ toast }}" hint-placeholder-val="">
+    <div style="position:fixed;bottom:52px;left:50%;transform:translateX(-50%);background:var(--gold);color:var(--golddark);padding:10px 22px;font-weight:900;font-size:11px;letter-spacing:.14em;z-index:90;border-radius:3px;box-shadow:0 8px 20px rgba(0,0,0,.5)">{{ toast }}</div>
+  </sc-if>
+
+  <!-- ===================== BOOT: GOING LIVE ===================== -->
+  <sc-if value="{{ booting }}" hint-placeholder-val="{{ true }}">
+    <div data-screen-label="Boot — Going Live" onClick="{{ dismissBoot }}" style="position:fixed;inset:0;z-index:120;background:var(--deep);display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;padding:24px;overflow:hidden">
+      <div style="position:absolute;top:0;left:0;right:0;display:flex;height:10px">
+        <div style="flex:1;background:var(--gold)"></div><div style="flex:1;background:var(--white)"></div><div style="flex:1;background:var(--muted)"></div><div style="flex:1;background:var(--panel2)"></div><div style="flex:1;background:var(--live)"></div>
+      </div>
+      <div onClick="{{ skipBoot }}" style="position:absolute;top:26px;right:22px;font-size:9.5px;font-weight:900;letter-spacing:.18em;color:var(--golddark);background:var(--gold);padding:7px 12px;cursor:pointer;z-index:3;border-radius:3px">[ESC] SKIP →</div>
+
+      <div style="position:relative;z-index:2;text-align:center">
+        <div style="width:84px;height:84px;border-radius:12px;overflow:hidden;margin:0 auto 18px;border:1px solid var(--line)">
+          <img src="brand/ci-mark.png" alt="" style="width:100%;height:100%;object-fit:cover;display:block" />
+        </div>
+        <div style="font-weight:900;font-size:26px;letter-spacing:.1em">CREATIVE IMPACT</div>
+        <div style="font-size:9px;font-weight:800;letter-spacing:.4em;color:var(--dim);margin-top:7px">IMPACT SPORTS NET · CHARLOTTE, NC</div>
+
+        <sc-if value="{{ countShow }}" hint-placeholder-val="{{ true }}">
+          <div style="font-family:var(--num);font-weight:700;font-size:170px;line-height:1;color:var(--gold);margin:26px 0 10px;animation:{{ animCount }}">{{ countNum }}</div>
+        </sc-if>
+        <sc-if value="{{ bootReady }}" hint-placeholder-val="">
+          <div style="margin:30px 0 14px;display:inline-flex;align-items:center;gap:10px;background:var(--live);padding:12px 24px;border-radius:4px">
+            <span style="width:10px;height:10px;border-radius:50%;background:#fff;animation:{{ animPulse }}"></span>
+            <span style="font-weight:900;font-size:17px;letter-spacing:.22em">WE'RE LIVE</span>
+          </div>
+          <div style="font-size:10px;font-weight:700;letter-spacing:.2em;color:var(--muted)">CLICK ANYWHERE TO ENTER THE BOOTH<span style="animation:blink 1s steps(1) infinite">_</span></div>
+        </sc-if>
+        <sc-if value="{{ countShow }}" hint-placeholder-val="{{ true }}">
+          <div style="font-size:10px;font-weight:800;letter-spacing:.26em;color:var(--muted)">GOING LIVE — STAND BY</div>
+        </sc-if>
+      </div>
+    </div>
+  </sc-if>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;showTicker&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Visuals&quot;},&quot;enableMotion&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Visuals&quot;},&quot;bootSequence&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;System&quot;}}">
+class Component extends DCLogic {
+  GOAL = 100000;
+  SIGNBY = '2026-10-31';
+  DEADLINE = '2026-12-31';
+  KEY = 'ci.os.broadcast.v1';
+
+  SECTIONS = [
+    { num: '01', label: 'Command', id: 'command' },
+    { num: '02', label: 'Pipeline', id: 'pipeline' },
+    { num: '03', label: 'Audits', id: 'audits' },
+    { num: '04', label: 'Shoots', id: 'shoots' },
+    { num: '05', label: 'Agent Fleet', id: 'agents' },
+    { num: '06', label: 'Partners', id: 'partners' },
+    { num: '07', label: 'Documents', id: 'docs' },
+    { num: '08', label: 'Strategy', id: 'strategy' },
+    { num: '09', label: 'Plans', id: 'plans' }
+  ];
+
+  SEED = [
+    { name: 'Elite Sales Training', offer: 'Authority Engine \u00b7 MO 05', value: 7000, stage: 'Collected' },
+    { name: 'Myers Park Ortho', offer: 'Authority Engine \u00b7 MO 03', value: 4500, stage: 'Collected' },
+    { name: 'NoDa Med Spa', offer: 'Story Capture Pilot', value: 2400, stage: 'Collected' },
+    { name: 'Uptown Realty Group', offer: 'Authority Engine \u00b7 MO 02', value: 4500, stage: 'Collected' },
+    { name: 'South End Dental', offer: 'Authority Engine \u00b7 3-mo term', value: 4500, stage: 'Signed' },
+    { name: 'Steele Creek Roofing', offer: 'Authority Engine \u00b7 3-mo term', value: 4000, stage: 'Signed' },
+    { name: 'Queen City HVAC', offer: 'Authority Engine \u00b7 3-mo term', value: 10500, stage: 'Audit Booked', date: '2026-07-01' },
+    { name: 'SouthPark Aesthetics', offer: 'Story Capture Pilot', value: 2400, stage: 'Audit Booked', date: '2026-07-02' },
+    { name: 'Dilworth Family Dental', offer: 'Authority Engine \u00b7 3-mo term', value: 10500, stage: 'Audit Done', date: '2026-07-03' },
+    { name: 'University City Injury Law', offer: 'Authority Engine \u00b7 3-mo term', value: 12000, stage: 'Audit Done', date: '2026-07-05' },
+    { name: 'Ballantyne Law', offer: 'Authority Engine \u00b7 3-mo term', value: 12000, stage: 'Proposal', date: '2026-07-06' },
+    { name: 'Cotswold Med Spa', offer: 'Authority Engine \u00b7 3-mo term', value: 7500, stage: 'Proposal', date: '2026-07-08' },
+    { name: 'Plaza Midwood Realty', offer: 'Story Capture Pilot', value: 2400, stage: 'Lead', date: '2026-07-09' },
+    { name: 'Belmont Custom Homes', offer: 'Authority Engine \u00b7 3-mo term', value: 7500, stage: 'Lead', date: '2026-07-10' },
+    { name: 'Matthews Financial Group', offer: 'Story Capture Pilot', value: 2400, stage: 'Lead', date: '2026-07-11' },
+    { name: 'Providence Wealth', offer: 'Authority Engine \u00b7 3-mo term', value: 10500, stage: 'Lead', date: '2026-07-12' },
+    { name: 'Pineville Plumbing', offer: 'Story Capture Pilot', value: 2400, stage: 'Lead', date: '2026-07-13' }
+  ];
+  STAGES = ['Lead', 'Audit Booked', 'Audit Done', 'Proposal', 'Signed', 'Collected'];
+  STAGEPROB = { 'Lead': .1, 'Audit Booked': .3, 'Audit Done': .5, 'Proposal': .7, 'Signed': .95, 'Collected': 1 };
+
+  ENGINE = [
+    { down: '1ST', name: 'AUDIT', tag: 'expose the cracks', head: 'white', clients: [
+      { n: 'Queen City HVAC', v: '$10.5K' }, { n: 'Dilworth Family Dental', v: '$10.5K' }, { n: 'University City Law', v: '$12K' }
+    ]},
+    { down: '2ND', name: 'CAPTURE', tag: 'half-day story shoot', head: 'gold', clients: [
+      { n: 'South End Dental', v: 'JUL 09' }, { n: 'Steele Creek Roofing', v: 'JUL 14' }
+    ]},
+    { down: '3RD', name: 'DEPLOY', tag: 'ads \u00b7 funnels \u00b7 follow-up', head: 'gold', clients: [
+      { n: 'NoDa Med Spa', v: '12 clips' }, { n: 'Uptown Realty Group', v: '8 clips' }
+    ]},
+    { down: '4TH', name: 'LOOP', tag: 'review \u00b7 retest \u00b7 renew', head: 'white', clients: [
+      { n: 'Elite Sales Training', v: 'MO 05' }, { n: 'Myers Park Ortho', v: 'MO 03' }
+    ]}
+  ];
+
+  SHOOTS = [
+    { day: '09', mon: 'JUL', client: 'South End Dental', kind: 'STORY CAPTURE \u00b7 HALF-DAY', status: 'BOOKED' },
+    { day: '14', mon: 'JUL', client: 'Steele Creek Roofing', kind: 'STORY CAPTURE \u00b7 HALF-DAY', status: 'BOOKED' },
+    { day: '18', mon: 'JUL', client: 'Elite Sales Training', kind: 'MONTHLY CAPTURE', status: 'CONFIRMED' },
+    { day: '25', mon: 'JUL', client: 'OPEN SLOT \u2014 TICKETS AVAILABLE', kind: 'SELL THIS DAY', status: 'OPEN' }
+  ];
+  AUG = [{ day: '06' }, { day: '12' }, { day: '20' }, { day: '27' }];
+
+  RUNSHEET = [
+    'T-3 days \u2014 pre-pro call: story angle, locations, shot list locked.',
+    'AM \u2014 Authority Video interview: the long-form centerpiece (60\u201390 min).',
+    'Midday \u2014 b-roll: the work, the team, the space, the details.',
+    'PM \u2014 brand photography session: portraits, lifestyle, product (Emmanuel).',
+    'Same week \u2014 selects + edit brief to Splice; 8\u201312 cuts queued; Gaffer picks ad frames.'
+  ];
+  DELIVS = [
+    { name: 'NoDa Med Spa', done: 12, meta: '34 PHOTOS \u00b7 6 ADS LIVE \u00b7 REVIEW CALL JUL 29' },
+    { name: 'Uptown Realty Group', done: 8, meta: '28 PHOTOS \u00b7 4 ADS LIVE \u00b7 SHOOT SHOT JUL 02' },
+    { name: 'Elite Sales Training', done: 9, meta: '22 PHOTOS \u00b7 5 ADS LIVE \u00b7 CAPTURE JUL 18' },
+    { name: 'Myers Park Ortho', done: 6, meta: '18 PHOTOS \u00b7 3 ADS LIVE \u00b7 EDIT IN PROGRESS' }
+  ];
+
+  FLEET = [
+    { init: 'SC', ch: '1', name: 'Scout', role: 'Lead research \u2014 sources, qualifies and tiers the Charlotte prospect list.', cad: 'Every morning', accent: 'var(--gold)' },
+    { init: 'AN', ch: '2', name: 'Anchor', role: 'Outreach & booking \u2014 works the sequences, books the 30-minute audits.', cad: 'Daily', accent: 'var(--good)' },
+    { init: 'SP', ch: '3', name: 'Splice', role: 'Short-form edit \u2014 cuts every capture day into 8\u201312 clips per client.', cad: 'Daily', accent: 'var(--white)' },
+    { init: 'DR', ch: '4', name: 'Darkroom', role: 'Photo pipeline \u2014 culls, grades and delivers the photography sets.', cad: 'Per shoot', accent: 'var(--white)' },
+    { init: 'GF', ch: '5', name: 'Gaffer', role: 'Ads \u2014 builds and launches Meta + Google variants from winning cuts.', cad: 'Weekly', accent: 'var(--gold)' },
+    { init: 'SR', ch: '6', name: 'Showrunner', role: 'Supervisor \u2014 verifies every source ran clean and on-brand; routes work.', cad: 'Midday', accent: 'var(--muted)' }
+  ];
+  LOOP = ['Scout', 'Anchor', 'Booked audit', 'Pipeline', 'Splice + Gaffer', 'Showrunner'];
+  OPSLIST = [
+    'Showrunner report reviewed \u2014 fleet green',
+    'Scout list approved \u2192 handed to Anchor',
+    '3 discovery calls held (the floor)',
+    'New deals + stage moves logged in Pipeline',
+    'Splice clip batch reviewed / scheduled',
+    'Partner desk check-in done \u2014 both of you'
+  ];
+  LOGSEED = [
+    { t: '07:42', tag: 'SC', color: 'var(--gold)', msg: 'sourced 14 prospects \u00b7 HVAC / south CLT' },
+    { t: '08:05', tag: 'AN', color: 'var(--good)', msg: 'sequence dispatched \u00b7 16 sends, 0 bounces' },
+    { t: '09:18', tag: 'AN', color: 'var(--good)', msg: 'audit booked \u00b7 SouthPark Aesthetics \u00b7 THU 14:00' },
+    { t: '10:30', tag: 'SP', color: 'var(--white)', msg: 'cut 4 clips \u00b7 Elite Sales Training batch' },
+    { t: '11:02', tag: 'SR', color: 'var(--muted)', msg: 'fleet audit \u00b7 all sources on-brand \u00b7 green' },
+    { t: '12:15', tag: 'DR', color: 'var(--white)', msg: 'graded 48 frames \u00b7 Uptown Realty set' },
+    { t: '13:40', tag: 'GF', color: 'var(--gold)', msg: '2 ad variants live \u00b7 NoDa Med Spa \u00b7 Meta' }
+  ];
+  AMB = [
+    { tag: 'AN', color: 'var(--good)', msg: 'reply received \u00b7 Ballantyne Law \u00b7 positive' },
+    { tag: 'SP', color: 'var(--white)', msg: 'clip batch queued \u00b7 short-form #27' },
+    { tag: 'SR', color: 'var(--muted)', msg: 'heartbeat \u00b7 6/6 sources responding' },
+    { tag: 'SC', color: 'var(--gold)', msg: 'new tier-1 prospect \u00b7 dental \u00b7 scored 0.92' },
+    { tag: 'GF', color: 'var(--gold)', msg: 'ad set optimized \u00b7 CPL down 12%' },
+    { tag: 'AN', color: 'var(--good)', msg: 'follow-up scheduled \u00b7 Providence Wealth \u00b7 +2d' }
+  ];
+
+  LADDER = [
+    { n: 'Authority Audit', p: 'FREE \u00b7 30 MIN', d: 'The door-opener. No pitch slap \u2014 they walk away with a written plan either way. It pre-qualifies and starts the relationship on proof.', accent: 'var(--gold)' },
+    { n: 'Authority Engine', p: '$3,500/MO \u00b7 3-MO MIN', d: 'The core. One capture day, 8\u201312 clips, ads, funnel, follow-up, monthly review. Priced fixed \u2014 never discount month one.', accent: 'var(--white)' },
+    { n: 'Market Domination', p: '$6,000/MO \u00b7 EXPANSION', d: 'Two capture days, multi-platform, full reporting. The day-60 expansion conversation for clients the Engine is already winning for.', accent: 'var(--gold)' }
+  ];
+
+  SCRIPT = [
+    { n: '01', l: 'Open / Disarm', goal: 'Lower the guard. This is a working session, not a sales call \u2014 say so and mean it.', blocks: [
+      { t: 'say', text: '\u201cHey [Name] \u2014 appreciate you grabbing 30 minutes. Straight up: this isn\u2019t a pitch. We do a working audit of where a service business is leaking attention and leads in Charlotte \u2014 and you\u2019ll walk out of this call with a plan whether or not we ever talk again. Fair?\u201d' },
+      { t: 'note', text: 'Calm, low, no upward inflection. You\u2019re the person who already knows what\u2019s wrong \u2014 not the one who needs the deal.' },
+      { t: 'q', items: ['\u201cBefore I dig in \u2014 what made you take the call?\u201d (let the real reason surface)', 'Mirror the last three words of whatever they say. Then stay quiet.'] }
+    ] },
+    { n: '02', l: 'Situation', goal: 'Get the lay of the land. Facts first \u2014 build the map you\u2019ll audit against.', blocks: [
+      { t: 'q', items: ['\u201cWalk me through how someone finds you today \u2014 start to booked job.\u201d', '\u201cRoughly how many new leads a month, and where do most come from?\u201d', '\u201cWhat are you spending on marketing right now \u2014 ads, content, an agency, lead services, all of it?\u201d', '\u201cWhen someone reaches out but doesn\u2019t buy \u2014 what happens to them?\u201d'] },
+      { t: 'note', text: 'That last one is the trap door. Most Charlotte operators have no answer. Don\u2019t react \u2014 write it down and nod.' }
+    ] },
+    { n: '03', l: 'Problem Awareness', goal: 'Make them say it out loud: great reviews, invisible brand. Your job is questions; their job is realizing.', blocks: [
+      { t: 'q', items: ['\u201cPull up your website and your top competitor\u2019s \u2014 honestly, could a stranger tell them apart?\u201d', '\u201cHow long has it been running like that?\u201d', '\u201cWhat have you already tried? And how\u2019d that go?\u201d'] },
+      { t: 'sayalt', text: '\u201cSo if I\u2019m hearing you right \u2014 the work is five stars, the reviews prove it, but between \u2018they hear about you\u2019 and \u2018they hire you\u2019 it\u2019s basically held together with referrals and hope. Is that fair, or am I overstating it?\u201d' },
+      { t: 'note', text: 'Label it: \u201cIt sounds like\u2026\u201d / \u201cIt seems like\u2026\u201d. Let them correct you \u2014 correction is engagement.' }
+    ] },
+    { n: '04', l: 'Consequence', goal: 'Let the gap breathe. What staying invisible costs \u2014 in dollars and in market position.', blocks: [
+      { t: 'q', items: ['\u201cIf nothing changes in the next 6\u201312 months, where does that leave you?\u201d', '\u201cWhat\u2019s a single closed job worth to you, on average?\u201d', '\u201cSo if the guy with half your skill keeps out-posting you \u2014 you\u2019ve got a rough number for what that\u2019s already costing, right?\u201d'] },
+      { t: 'note', text: 'Silence after the cost question. The number landing in their own head does more than any deck could.' }
+    ] },
+    { n: '05', l: 'The Plan', goal: 'Deliver the audit \u2014 live. Three cracks, ranked, each with a dollar next to it. This is the deliverable.', blocks: [
+      { t: 'say', text: '\u201cHere\u2019s what I\u2019m seeing \u2014 three things, in order. [Name them: positioning, content, follow-up \u2014 whatever the call surfaced.] If you fix nothing else, fix the first one. I\u2019ll send this as a one-page plan after the call. It\u2019s yours either way \u2014 run it yourself or hire anyone you want to run it.\u201d' },
+      { t: 'sayalt', text: '\u201cThe way we\u2019d run it: once a month, Emmanuel and the team come to you for a half-day shoot. One Authority Video, a full photo set, 8\u201312 cuts, the ads, the landing pages, the follow-up. Your job is to answer the phone. Ours is to make it ring.\u201d' },
+      { t: 'q', items: ['\u201cWant me to walk you through what a month actually looks like?\u201d', '\u201cAnything you\u2019d want us to point the first shoot at?\u201d'] }
+    ] },
+    { n: '06', l: 'Commit', goal: 'Ask for the small yes. Calendar, not contract \u2014 the capture day is the close.', blocks: [
+      { t: 'say', text: '\u201cSo there are two ways this goes. You take the plan and run it \u2014 genuinely fine. Or we run it for you, and the first move is getting you on the capture calendar. August has one day left \u2014 do you want it?\u201d' },
+      { t: 'q', items: ['\u201cWho else needs to see the plan before you\u2019d green-light a first month?\u201d', '\u201cWhat\u2019s the best email for the plan and the calendar hold?\u201d'] },
+      { t: 'note', text: 'The second they say yes: Pipeline \u2192 move the deal to Proposal, hold the shoot date. Don\u2019t trust memory after the call.' }
+    ] }
+  ];
+  OBJECTIONS = [
+    { q: '\u201cWe tried an agency before and it didn\u2019t work.\u201d', lab: 'Agree, then separate \u2014 the out-of-state trap', a: '\u201cGood \u2014 then you already know what bad looks like. You paid someone in Austin or Denver who couldn\u2019t tell South End from South Charlotte, got generic ads, and three months of excuses. We\u2019re the opposite bet: Charlotte-based, on-site every month, and you\u2019ll see every number \u2014 cost per lead, cost per booked job. The plan I just gave you is proof of how we think. That part was free.\u201d' },
+    { q: '\u201cI get all my business from referrals.\u201d', lab: 'Referrals are the ceiling, not the floor', a: '\u201cAnd that\u2019s exactly why you\u2019re a good fit \u2014 referrals mean the work is real. But referrals got you to this revenue and they\u2019re what\u2019s keeping you at it. You can\u2019t scale granny\u2019s church friend. The Engine doesn\u2019t replace referrals \u2014 it makes every referral check you out and find a brand instead of a business card.\u201d' },
+    { q: '\u201cI don\u2019t have time for this.\u201d', lab: 'The system is built for operators, not influencers', a: '\u201cThat\u2019s the design constraint we built around. Your total time cost is a half-day once a month plus answering your phone. We handle pre-pro, shooting, editing, posting, ads, landing pages, follow-up. If you\u2019ve got four hours a month, you\u2019ve got the whole system.\u201d' },
+    { q: '\u201cI\u2019m already paying Thumbtack / Angi for leads.\u201d', lab: 'Renting vs. owning', a: '\u201cAnd every month they sell that same lead to four other guys on your block, and you race to the bottom on price. That\u2019s renting. We build the thing you own \u2014 your face, your story, your pipeline. A year from now the ad account, the content library, and the audience are yours. Thumbtack keeps theirs.\u201d' },
+    { q: '\u201cWhat does it cost?\u201d', lab: 'Anchor to the plan, not a menu', a: '\u201cDepends what the plan says needs fixing \u2014 that\u2019s why we did this call first instead of sending a price list. Core engagement runs $3,500 a month with a three-month minimum, ad spend separate. If the first crack is smaller than that, I\u2019ll tell you \u2014 a pilot shoot is a fraction of it. You\u2019ll have exact numbers on the plan I send today.\u201d' },
+    { q: '\u201cI need to think about it.\u201d', lab: 'Label it, find the real lock', a: '\u201cTotally fair \u2014 sounds like something specific is giving you pause. Usually it\u2019s one of three things: the money, the timing, or whether this will actually be different. Which one\u2019s closest?\u201d Then handle the real one. Don\u2019t argue the stall \u2014 find the lock.' },
+    { q: '\u201cI\u2019m not good on camera.\u201d', lab: 'Reframe \u2014 that\u2019s the product, not the problem', a: '\u201cNobody is in minute one \u2014 that\u2019s literally what the first half-day is for. Emmanuel has spent ten years making Charlotte business owners look like themselves, not like actors. You talk about your work the way you would to a customer; we do the rest. The awkward guy who shows up anyway beats the polished guy who doesn\u2019t exist online \u2014 every time.\u201d' }
+  ];
+
+  DOCS = [
+    { cat: 'STRATEGY', items: [
+      { name: 'Creative Impact OS Blueprint', fmt: 'PDF', meta: 'Master spec \u00b7 the whole operating system', tag: 'CORE' },
+      { name: '100K Sprint Plan', fmt: 'DOC', meta: 'Signed by Oct 31, collected by Dec 31' },
+      { name: 'Positioning: The Obvious Choice', fmt: 'DOC', meta: 'Local beats loud \u00b7 the moat memo' }
+    ] },
+    { cat: 'SALES', items: [
+      { name: 'Authority Audit Call Script', fmt: 'DOC', meta: '6 segments \u00b7 no pitch slap', tag: 'LIVE' },
+      { name: 'Audit Plan Template \u2014 Leave-Behind', fmt: 'PDF', meta: 'The one-pager every audit ends with', tag: 'HOT' },
+      { name: 'Objection Handling \u2014 The Seven', fmt: 'DOC', meta: 'Agency trap \u00b7 referrals \u00b7 camera-shy' },
+      { name: 'Offer Ladder & Pricing', fmt: 'SHEET', meta: 'Fixed \u00b7 never discount month one' }
+    ] },
+    { cat: 'BRAND', items: [
+      { name: 'Shutter Mark & Logo Kit', fmt: 'PNG', meta: 'Hex shutter + play \u00b7 dark variants' },
+      { name: 'Color & Type System', fmt: 'DOC', meta: 'Navy / gold broadcast package \u00b7 Oswald + Archivo' },
+      { name: 'Broadcast Graphics Package', fmt: 'FIG', meta: 'Scorebug \u00b7 lower thirds \u00b7 ticker' }
+    ] },
+    { cat: 'PRODUCTION', items: [
+      { name: 'Shoot-Day Run Sheet', fmt: 'DOC', meta: 'Half-day capture \u00b7 step by step', tag: 'LIVE' },
+      { name: 'Charlotte Cold List \u2014 128 Leads', fmt: 'CSV', meta: 'Tiered by Scout \u00b7 refreshed daily', tag: 'LIVE' },
+      { name: 'Agent Fleet SOPs', fmt: 'DOC', meta: '6 sources \u00b7 run order + handoffs' },
+      { name: 'Contract + Invoice Templates', fmt: 'DOC', meta: '3-mo minimum \u00b7 ad spend separate' }
+    ] }
+  ];
+
+  STRATEGY = {
+    thesis: 'Local beats loud. A Charlotte-native partner with studio output \u2014 story-driven video plus a decade of ground truth \u2014 makes good operators the obvious choice before the phone ever rings.',
+    pillars: [
+      { k: 'THE WEDGE', t: 'A free audit that\u2019s actually a plan', d: 'Thirty minutes, no pitch slap, and they leave with a written plan either way. It pre-qualifies buyers, builds trust on proof, and books the capture calendar \u2014 the plan sells the Engine so you don\u2019t have to.' },
+      { k: 'THE MOAT', t: 'Charlotte-native, two operators, one system', d: 'Emmanuel\u2019s ten years shooting this city plus Brandon\u2019s Authority Engine. Out-of-state agencies can\u2019t fake knowing South End from South Charlotte \u2014 and a two-operator shop can\u2019t be commoditized like a content mill.' },
+      { k: 'THE TARGET', t: 'Service businesses that already work', d: 'Five-star reviews, broken visibility. $500K\u2013$5M home services, dental, law, realty, financial, med spa \u2014 operators tired of renting leads from middlemen. We sell the fix with a number on it.' }
+    ],
+    bets: [
+      'Sell out every monthly capture day \u2014 four half-days is the whole production line.',
+      'Climb the ladder: free Audit \u2192 Authority Engine \u2192 day-60 expansion. Never discount month one.',
+      'Run the fleet so the funnel is founder-free \u2014 four hands stay on sales and the lens.'
+    ],
+    antigoals: [
+      'No pitch-slap calls \u2014 the audit ends with a plan, not a proposal ambush.',
+      'No out-of-market clients until Charlotte is won.',
+      'No renting leads \u2014 we build pipelines clients own, we don\u2019t resell middleman lists.',
+      'No week-5 burnout \u2014 the Partner Desk is load-bearing.'
+    ]
+  };
+
+  PLANS = [
+    { n: 'Q1', t: 'Sell Out August', when: 'THIS WEEK', d: 'Four capture days on the calendar, free Authority Audit as the door-opener, Scout\u2019s 128-lead Charlotte list as the fuel. Until all four are sold, nothing else counts.', state: 'ACTIVE' },
+    { n: 'Q2', t: 'Fill the Funnel', when: 'WEEKS 1\u20134', d: 'Scout + Anchor run the cold list daily. Hold the floor: 3 discovery calls and 2 audits delivered every week, 8 clips shipped.', state: 'NEXT' },
+    { n: 'Q3', t: 'Sign $100K', when: 'BY OCT 31', d: 'Audits convert to plans convert to contracts. Keep pipeline coverage \u22653\u00d7 the gap, always. Every signed client goes straight onto the capture calendar.', state: 'QUEUED' },
+    { n: 'Q4', t: 'Collect & Renew', when: 'BY DEC 31', d: 'Deliver, collect, and run the expansion play at day 60 / renewal at day 75. Protect the base \u2014 one saved account is a month of audits.', state: 'QUEUED' }
+  ];
+  PLANMOVES = [
+    'August capture calendar published',
+    'Audit booking page live',
+    'Cold list segmented \u2014 top 50 Charlotte',
+    'Anchor sequence pointed at the booking page',
+    'First 5 audit invites sent'
+  ];
+
+  PARTNERS = [
+    { init: 'EB', name: 'Emmanuel Bibbs', role: 'VISUAL DIRECTOR \u00b7 CLT' },
+    { init: 'BK', name: 'Brandon King', role: 'CREATIVE DIRECTOR \u00b7 ENGINE' }
+  ];
+
+  COUNT = ['3', '2', '1'];
+
+  constructor(props) {
+    super(props);
+    const booted = (() => { try { return sessionStorage.getItem('ci_booted_broadcast') === '1'; } catch (e) { return false; } })();
+    const bootOn = (props.bootSequence ?? true) && !booted;
+    const wk = this.weekKey();
+    this.state = {
+      booting: bootOn,
+      bootIdx: 0,
+      view: 'command',
+      now: Date.now(),
+      deals: this.SEED.slice(),
+      weeks: { [wk]: { calls: 4, audits: 2, signed: 4000, collected: 2400, clips: 9, manual: { invites: true } } },
+      ops: {},
+      step: 0,
+      showObj: false,
+      partner: 'EB',
+      founder: {},
+      habits: [
+        { id: 'h1', name: '3 sales conversations', owner: 'BK', days: {} },
+        { id: 'h2', name: 'Camera on something', owner: 'EB', days: {} },
+        { id: 'h3', name: 'Move my body', owner: 'BOTH', days: {} }
+      ],
+      goals: [
+        { id: 'g1', text: '$100K collected by Dec 31', type: 'business', owner: 'BOTH', target: 100000, done: false },
+        { id: 'g2', text: 'Sell out August\u2019s four capture days', type: 'business', owner: 'BK', target: 0, done: false },
+        { id: 'g3', text: 'Ship the 500-brands Charlotte archive reel', type: 'business', owner: 'EB', target: 0, done: false },
+        { id: 'g4', text: 'Protect health through the sprint \u2014 no week-5 wall', type: 'life', owner: 'BOTH', target: 0, done: false }
+      ],
+      log: this.LOGSEED.slice(),
+      toast: ''
+    };
+  }
+
+  componentDidMount() {
+    this.loadStore();
+    this.clock = setInterval(() => this.setState({ now: Date.now() }), 1000);
+    this.logTimer = setInterval(() => this.pushLog(), 4600);
+    window.addEventListener('keydown', this.onKey);
+    if (this.state.booting) {
+      this.bootTimer = setInterval(() => {
+        this.setState(s => {
+          const idx = s.bootIdx + 1;
+          if (idx > this.COUNT.length) { clearInterval(this.bootTimer); this.autoDismiss = setTimeout(() => this.dismiss(), 3600); return { bootIdx: this.COUNT.length }; }
+          return { bootIdx: idx };
+        });
+      }, 950);
+    }
+  }
+  componentWillUnmount() {
+    clearInterval(this.clock); clearInterval(this.logTimer); clearInterval(this.bootTimer);
+    clearTimeout(this.autoDismiss); clearTimeout(this.toastT);
+    window.removeEventListener('keydown', this.onKey);
+  }
+
+  onKey = (e) => {
+    if (!this.state.booting) return;
+    if (e.key === 'Enter' || e.key === 'Escape' || e.key === ' ') { e.preventDefault(); this.dismiss(); }
+  };
+  dismiss = () => {
+    clearInterval(this.bootTimer); clearTimeout(this.autoDismiss);
+    try { sessionStorage.setItem('ci_booted_broadcast', '1'); } catch (e) {}
+    this.setState({ booting: false, bootIdx: this.COUNT.length });
+  };
+
+  async loadStore() {
+    try {
+      let raw = null;
+      if (window.storage) { const r = await window.storage.get(this.KEY); raw = r && r.value; }
+      if (raw == null) { try { raw = localStorage.getItem(this.KEY); } catch (e) {} }
+      if (raw) {
+        const d = JSON.parse(raw);
+        if (d) {
+          const patch = {};
+          if (d.weeks) patch.weeks = Object.assign({}, this.state.weeks, d.weeks);
+          if (d.ops) patch.ops = Object.assign({}, this.state.ops, d.ops);
+          if (d.founder) patch.founder = d.founder;
+          if (d.habits && d.habits.length) patch.habits = d.habits;
+          if (d.goals && d.goals.length) patch.goals = d.goals;
+          if (Object.keys(patch).length) this.setState(patch);
+        }
+      }
+    } catch (e) {}
+  }
+  saveStore() {
+    try {
+      const payload = JSON.stringify({ weeks: this.state.weeks, ops: this.state.ops, founder: this.state.founder, habits: this.state.habits, goals: this.state.goals });
+      if (window.storage) window.storage.set(this.KEY, payload);
+      try { localStorage.setItem(this.KEY, payload); } catch (e) {}
+    } catch (e) {}
+  }
+
+  pushLog() {
+    const a = this.AMB[Math.floor(Math.random() * this.AMB.length)];
+    const d = new Date();
+    const t = String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
+    this.setState(s => ({ log: [...s.log.slice(-8), { t, tag: a.tag, color: a.color, msg: a.msg }] }));
+  }
+
+  fmt(n) { return '$' + Math.round(n || 0).toLocaleString(); }
+  weekKey(d = new Date()) {
+    const t = new Date(d); t.setHours(0, 0, 0, 0); t.setDate(t.getDate() + 3 - ((t.getDay() + 6) % 7));
+    const w1 = new Date(t.getFullYear(), 0, 4);
+    const wn = 1 + Math.round(((t - w1) / 864e5 - 3 + ((w1.getDay() + 6) % 7)) / 7);
+    return t.getFullYear() + '-W' + String(wn).padStart(2, '0');
+  }
+  daysTo(ds) { const d = new Date(ds + 'T00:00:00'); const n = new Date(); n.setHours(0, 0, 0, 0); return Math.max(0, Math.ceil((d - n) / 864e5)); }
+  todayStr() { const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
+  collected() { return this.state.deals.filter(d => d.stage === 'Collected').reduce((s, d) => s + (+d.value || 0), 0); }
+  signed() { return this.state.deals.filter(d => d.stage === 'Signed' || d.stage === 'Collected').reduce((s, d) => s + (+d.value || 0), 0); }
+  openDeals() { return this.state.deals.filter(d => !['Collected', 'Lost', 'Signed'].includes(d.stage)); }
+  weighted() { return this.state.deals.filter(d => !['Collected', 'Lost'].includes(d.stage)).reduce((s, d) => s + (+d.value || 0) * (this.STAGEPROB[d.stage] || 0), 0); }
+  winRate() { const closed = this.state.deals.filter(d => ['Signed', 'Collected', 'Lost'].includes(d.stage)).length; const won = this.state.deals.filter(d => ['Signed', 'Collected'].includes(d.stage)).length; return closed ? Math.round(won / closed * 100) + '%' : '\u2014'; }
+
+  ff() { return this.state.weeks[this.weekKey()] || {}; }
+  setFF(key, val) {
+    const wk = this.weekKey();
+    this.setState(s => { const weeks = Object.assign({}, s.weeks); weeks[wk] = Object.assign({ manual: {} }, weeks[wk], { [key]: val }); return { weeks }; }, () => this.saveStore());
+  }
+  toggleManual(key) {
+    const wk = this.weekKey();
+    this.setState(s => { const weeks = Object.assign({}, s.weeks); const w = Object.assign({ manual: {} }, weeks[wk]); w.manual = Object.assign({}, w.manual, { [key]: !(w.manual && w.manual[key]) }); weeks[wk] = w; return { weeks }; }, () => this.saveStore());
+  }
+  newWeek() {
+    const wk = this.weekKey();
+    this.setState(s => { const weeks = Object.assign({}, s.weeks); weeks[wk] = { manual: {} }; return { weeks }; }, () => this.saveStore());
+    this.flash('NEW WEEK \u2014 FRESH TAPE, BOX SCORE RESET');
+  }
+  flash(m) { clearTimeout(this.toastT); this.setState({ toast: m }); this.toastT = setTimeout(() => this.setState({ toast: '' }), 2200); }
+
+  fKey() { return this.state.partner + '|' + this.todayStr(); }
+  setF(key, val) { const k = this.fKey(); this.setState(s => { const f = Object.assign({}, s.founder); f[k] = Object.assign({}, f[k], { [key]: val }); return { founder: f }; }, () => this.saveStore()); }
+  toggleHabit(id) { const t = this.todayStr(); this.setState(s => ({ habits: s.habits.map(h => { if (h.id !== id) return h; const days = Object.assign({}, h.days); days[t] = !days[t]; if (!days[t]) delete days[t]; return Object.assign({}, h, { days }); }) }), () => this.saveStore()); }
+  habitStreak(h) { let n = 0; const d = new Date(); for (;;) { const ds = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); if (h.days && h.days[ds]) { n++; d.setDate(d.getDate() - 1); } else break; } return n; }
+  toggleGoal(id) { this.setState(s => ({ goals: s.goals.map(g => g.id === id ? Object.assign({}, g, { done: !g.done }) : g) }), () => this.saveStore()); }
+  addHabit() { const n = (window.prompt('New non-negotiable habit:') || '').trim(); if (n) this.setState(s => ({ habits: [...s.habits, { id: 'h' + Date.now(), name: n, owner: this.state.partner, days: {} }] }), () => this.saveStore()); }
+  addGoal() { const n = (window.prompt('New goal \u2014 what, by when:') || '').trim(); if (!n) return; const life = /life|health|family|body|sleep|gym|personal|kid|wife|husband/i.test(n); this.setState(s => ({ goals: [...s.goals, { id: 'g' + Date.now(), text: n, type: life ? 'life' : 'business', owner: this.state.partner, target: 0, done: false }] }), () => this.saveStore()); }
+  goStep(i) { if (i < 0 || i >= this.SCRIPT.length) return; this.setState({ step: i }); }
+  toggleOp(k) { this.setState(s => ({ ops: Object.assign({}, s.ops, { [k]: !(s.ops && s.ops[k]) }) }), () => this.saveStore()); }
+
+  renderVals() {
+    const motionOn = this.props.enableMotion ?? true;
+    const an = (s) => motionOn ? s : 'none';
+    const collected = this.collected();
+    const gap = Math.max(0, this.GOAL - collected);
+    const pct = Math.min(100, this.GOAL ? collected / this.GOAL * 100 : 0);
+    const open = this.openDeals();
+    const openSum = open.reduce((a, d) => a + (+d.value || 0), 0);
+    const cover = gap ? (openSum / gap).toFixed(1) + '\u00d7' : '\u221e';
+    const coverBad = gap ? openSum / gap < 3 : false;
+    const ff = this.ff();
+    const ffNum = (k) => { const v = ff[k]; return (v === undefined || v === null || v === '') ? '' : v; };
+
+    const tiles = [
+      { label: 'COLLECTED', val: this.fmt(collected), sub: 'OF $100,000 TARGET', edge: 'var(--line)', top: 'var(--gold)', labelColor: 'var(--gold)', valColor: 'var(--gold)', subColor: 'var(--dim)' },
+      { label: 'SIGNED \u00b7 IN-YEAR', val: this.fmt(this.signed()), sub: 'CONTRACTS WON', edge: 'var(--line)', top: 'var(--white)', labelColor: 'var(--muted)', valColor: 'var(--white)', subColor: 'var(--dim)' },
+      { label: 'OPEN PIPELINE', val: this.fmt(openSum), sub: open.length + ' LIVE DEALS', edge: 'var(--line)', top: 'var(--white)', labelColor: 'var(--muted)', valColor: 'var(--white)', subColor: 'var(--dim)' },
+      coverBad
+        ? { label: 'COVERAGE', val: cover, sub: 'NEED \u22653\u00d7 \u00b7 UNDER PRESSURE', edge: 'rgba(255,48,64,.45)', top: 'var(--live)', labelColor: '#ff8a94', valColor: '#ff8a94', subColor: '#b0596a' }
+        : { label: 'COVERAGE', val: cover, sub: 'NEED \u22653\u00d7 \u00b7 HEALTHY', edge: 'var(--line)', top: 'var(--good)', labelColor: 'var(--good)', valColor: 'var(--good)', subColor: 'var(--dim)' }
+    ];
+
+    const ffDefs = [
+      { key: 'calls', label: 'Calls held', floor: 'floor 3', min: 3 },
+      { key: 'audits', label: 'Audits delivered', floor: 'floor 2', min: 2 },
+      { key: 'signed', label: '$ signed / wk', floor: '\u00a0', min: null },
+      { key: 'collected', label: '$ collected / wk', floor: '\u00a0', min: null },
+      { key: 'clips', label: 'Clips shipped', floor: 'floor 8', min: 8 }
+    ];
+    const ff5 = ffDefs.map(f => {
+      const v = ffNum(f.key);
+      let edge = 'var(--line)', floorColor = 'var(--dim)';
+      if (f.min != null && v !== '') { const hit = (+v >= f.min); edge = hit ? 'rgba(46,224,111,.5)' : 'rgba(255,48,64,.55)'; floorColor = hit ? 'var(--good)' : 'var(--live)'; }
+      return { label: f.label, floor: f.floor, val: v, edge, floorColor, onChange: (e) => this.setFF(f.key, e.target.value) };
+    });
+
+    let warn = '';
+    if (coverBad) warn = 'Pipeline coverage is under 3\u00d7 the gap. Book two more Authority Audits this week and sell the JUL 25 capture day.';
+
+    const callsDone = (+ffNum('calls') || 0) >= 3;
+    const auditsDone = (+ffNum('audits') || 0) >= 2;
+    const clipsDone = (+ffNum('clips') || 0) >= 8;
+    const man = ff.manual || {};
+    const floorDefs = [
+      { text: '3 discovery calls held', on: callsDone, manual: null },
+      { text: '2 Authority Audits delivered', on: auditsDone, manual: null },
+      { text: '8 short-form clips shipped', on: clipsDone, manual: null },
+      { text: '5 audit invites to the cold list', on: !!man.invites, manual: 'invites' },
+      { text: '1 proof asset posted (every 2 wks)', on: !!man.proof, manual: 'proof' }
+    ];
+    const floor = floorDefs.map(f => ({
+      text: f.text, check: f.on ? '\u2713' : '',
+      box: f.on ? 'var(--gold)' : 'transparent',
+      boxEdge: f.on ? 'var(--gold)' : 'var(--line)',
+      tc: f.on ? 'var(--dim)' : 'var(--white)',
+      cursor: f.manual ? 'pointer' : 'default',
+      onClick: f.manual ? () => this.toggleManual(f.manual) : () => {}
+    }));
+
+    const next = open.slice().sort((a, b) => (a.date || '9') < (b.date || '9') ? -1 : 1).slice(0, 5).map(d => ({
+      label: d.name, sub: '\u00b7 ' + d.stage, val: this.fmt(d.value),
+      onClick: () => { this.setState({ view: 'pipeline' }); this.flash('JUMP \u2192 THE STANDINGS'); }
+    }));
+
+    const engine = this.ENGINE.map(st => ({
+      down: st.down, name: st.name, tag: st.tag,
+      headBg: st.head === 'gold' ? 'var(--gold)' : 'var(--panel2)',
+      headFg: st.head === 'gold' ? 'var(--golddark)' : 'var(--white)',
+      headSub: st.head === 'gold' ? 'rgba(26,22,8,.65)' : 'var(--dim)',
+      count: st.clients.length + ' LIVE',
+      clients: st.clients
+    }));
+
+    const shootView = (sh) => {
+      const open2 = sh.status === 'OPEN';
+      return {
+        day: sh.day, mon: sh.mon, client: sh.client, kind: sh.kind, status: sh.status,
+        bg: open2 ? 'rgba(255,184,28,.07)' : 'var(--deep)',
+        edge: open2 ? 'rgba(255,184,28,.5)' : 'var(--line)',
+        headBg: open2 ? 'var(--gold)' : 'var(--panel2)',
+        headFg: open2 ? 'var(--golddark)' : 'var(--muted)',
+        statusColor: open2 ? 'var(--golddark)' : 'var(--good)',
+        dayColor: open2 ? 'var(--gold)' : 'var(--white)',
+        clientColor: open2 ? 'var(--gold2)' : 'var(--white)'
+      };
+    };
+    const shoots = this.SHOOTS.map(shootView);
+    const augShoots = this.AUG;
+
+    const delivs = this.DELIVS.map(d => {
+      const p = Math.min(100, d.done / 12 * 100);
+      const hit = d.done >= 8;
+      return { name: d.name, clips: d.done + '/12', meta: d.meta, pct: p, clipColor: hit ? 'var(--good)' : 'var(--gold)', barColor: hit ? 'var(--good)' : 'var(--gold)' };
+    });
+
+    const v = this.state.view;
+    const stageC = { 'Lead': 'var(--dim)', 'Audit Booked': 'var(--gold)', 'Audit Done': 'var(--gold2)', 'Proposal': 'var(--white)', 'Signed': 'var(--good)', 'Collected': 'var(--good)' };
+    const pipeCols = this.STAGES.map(st => {
+      const ds = this.state.deals.filter(d => d.stage === st);
+      return { stage: st, accent: stageC[st] || 'var(--dim)', sum: this.fmt(ds.reduce((a, d) => a + (+d.value || 0), 0)), deals: ds.map(d => ({ name: d.name, offer: d.offer, val: this.fmt(d.value) })) };
+    });
+    const pStats = { weighted: this.fmt(this.weighted()), count: open.length, signed: this.fmt(this.signed()), signedN: this.state.deals.filter(d => ['Signed', 'Collected'].includes(d.stage)).length + ' DEALS', win: this.winRate() };
+
+    const opsState = this.state.ops || {};
+    const fleet = this.FLEET.map(a => {
+      const ran = !!opsState['agent:' + a.name];
+      return { init: a.init, ch: a.ch, name: a.name, role: a.role, cad: a.cad, accent: a.accent, dot: ran ? 'var(--good)' : '#33455f', status: ran ? 'ON AIR TODAY' : 'IDLE', btn: ran ? 'RESET' : 'MARK RUN', onToggle: () => this.toggleOp('agent:' + a.name) };
+    });
+    const opsChecklist = this.OPSLIST.map((o, i) => {
+      const on = !!opsState['ops:' + i];
+      return { text: o, check: on ? '\u2713' : '', box: on ? 'var(--gold)' : 'var(--line)', boxBg: on ? 'var(--gold)' : 'transparent', tc: on ? 'var(--dim)' : 'var(--white)', onClick: () => this.toggleOp('ops:' + i) };
+    });
+    const loopNodes = this.LOOP.map((n, i) => ({ label: n, arrow: i < this.LOOP.length - 1 ? '\u2192' : '' }));
+
+    const ladder = this.LADDER;
+    const stepIdx = this.state.step || 0;
+    const scriptSteps = this.SCRIPT.map((s, i) => ({
+      n: s.n, l: s.l,
+      bg: i === stepIdx ? 'var(--panel2)' : 'var(--deep)',
+      bd: i === stepIdx ? 'var(--line)' : 'var(--line)',
+      blk: i === stepIdx ? 'var(--gold)' : 'transparent',
+      nc: i === stepIdx ? 'var(--gold)' : 'var(--dim)',
+      fg: i === stepIdx ? 'var(--white)' : 'var(--muted)',
+      onClick: () => this.goStep(i)
+    }));
+    const cs = this.SCRIPT[stepIdx] || this.SCRIPT[0];
+    const curBlocks = (cs.blocks || []).map(b => ({ isSay: b.t === 'say', isAlt: b.t === 'sayalt', isNote: b.t === 'note', isQ: b.t === 'q', text: b.text || '', items: b.items || [] }));
+    const canBack = stepIdx > 0; const canNext = stepIdx < this.SCRIPT.length - 1;
+
+    const today = this.todayStr();
+    const fToday = this.state.founder[this.fKey()] || {};
+    const dnames = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
+    const energyScale = [1, 2, 3, 4, 5].map(n => { const on = fToday.energy == n; return { n, bg: on ? 'var(--gold)' : 'var(--deep)', bd: on ? 'var(--gold)' : 'var(--line)', fg: on ? 'var(--golddark)' : 'var(--muted)', onClick: () => this.setF('energy', n) }; });
+    const sleepScale = [5, 6, 7, 8, 9].map(n => { const on = fToday.sleep == n; return { n, bg: on ? 'var(--gold)' : 'var(--deep)', bd: on ? 'var(--gold)' : 'var(--line)', fg: on ? 'var(--golddark)' : 'var(--muted)', onClick: () => this.setF('sleep', n) }; });
+    const togDefs = this.state.partner === 'EB'
+      ? [['workout', 'Trained'], ['deep', 'Deep-work block'], ['camera', 'Shot something'], ['ate', 'Ate right']]
+      : [['workout', 'Trained'], ['deep', 'Deep-work block'], ['calls', '3 conversations'], ['ate', 'Ate right']];
+    const fToggles = togDefs.map(([k, l]) => { const on = !!fToday[k]; return { label: l, bd: on ? 'rgba(46,224,111,.4)' : 'var(--line)', box: on ? 'var(--good)' : 'var(--line)', boxBg: on ? 'var(--good)' : 'transparent', cc: on ? '#06140d' : 'transparent', check: on ? '\u2713' : '', onClick: () => this.setF(k, !fToday[k]) }; });
+    const noteVal = fToday.note || '';
+    const onNote = (e) => this.setF('note', e.target.value);
+    const weekStrip = [];
+    for (let i = 6; i >= 0; i--) {
+      const dt = new Date(); dt.setDate(dt.getDate() - i);
+      const ds = dt.getFullYear() + '-' + String(dt.getMonth() + 1).padStart(2, '0') + '-' + String(dt.getDate()).padStart(2, '0');
+      const e = this.state.founder[this.state.partner + '|' + ds] || {};
+      const sc = e.energy || 0;
+      weekStrip.push({ dw: dnames[dt.getDay()], n: sc || '\u00b7', nc: sc >= 4 ? 'var(--good)' : sc >= 2 ? 'var(--gold)' : sc ? 'var(--live)' : 'var(--dim)', d1: e.workout ? 'var(--gold)' : '#22344f', d2: (e.calls || e.camera) ? 'var(--white)' : '#22344f' });
+    }
+    const partnerTabs = this.PARTNERS.map(p => {
+      const on = p.init === this.state.partner;
+      return { init: p.init, name: p.name, role: p.role, bg: on ? 'var(--panel2)' : 'var(--deep)', bd: on ? 'var(--gold)' : 'var(--line)', initC: on ? 'var(--gold)' : 'var(--dim)', nameC: on ? 'var(--white)' : 'var(--muted)', onClick: () => this.setState({ partner: p.init }) };
+    });
+    const curP = this.PARTNERS.find(p => p.init === this.state.partner) || this.PARTNERS[0];
+
+    const habitsView = this.state.habits.map(h => {
+      const on = !!(h.days && h.days[today]); const sk = this.habitStreak(h);
+      return { name: h.name, owner: h.owner || 'BOTH', box: on ? 'var(--good)' : 'var(--line)', boxBg: on ? 'var(--good)' : 'transparent', cc: on ? '#06140d' : 'var(--dim)', check: on ? '\u2713' : '', streak: sk, streakL: sk === 1 ? 'DAY' : 'DAYS', onToggle: () => this.toggleHabit(h.id) };
+    });
+    const goalsView = this.state.goals.map(g => {
+      const prog = g.target ? (g.id === 'g1' ? collected : (g.progress || 0)) : 0;
+      const pctG = g.target ? Math.min(100, prog / g.target * 100) : 0;
+      return { text: g.text, owner: g.owner || 'BOTH', check: g.done ? '\u2713' : '', box: g.done ? 'var(--gold)' : 'var(--line)', boxBg: g.done ? 'var(--gold)' : 'transparent', cc: g.done ? 'var(--golddark)' : 'var(--dim)', tc: g.done ? 'var(--dim)' : 'var(--white)', deco: g.done ? 'line-through' : 'none', type: g.type === 'life' ? 'LIFE' : 'BUSINESS', typeC: g.type === 'life' ? 'var(--white)' : 'var(--gold)', hasBar: !!g.target, pct: pctG, progLabel: g.target ? this.fmt(prog) + ' / ' + this.fmt(g.target) : '', onToggle: () => this.toggleGoal(g.id) };
+    });
+    const dd = new Date(); const dayFull = ['SUNDAY', 'MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY']; const moAbbr = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
+    const todayLabel = dayFull[dd.getDay()] + ' \u00b7 ' + moAbbr[dd.getMonth()] + ' ' + dd.getDate();
+
+    const docOpen = (name) => () => this.flash('OPEN \u2192 ' + name.toUpperCase());
+    const docsView = this.DOCS.map(g => ({ cat: g.cat, items: g.items.map(it => ({ name: it.name, fmt: it.fmt, meta: it.meta, tag: it.tag || '', hasTag: !!it.tag, onClick: docOpen(it.name) })) }));
+    const phaseC = { ACTIVE: 'var(--gold)', NEXT: 'var(--white)', QUEUED: 'var(--dim)' };
+    const plansPhases = this.PLANS.map(p => ({ n: p.n, t: p.t, when: p.when, d: p.d, state: p.state, c: phaseC[p.state] || 'var(--dim)' }));
+    const planMoves = this.PLANMOVES.map((m, i) => { const on = !!opsState['plan:' + i]; return { text: m, check: on ? '\u2713' : '', box: on ? 'var(--gold)' : 'var(--line)', boxBg: on ? 'var(--gold)' : 'transparent', tc: on ? 'var(--dim)' : 'var(--white)', onClick: () => this.toggleOp('plan:' + i) }; });
+
+    const sections = this.SECTIONS.map(s => {
+      const active = s.id === v;
+      return { num: s.num, label: s.label, bar: active ? 'var(--gold)' : 'transparent', fg: active ? 'var(--white)' : 'var(--dim)', code: active ? 'var(--gold)' : 'var(--dim)', onSelect: () => this.setState({ view: s.id }) };
+    });
+
+    const d = new Date(this.state.now);
+    const pad = (n) => String(n).padStart(2, '0');
+    const clock = pad(d.getHours()) + ':' + pad(d.getMinutes()) + ':' + pad(d.getSeconds());
+    const months = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
+    const date = pad(d.getDate()) + ' ' + months[d.getMonth()] + ' ' + d.getFullYear();
+    const q = Math.floor(d.getMonth() / 3) + 1;
+    const scoreUs = collected >= 1000 ? (collected / 1000).toFixed(1) + 'K' : String(collected);
+    const counting = this.state.booting && this.state.bootIdx < this.COUNT.length;
+
+    return {
+      booting: this.state.booting,
+      countShow: counting,
+      countNum: this.COUNT[Math.min(this.state.bootIdx, this.COUNT.length - 1)],
+      bootReady: this.state.booting && !counting,
+      animCount: an('popcount .95s ease both'),
+      dismissBoot: () => this.dismiss(),
+      skipBoot: (e) => { if (e && e.stopPropagation) e.stopPropagation(); this.dismiss(); },
+      tickerOn: this.props.showTicker ?? true,
+      animPulse: an('pulse 1.4s ease-in-out infinite'),
+      animTicker: an('marq 32s linear infinite'),
+      sections,
+      isCommand: v === 'command',
+      isPipeline: v === 'pipeline',
+      isAudits: v === 'audits',
+      isShoots: v === 'shoots',
+      isAgents: v === 'agents',
+      isPartners: v === 'partners',
+      isDocs: v === 'docs',
+      isStrategy: v === 'strategy',
+      isPlans: v === 'plans',
+      clock, date,
+      quarter: 'Q' + q,
+      scoreUs,
+      collectedFmt: this.fmt(collected),
+      pct,
+      pctLabel: pct.toFixed(0) + '%',
+      yardLine: Math.round(pct),
+      gapText: collected >= this.GOAL ? 'GOAL CLEARED \u2014 BANK IT' : this.fmt(gap) + ' TO GO',
+      sellDays: this.daysTo(this.SIGNBY),
+      deadDays: this.daysTo(this.DEADLINE),
+      clipsFmt: (ffNum('clips') === '' ? 0 : ffNum('clips')) + '/12',
+      tiles, ff5, warn, floor, next, engine, shoots, augShoots, runsheet: this.RUNSHEET, delivs,
+      pipeCols, pStats,
+      fleet, opsChecklist, loopNodes, log: this.state.log.map(l => ({ t: l.t, tag: l.tag, color: l.color, msg: l.msg })),
+      ladder, scriptSteps, curBlocks, curGoal: cs.goal,
+      backOpacity: canBack ? '1' : '.28', nextOpacity: canNext ? '1' : '.28',
+      backStep: () => this.goStep(stepIdx - 1), nextStep: () => this.goStep(stepIdx + 1),
+      objections: this.OBJECTIONS, showObj: this.state.showObj, showScript: !this.state.showObj,
+      objBtnLabel: this.state.showObj ? '\u2190 BACK TO RUNDOWN' : 'OBJECTION HANDLING \u2192',
+      toggleObj: () => this.setState(s => ({ showObj: !s.showObj })),
+      partnerTabs, curPartnerName: curP.name.toUpperCase(),
+      energyScale, sleepScale, fToggles, noteVal, onNote, weekStrip, habitsView, goalsView, todayLabel,
+      addHabit: () => this.addHabit(), addGoal: () => this.addGoal(),
+      docsView,
+      stratThesis: this.STRATEGY.thesis, stratPillars: this.STRATEGY.pillars, stratBets: this.STRATEGY.bets, stratAnti: this.STRATEGY.antigoals,
+      plansPhases, planMoves,
+      newWeek: () => this.newWeek(),
+      toast: this.state.toast
+    };
+  }
+}
+</script>
+</body>
+</html>

@@ -38,7 +38,7 @@ export async function POST(req: Request) {
       const title = pr?.title || "Proposal";
       const amount = pr?.amount_cents ? "$" + Math.round(pr.amount_cents / 100).toLocaleString() : "";
       await sendEmail({
-        to: process.env.EMAIL_BCC || "hello@churlishmedia.com",
+        to: process.env.EMAIL_BCC || "hello@creativeimpactmedia.co",
         bcc: null,
         subject: `✍️ Signed: ${title}${amount ? " · " + amount : ""} by ${signer}`,
         html: emailShell(`<div style="font-size:15px">Proposal accepted &amp; signed.</div>

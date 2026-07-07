@@ -7,7 +7,7 @@ import { getAdminClient } from "@/lib/supabase/admin";
 import { draftAgentEmail, sendQueuedEmail } from "@/lib/agent";
 import crypto from "crypto";
 
-const SITE = process.env.NEXT_PUBLIC_SITE_URL || "https://churlishos.app";
+const SITE = process.env.NEXT_PUBLIC_SITE_URL || "https://os.creativeimpactmedia.co";
 
 type Admin = NonNullable<ReturnType<typeof getAdminClient>>;
 

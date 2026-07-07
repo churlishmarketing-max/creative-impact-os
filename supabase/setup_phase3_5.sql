@@ -1,7 +1,7 @@
--- Churlish OS — Phases 3-5 (proposals, bookings, intake). Select ALL (Ctrl+A), copy, paste into Supabase SQL Editor, Run.
+-- Creative Impact OS — Phases 3-5 (proposals, bookings, intake). Select ALL (Ctrl+A), copy, paste into Supabase SQL Editor, Run.
 
 -- ============================================================================
--- Churlish OS — Phase 3: Proposals + e-sign
+-- Creative Impact OS — Phase 3: Proposals + e-sign
 -- Run once in the Supabase SQL Editor (after 03_invoices.sql). Safe to re-run.
 -- ============================================================================
 
@@ -80,7 +80,7 @@ grant execute on function public.accept_proposal(text, text, text) to anon, auth
 
 
 -- ============================================================================
--- Churlish OS — Phase 4: Native scheduling (bookings)
+-- Creative Impact OS — Phase 4: Native scheduling (bookings)
 -- Run once in the Supabase SQL Editor (after 04_proposals.sql). Safe to re-run.
 -- Availability config lives in app_state.ops.__booking (set from the app).
 -- ============================================================================
@@ -147,7 +147,7 @@ grant execute on function public.create_booking(text,text,text,text,text,timesta
 
 
 -- ============================================================================
--- Churlish OS — Phase 4b: Public intake form
+-- Creative Impact OS — Phase 4b: Public intake form
 -- Run once in the Supabase SQL Editor (after 05_booking.sql). Safe to re-run.
 -- Reuses the clients table; form config lives in app_state.ops.__intake.
 -- ============================================================================

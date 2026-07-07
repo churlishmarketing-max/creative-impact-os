@@ -88,7 +88,7 @@ export default function PayPage() {
             <div style={{ width: 0, height: 0, borderTop: "6px solid transparent", borderBottom: "6px solid transparent", borderLeft: "10px solid #e6322b", marginLeft: 3 }} />
           </div>
           <div>
-            <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 900, fontSize: 19, lineHeight: 0.86 }}>CHURLISH<span style={{ color: "#e6322b" }}>/</span>OS</div>
+            <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 900, fontSize: 19, lineHeight: 0.86 }}>CI<span style={{ color: "#e6322b" }}>/</span>OS</div>
             <div style={{ fontSize: 8.5, letterSpacing: ".28em", color: "#56524b", marginTop: 3 }}>INVOICE {inv.number}</div>
           </div>
         </div>
@@ -121,7 +121,7 @@ export default function PayPage() {
             </button>
           )}
           {err ? <div style={{ color: "#e6322b", fontSize: 12, marginTop: 12, textAlign: "center", lineHeight: 1.4 }}>{err}</div> : null}
-          <div style={{ fontSize: 10, color: "#56524b", marginTop: 16, textAlign: "center" }}>Secured by Stripe · Churlish Media</div>
+          <div style={{ fontSize: 10, color: "#56524b", marginTop: 16, textAlign: "center" }}>Secured by Stripe · Creative Impact</div>
         </div>
       </div>
     </div>

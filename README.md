@@ -1,4 +1,4 @@
-# Churlish OS — Stage 1
+# Creative Impact OS — Stage 1
 
 The Command Center cockpit, turned into a real, single-user web app. Same design
 as the mockup; the numbers now live in a real database (Supabase), it's behind a
@@ -36,7 +36,7 @@ coverage, and the Tripwire all compute themselves — you never type them.
 
 ### 1. Supabase (your database + login)
 1. Go to **https://supabase.com** -> **Start your project** -> sign in with GitHub or email.
-2. **New project**. Name it `churlish-os`, pick a region near you, set a strong
+2. **New project**. Name it `creative-impact-os`, pick a region near you, set a strong
    database password (save it somewhere), click **Create**. Wait ~2 minutes.
 3. Left sidebar -> **SQL Editor** -> **New query**. Open `supabase/schema.sql` from
    this project, paste the whole thing in, click **Run**. You should see "Success".
@@ -64,24 +64,24 @@ coverage, and the Tripwire all compute themselves — you never type them.
 
 ### 3. GitHub (holds the code)
 1. Go to **https://github.com** -> sign in / sign up.
-2. **New repository** -> name it `churlish-os` -> **Private** -> **Create**.
+2. **New repository** -> name it `creative-impact-os` -> **Private** -> **Create**.
 3. Back here, push the code (run these in this folder):
    ```
    git init
    git add -A
-   git commit -m "Churlish OS Stage 1"
+   git commit -m "Creative Impact OS Stage 1"
    git branch -M main
-   git remote add origin https://github.com/YOUR-USERNAME/churlish-os.git
+   git remote add origin https://github.com/YOUR-USERNAME/creative-impact-os.git
    git push -u origin main
    ```
 
 ### 4. Vercel (the live URL)
 1. Go to **https://vercel.com** -> **Sign up** with GitHub.
-2. **Add New... -> Project** -> import your `churlish-os` repo.
+2. **Add New... -> Project** -> import your `creative-impact-os` repo.
 3. Before deploying, open **Environment Variables** and add the same two:
    - `NEXT_PUBLIC_SUPABASE_URL`
    - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
-4. Click **Deploy**. In ~1 minute you get a live URL (e.g. `churlish-os.vercel.app`).
+4. Click **Deploy**. In ~1 minute you get a live URL (e.g. `creative-impact-os.vercel.app`).
    Open it on your phone, log in, and you'll see the same data. Bookmark it.
 
 ---

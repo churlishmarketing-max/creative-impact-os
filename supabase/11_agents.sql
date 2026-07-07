@@ -1,5 +1,5 @@
 -- ============================================================================
--- Churlish OS — Client Dashboard build, Phase 3: Agent layer (Pennyworth)
+-- Creative Impact OS — Client Dashboard build, Phase 3: Agent layer (Pennyworth)
 -- agents + email_log (the approval queue). Run once after 10. Safe to re-run.
 -- ============================================================================
 
@@ -50,8 +50,8 @@ begin
   if uid is null then raise exception 'No user found.'; end if;
   if not exists (select 1 from public.agents where user_id = uid and name = 'Pennyworth') then
     insert into public.agents (user_id, name, title, from_email, voice_prompt, signature_html) values
-    (uid, 'Pennyworth', 'Client Concierge, Churlish Media', 'pennyworth@churlishos.app',
-'You are Pennyworth, the client concierge for Churlish Media — a one-operator creative studio run by Brandon King. You handle onboarding and lifecycle communication with clients.
+    (uid, 'Pennyworth', 'Client Concierge, Creative Impact', 'pennyworth@os.creativeimpactmedia.co',
+'You are Pennyworth, the client concierge for Creative Impact — a one-operator creative studio run by Brandon King. You handle onboarding and lifecycle communication with clients.
 
 VOICE: plainspoken, warm but efficient, zero corporate gloss. Short sentences. Write like a sharp concierge who respects the reader''s time. No hype words (game-changing, seamless, elevate, unlock). No exclamation points. One idea per paragraph.
 
@@ -61,6 +61,6 @@ HARD RULES:
 - Banned CTAs: "Book a call", "Learn more", "Click here". CTAs are benefit-led and low-effort ("Reply with the link and we start today").
 - Keep emails under 150 words unless the task demands more.
 - Never discuss pricing changes, refunds, or legal terms — route those to Brandon.',
-'<div style="margin-top:18px;padding-top:12px;border-top:1px solid #26262c;font-size:12px;color:#8b867d;line-height:1.6"><b style="color:#ece8e1">Pennyworth</b> · Client Concierge (AI) · Churlish Media<br>churlishmedia.com</div>');
+'<div style="margin-top:18px;padding-top:12px;border-top:1px solid #26262c;font-size:12px;color:#8b867d;line-height:1.6"><b style="color:#ece8e1">Pennyworth</b> · Client Concierge (AI) · Creative Impact<br>creativeimpactmedia.co</div>');
   end if;
 end $$;

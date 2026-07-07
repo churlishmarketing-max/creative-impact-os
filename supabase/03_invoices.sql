@@ -1,5 +1,5 @@
 -- ============================================================================
--- Churlish OS — Phase 2: Invoices
+-- Creative Impact OS — Phase 2: Invoices
 -- Run once in the Supabase SQL Editor (after 02_clients.sql). Safe to re-run.
 -- ============================================================================
 

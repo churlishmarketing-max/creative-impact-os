@@ -1,5 +1,5 @@
 -- ============================================================================
--- Churlish OS — Phase 4: Native scheduling (bookings)
+-- Creative Impact OS — Phase 4: Native scheduling (bookings)
 -- Run once in the Supabase SQL Editor (after 04_proposals.sql). Safe to re-run.
 -- Availability config lives in app_state.ops.__booking (set from the app).
 -- ============================================================================

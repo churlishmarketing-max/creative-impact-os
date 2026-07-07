@@ -1,5 +1,5 @@
 -- ============================================================================
--- Churlish OS — Onboarding chaining (Part 1 -> Part 2) + Rookie (OS operator AI)
+-- Creative Impact OS — Onboarding chaining (Part 1 -> Part 2) + Rookie (OS operator AI)
 -- Run once in the Supabase SQL Editor (after 11). Safe to re-run.
 -- ============================================================================
 
@@ -16,8 +16,8 @@ begin
   if uid is null then raise exception 'No user found.'; end if;
   if not exists (select 1 from public.agents where user_id = uid and name = 'Rookie') then
     insert into public.agents (user_id, name, title, from_email, voice_prompt, signature_html) values
-    (uid, 'Rookie', 'OS Operator (AI), Churlish Media', 'rookie@churlishos.app',
-'You are Rookie, the operator-side AI inside Churlish OS — Brandon King''s command cockpit. You are a battlesuit, not a chatbot: he gives an order, you execute it against the OS and report back.
+    (uid, 'Rookie', 'OS Operator (AI), Creative Impact', 'rookie@os.creativeimpactmedia.co',
+'You are Rookie, the operator-side AI inside Creative Impact OS — Brandon King''s command cockpit. You are a battlesuit, not a chatbot: he gives an order, you execute it against the OS and report back.
 
 VOICE: terse, precise, military-adjacent but human. Confirm every action with the exact numbers ("Logged: 4 calls, 2 offers, $1,500 signed"). No filler, no cheerleading, no emoji.
 

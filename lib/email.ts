@@ -1,6 +1,6 @@
 // Email via Resend (https://resend.com) — direct REST call, no SDK.
 // Server-only. No-ops gracefully if RESEND_API_KEY isn't set.
-// Env: RESEND_API_KEY, EMAIL_FROM (default hello@churlishos.app), EMAIL_BCC (your copy).
+// Env: RESEND_API_KEY, EMAIL_FROM (default hello@os.creativeimpactmedia.co), EMAIL_BCC (your copy).
 
 type SendArgs = {
   to: string | string[];
@@ -15,8 +15,8 @@ type SendArgs = {
 export async function sendEmail(a: SendArgs) {
   const key = process.env.RESEND_API_KEY;
   if (!key) return { ok: false, skipped: true };
-  const from = a.from || process.env.EMAIL_FROM || "Churlish Media <hello@churlishos.app>";
-  const bcc = a.bcc === undefined ? process.env.EMAIL_BCC || "hello@churlishmedia.com" : a.bcc;
+  const from = a.from || process.env.EMAIL_FROM || "Creative Impact <hello@os.creativeimpactmedia.co>";
+  const bcc = a.bcc === undefined ? process.env.EMAIL_BCC || "hello@creativeimpactmedia.co" : a.bcc;
 
   const body: Record<string, unknown> = {
     from,
@@ -54,9 +54,9 @@ export function esc(s: unknown) {
 // Minimal branded wrapper so emails match the cockpit.
 export function emailShell(inner: string) {
   return `<div style="background:#0e0e11;color:#ece8e1;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;padding:28px;border-top:3px solid #e6322b;max-width:520px;margin:0 auto">
-    <div style="font-family:Arial Narrow,Arial,sans-serif;font-weight:900;font-size:20px;letter-spacing:.01em">CHURLISH<span style="color:#e6322b">/</span>OS</div>
+    <div style="font-family:Arial Narrow,Arial,sans-serif;font-weight:900;font-size:20px;letter-spacing:.01em">CI<span style="color:#e6322b">/</span>OS</div>
     <div style="height:1px;background:linear-gradient(90deg,#e6322b,transparent 60%);margin:14px 0 18px"></div>
     ${inner}
-    <div style="color:#56524b;font-size:11px;margin-top:22px">Churlish Media · churlishmedia.com</div>
+    <div style="color:#56524b;font-size:11px;margin-top:22px">Creative Impact · creativeimpactmedia.co</div>
   </div>`;
 }

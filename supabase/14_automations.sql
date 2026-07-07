@@ -1,5 +1,5 @@
 -- ============================================================================
--- Churlish OS — Client Dashboard build, Phase 4: Automations
+-- Creative Impact OS — Client Dashboard build, Phase 4: Automations
 -- Stage-entered emails, referral codes + tracked links.
 -- Run once in the Supabase SQL Editor (after 13). Safe to re-run — but note
 -- the UPDATE below re-enables email_on_enter on the four default stages, so
@@ -14,7 +14,7 @@ alter table public.pipeline_stages add column if not exists email_on_enter boole
 
 update public.pipeline_stages set email_on_enter = true
 where name in ('Strategy','Production','Review/Delivery','Live/Optimize')
-  and template_id in (select id from public.pipeline_templates where name = 'Churlish Default');
+  and template_id in (select id from public.pipeline_templates where name = 'Creative Impact Default');
 
 -- REFERRAL CODES — one per client; /r/<code> counts the click and redirects.
 create table if not exists public.referral_codes (

@@ -44,7 +44,7 @@ export async function POST(req: Request) {
       user_id: user.id,
       client_id: clientId || null,
       direction: "out",
-      from_email: process.env.EMAIL_FROM || "hello@churlishos.app",
+      from_email: process.env.EMAIL_FROM || "hello@os.creativeimpactmedia.co",
       to_email: to,
       subject,
       body,

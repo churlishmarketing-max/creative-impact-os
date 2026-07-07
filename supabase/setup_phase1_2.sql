@@ -1,7 +1,7 @@
--- Churlish OS — Clients + Invoices (Phase 1 & 2). Paste all, Run once.
+-- Creative Impact OS — Clients + Invoices (Phase 1 & 2). Paste all, Run once.
 
 -- ============================================================================
--- Churlish OS — Phase 1: Clients / CRM
+-- Creative Impact OS — Phase 1: Clients / CRM
 -- Run this once in the Supabase SQL Editor (after schema.sql). Safe to re-run.
 -- ============================================================================
 
@@ -39,7 +39,7 @@ create policy own_rows on public.clients for all to authenticated
 
 
 -- ============================================================================
--- Churlish OS — Phase 2: Invoices
+-- Creative Impact OS — Phase 2: Invoices
 -- Run once in the Supabase SQL Editor (after 02_clients.sql). Safe to re-run.
 -- ============================================================================
 

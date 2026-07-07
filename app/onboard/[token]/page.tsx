@@ -83,7 +83,7 @@ export default function OnboardPage() {
           </div>
           <div>
             <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 900, fontSize: 19, lineHeight: 0.86 }}>{data.template.name}</div>
-            <div style={{ fontSize: 8.5, letterSpacing: ".28em", color: "#56524b", marginTop: 3 }}>CHURLISH MEDIA · ONBOARDING{data.client ? " · " + data.client.toUpperCase() : ""}</div>
+            <div style={{ fontSize: 8.5, letterSpacing: ".28em", color: "#56524b", marginTop: 3 }}>CREATIVE IMPACT · ONBOARDING{data.client ? " · " + data.client.toUpperCase() : ""}</div>
           </div>
         </div>
 
@@ -147,7 +147,7 @@ export default function OnboardPage() {
               </div>
             </div>
           )}
-          <div style={{ fontSize: 10, color: "#56524b", marginTop: 18, textAlign: "center" }}>Churlish Media</div>
+          <div style={{ fontSize: 10, color: "#56524b", marginTop: 18, textAlign: "center" }}>Creative Impact</div>
         </div>
       </div>
     </div>

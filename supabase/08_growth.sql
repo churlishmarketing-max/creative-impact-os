@@ -1,5 +1,5 @@
 -- ============================================================================
--- Churlish OS — Growth pack: Expenses, KPIs, Client email threads
+-- Creative Impact OS — Growth pack: Expenses, KPIs, Client email threads
 -- Run once in the Supabase SQL Editor. Safe to re-run.
 -- ============================================================================
 

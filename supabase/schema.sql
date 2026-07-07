@@ -1,5 +1,5 @@
 -- ============================================================================
--- Churlish OS — Stage 1 schema
+-- Creative Impact OS — Stage 1 schema
 -- Single user. All money stored as INTEGER CENTS. Everything behind RLS.
 -- Run this once in the Supabase SQL Editor (Dashboard → SQL Editor → New query).
 -- Safe to re-run.

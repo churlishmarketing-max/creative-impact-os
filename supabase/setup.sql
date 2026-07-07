@@ -1,11 +1,11 @@
 -- ============================================================================
--- Churlish OS — ONE-SHOT SETUP. Paste this whole file into the Supabase SQL
+-- Creative Impact OS — ONE-SHOT SETUP. Paste this whole file into the Supabase SQL
 -- Editor and click Run. Creates the tables, then loads the starting data.
 -- Safe to re-run. Requires your user to already exist (Authentication > Users).
 -- ============================================================================
 
 -- ============================================================================
--- Churlish OS — Stage 1 schema
+-- Creative Impact OS — Stage 1 schema
 -- Single user. All money stored as INTEGER CENTS. Everything behind RLS.
 -- Run this once in the Supabase SQL Editor (Dashboard → SQL Editor → New query).
 -- Safe to re-run.
@@ -112,7 +112,7 @@ create policy own_rows on public.app_state   for all to authenticated using (aut
 
 
 -- ============================================================================
--- Churlish OS — Stage 1 seed data (mirrors the mockup's starting numbers)
+-- Creative Impact OS — Stage 1 seed data (mirrors the mockup's starting numbers)
 -- Run AFTER you have created your single user account, in the Supabase SQL Editor.
 -- It finds your (one) user automatically. Safe to re-run — it won't duplicate.
 -- ============================================================================

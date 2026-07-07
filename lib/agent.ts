@@ -110,8 +110,8 @@ export async function sendQueuedEmail(
   }
   const subject = (edited?.subject || row.subject || "").slice(0, 200);
   const bodyText = edited?.body || row.body || "";
-  const fromName = agent?.name ? `${agent.name} — Churlish Media` : "Churlish Media";
-  const fromAddr = agent?.from_email || "hello@churlishos.app";
+  const fromName = agent?.name ? `${agent.name} — Creative Impact` : "Creative Impact";
+  const fromAddr = agent?.from_email || "hello@os.creativeimpactmedia.co";
 
   const res = await sendEmail({
     to: row.to_email,

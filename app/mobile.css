@@ -1,5 +1,5 @@
 /* ============================================================================
-   Churlish OS — mobile optimization layer.
+   Creative Impact OS — mobile optimization layer.
    The cockpit is a 1:1 port with inline styles, so this file retrofits
    responsiveness from the outside: attribute-substring selectors + !important.
    Same design, it just folds on narrow screens. Desktop is untouched.

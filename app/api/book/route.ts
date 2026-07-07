@@ -19,9 +19,9 @@ export async function POST(req: Request) {
   if (error || !data?.ok) return NextResponse.json(data || { ok: false, error: error?.message }, { status: 200 });
 
   // Fire-and-forget notifications (never block the booking on email).
-  const evTitle = title || "Call with Churlish Media";
+  const evTitle = title || "Call with Creative Impact";
   const fmt = (iso: string) => iso.replace(/[-:]/g, "").replace(/\.\d{3}/, "");
-  const ics = ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//Churlish//OS//EN", "BEGIN:VEVENT", "UID:" + start + "@churlishos", "DTSTART:" + fmt(new Date(start).toISOString()), "DTEND:" + fmt(new Date(end).toISOString()), "SUMMARY:" + evTitle, "DESCRIPTION:" + (notes || ""), "END:VEVENT", "END:VCALENDAR"].join("\r\n");
+  const ics = ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//CreativeImpact//OS//EN", "BEGIN:VEVENT", "UID:" + start + "@creativeimpactos", "DTSTART:" + fmt(new Date(start).toISOString()), "DTEND:" + fmt(new Date(end).toISOString()), "SUMMARY:" + evTitle, "DESCRIPTION:" + (notes || ""), "END:VEVENT", "END:VCALENDAR"].join("\r\n");
   const when = whenText || new Date(start).toUTCString();
   if (email) {
     await sendEmail({
@@ -34,7 +34,7 @@ export async function POST(req: Request) {
     });
   } else {
     // no client email — still notify the operator
-    await sendEmail({ to: process.env.EMAIL_BCC || "hello@churlishmedia.com", bcc: null, subject: `New booking — ${when}`, html: emailShell(`<div>New booking: <b>${esc(name || "Guest")}</b><br>${esc(when)}</div>`), ics });
+    await sendEmail({ to: process.env.EMAIL_BCC || "hello@creativeimpactmedia.co", bcc: null, subject: `New booking — ${when}`, html: emailShell(`<div>New booking: <b>${esc(name || "Guest")}</b><br>${esc(when)}</div>`), ics });
   }
   return NextResponse.json({ ok: true });
 }

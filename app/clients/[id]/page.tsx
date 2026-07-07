@@ -95,7 +95,7 @@ export default function ClientDashboard() {
       tpl = st?.template_id || null;
     }
     if (!tpl) {
-      const { data: t } = await sb.from("pipeline_templates").select("id").eq("name", "Churlish Default").maybeSingle();
+      const { data: t } = await sb.from("pipeline_templates").select("id").eq("name", "Creative Impact Default").maybeSingle();
       tpl = t?.id || null;
     }
     if (tpl) {
@@ -253,7 +253,7 @@ export default function ClientDashboard() {
     <div style={wrap}>
       {/* top bar */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 22px", borderBottom: `1px solid ${C.line}` }}>
-        <a href="/" style={{ color: C.muted, fontSize: 11, letterSpacing: ".14em", textDecoration: "none", textTransform: "uppercase" }}>← Churlish/OS</a>
+        <a href="/" style={{ color: C.muted, fontSize: 11, letterSpacing: ".14em", textDecoration: "none", textTransform: "uppercase" }}>← CI/OS</a>
         <span style={{ ...label }}>Client dashboard</span>
       </div>
 

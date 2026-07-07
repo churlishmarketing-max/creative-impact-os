@@ -1,5 +1,5 @@
 -- ============================================================================
--- Churlish OS — Phase 1: Clients / CRM
+-- Creative Impact OS — Phase 1: Clients / CRM
 -- Run this once in the Supabase SQL Editor (after schema.sql). Safe to re-run.
 -- ============================================================================
 

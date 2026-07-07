@@ -1,5 +1,5 @@
 -- ============================================================================
--- Churlish OS — Phase 3: Proposals + e-sign
+-- Creative Impact OS — Phase 3: Proposals + e-sign
 -- Run once in the Supabase SQL Editor (after 03_invoices.sql). Safe to re-run.
 -- ============================================================================
 

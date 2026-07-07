@@ -79,7 +79,7 @@ export default function IntakePage() {
           </div>
           <div>
             <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 900, fontSize: 19, lineHeight: 0.86 }}>{cfg?.title || "Tell us about your business"}</div>
-            <div style={{ fontSize: 8.5, letterSpacing: ".28em", color: "#56524b", marginTop: 3 }}>CHURLISH/OS · INTAKE</div>
+            <div style={{ fontSize: 8.5, letterSpacing: ".28em", color: "#56524b", marginTop: 3 }}>CI/OS · INTAKE</div>
           </div>
         </div>
         <div style={{ padding: "24px 26px" }}>
@@ -106,7 +106,7 @@ export default function IntakePage() {
               {err ? <div style={{ color: "#e6322b", fontSize: 12, marginTop: 12, textAlign: "center" }}>{err}</div> : null}
             </div>
           )}
-          <div style={{ fontSize: 10, color: "#56524b", marginTop: 16, textAlign: "center" }}>Churlish Media</div>
+          <div style={{ fontSize: 10, color: "#56524b", marginTop: 16, textAlign: "center" }}>Creative Impact</div>
         </div>
       </div>
     </div>

@@ -1,5 +1,5 @@
 -- ============================================================================
--- Churlish OS — Client Dashboard build, Phase 1
+-- Creative Impact OS — Client Dashboard build, Phase 1
 -- offers, pipeline templates/stages, brand kits, work items, client docs,
 -- client activity events; extends clients; seeds the ladder + a demo client.
 -- Run once in the Supabase SQL Editor. Safe to re-run.
@@ -161,9 +161,9 @@ begin
   on conflict (user_id, slug) do nothing;
 
   -- Default pipeline template + the 8 stages
-  select id into tpl from public.pipeline_templates where user_id = uid and name = 'Churlish Default';
+  select id into tpl from public.pipeline_templates where user_id = uid and name = 'Creative Impact Default';
   if tpl is null then
-    insert into public.pipeline_templates (user_id, name) values (uid, 'Churlish Default') returning id into tpl;
+    insert into public.pipeline_templates (user_id, name) values (uid, 'Creative Impact Default') returning id into tpl;
     insert into public.pipeline_stages (user_id, template_id, name, sort_order, stall_days) values
       (uid, tpl, 'Signed',          0, null),
       (uid, tpl, 'Onboarding',      1, 3),

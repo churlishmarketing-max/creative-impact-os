@@ -1,5 +1,5 @@
 -- ============================================================================
--- Churlish OS — Phase 4b: Public intake form
+-- Creative Impact OS — Phase 4b: Public intake form
 -- Run once in the Supabase SQL Editor (after 05_booking.sql). Safe to re-run.
 -- Reuses the clients table; form config lives in app_state.ops.__intake.
 -- ============================================================================

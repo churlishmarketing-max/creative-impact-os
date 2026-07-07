@@ -25,12 +25,12 @@ export async function GET(req: Request) {
 
   // Stall digest to the operator (one email listing everything newly stalled).
   if (stalls.length) {
-    const to = process.env.EMAIL_BCC || "hello@churlishmedia.com";
+    const to = process.env.EMAIL_BCC || "hello@creativeimpactmedia.co";
     const rows = stalls.map((s) => `<div style="padding:8px 0;border-bottom:1px solid #26262c"><b style="color:#ece8e1">${esc(s.name)}</b> — ${s.days} days in ${esc(s.stage)} (threshold ${s.threshold})</div>`).join("");
     await sendEmail({
       to,
       bcc: null, // already going straight to the operator
-      subject: `Churlish OS — ${stalls.length} client${stalls.length > 1 ? "s" : ""} stalled`,
+      subject: `Creative Impact OS — ${stalls.length} client${stalls.length > 1 ? "s" : ""} stalled`,
       html: emailShell(`<div style="font-size:13.5px;color:#c9c4bb;line-height:1.75">These clients have sat in a pipeline stage past its threshold:</div>${rows}<div style="font-size:12px;color:#8b867d;margin-top:14px">Each is flagged once per stage — advance them or touch base to clear it.</div>`),
     }).catch((e) => console.error("stall digest failed", e));
   }

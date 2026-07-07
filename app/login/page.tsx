@@ -93,7 +93,7 @@ export default function LoginPage() {
           </div>
           <div>
             <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 900, fontSize: "21px", lineHeight: 0.86 }}>
-              CHURLISH<span style={{ color: "var(--red, #e6322b)" }}>/</span>OS
+              CI<span style={{ color: "var(--red, #e6322b)" }}>/</span>OS
             </div>
             <div style={{ fontSize: "8px", letterSpacing: ".3em", color: "var(--dim, #56524b)", marginTop: "3px" }}>
               OPERATING SYSTEM

@@ -1,5 +1,5 @@
 -- ============================================================================
--- Churlish OS — Hardening pass (review findings)
+-- Creative Impact OS — Hardening pass (review findings)
 -- Run once in the Supabase SQL Editor. Safe to re-run.
 -- create_booking now rejects past/absurd times so a public booking link can't
 -- be abused to book outside any reasonable window.

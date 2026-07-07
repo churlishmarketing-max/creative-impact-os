@@ -1,5 +1,5 @@
 -- ============================================================================
--- Churlish OS — Client Dashboard build, Phase 5: Status page + docs
+-- Creative Impact OS — Client Dashboard build, Phase 5: Status page + docs
 -- Read-only client status portal (magic link, like pay/proposal links).
 -- client_docs already exists (09) — the editor is app-side, no schema change.
 -- Run once in the Supabase SQL Editor (after 14). Safe to re-run.

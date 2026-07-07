@@ -6,9 +6,9 @@ export const dynamic = "force-dynamic";
 
 // Public: tracked referral link. Counts the click, notes it on the referring
 // client's activity feed, and forwards the visitor to the referral target
-// (REFERRAL_TARGET_URL, defaulting to the Churlish Media site).
+// (REFERRAL_TARGET_URL, defaulting to the Creative Impact site).
 export async function GET(req: Request, { params }: { params: Promise<{ code: string }> }) {
-  const target = process.env.REFERRAL_TARGET_URL || "https://churlishmedia.com";
+  const target = process.env.REFERRAL_TARGET_URL || "https://creativeimpactmedia.co";
   const { code } = await params;
   const admin = getAdminClient();
   if (admin && code && /^[a-z0-9-]{4,64}$/i.test(code)) {

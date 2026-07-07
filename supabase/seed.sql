@@ -1,5 +1,5 @@
 -- ============================================================================
--- Churlish OS — Stage 1 seed data (mirrors the mockup's starting numbers)
+-- Creative Impact OS — Stage 1 seed data (mirrors the mockup's starting numbers)
 -- Run AFTER you have created your single user account, in the Supabase SQL Editor.
 -- It finds your (one) user automatically. Safe to re-run — it won't duplicate.
 -- ============================================================================

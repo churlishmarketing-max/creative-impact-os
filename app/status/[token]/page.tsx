@@ -142,7 +142,7 @@ export default function StatusPage() {
         </div>
 
         <div style={{ ...label, textAlign: "center", marginTop: 26 }}>
-          Churlish Media · questions? just reply to any email from us
+          Creative Impact · questions? just reply to any email from us
         </div>
       </div>
     </div>

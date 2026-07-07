@@ -1,5 +1,5 @@
 -- ============================================================================
--- Churlish OS — Client Dashboard build, Phase 2: Onboarding Engine
+-- Creative Impact OS — Client Dashboard build, Phase 2: Onboarding Engine
 -- Offer-specific magic-link intake forms that auto-fill the brand kit.
 -- Run once in the Supabase SQL Editor (after 09). Safe to re-run.
 -- ============================================================================

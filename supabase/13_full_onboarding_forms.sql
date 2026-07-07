@@ -1,5 +1,5 @@
 -- ============================================================================
--- Churlish OS — The real onboarding flow, transcribed from HoneyBook:
+-- Creative Impact OS — The real onboarding flow, transcribed from HoneyBook:
 --   Automation 1: "Onboarding Information — Part 1" (brand/company intake)
 --   Automation 2: "Audience Clarity Form — Part 2"  (offer + avatar psychology)
 -- Part 1 chains to Part 2 (auto-sent on submission). Part 1 is wired to the
@@ -21,7 +21,7 @@ begin
   -- ---------------- PART 2 (created first so Part 1 can chain to it) ----------
   insert into public.onboarding_templates (user_id, name, offer_id, intro_copy, sections)
   values (uid, 'Audience Clarity Form — Part 2', null,
-$t$Welcome to Churlish Media's Audience Clarity Form (Pt. 2). It should take about 30 minutes, depending on how much you already have mapped out. The purpose is simple: give us a crystal-clear picture of who you serve and how we can capture their attention through story-driven video. We'll use this with the notes we've already collected to fine-tune our process.$t$,
+$t$Welcome to Creative Impact's Audience Clarity Form (Pt. 2). It should take about 30 minutes, depending on how much you already have mapped out. The purpose is simple: give us a crystal-clear picture of who you serve and how we can capture their attention through story-driven video. We'll use this with the notes we've already collected to fine-tune our process.$t$,
 $j$[
  {"title":"Part 1: Tell us what you offer",
   "intro":"This section helps us grasp the essence of your product or service so we can pinpoint the strongest market position and translate its value into a story that grabs — and holds — your audience's attention. The more detail you share, the sharper your final message will be.",

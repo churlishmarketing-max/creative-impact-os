@@ -3,8 +3,8 @@ import "./cockpit.css";
 import "./mobile.css";
 
 export const metadata: Metadata = {
-  title: "Churlish OS",
-  description: "Churlish OS — Command Center",
+  title: "Creative Impact OS",
+  description: "Creative Impact OS — Command Center",
   manifest: "/manifest.json",
   icons: { icon: "/icons/icon-192.png", apple: "/icons/icon-192.png" },
 };

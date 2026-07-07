@@ -132,7 +132,7 @@ export default function BookPage() {
           </div>
           <div>
             <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 900, fontSize: 19, lineHeight: 0.86 }}>{cfg?.title || "Book a call"}</div>
-            <div style={{ fontSize: 8.5, letterSpacing: ".28em", color: "#56524b", marginTop: 3 }}>CHURLISH/OS · {slotMins} MIN · {tz}</div>
+            <div style={{ fontSize: 8.5, letterSpacing: ".28em", color: "#56524b", marginTop: 3 }}>CI/OS · {slotMins} MIN · {tz}</div>
           </div>
         </div>
 
@@ -144,15 +144,15 @@ export default function BookPage() {
               </div>
               {picked ? (() => {
                 const fmt = (ms: number) => new Date(ms).toISOString().replace(/[-:]/g, "").replace(/\.\d{3}/, "");
-                const title = cfg?.title || "Call with Churlish Media";
+                const title = cfg?.title || "Call with Creative Impact";
                 const endMs = picked.utc + slotMins * 60000;
                 const gcal = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(title)}&dates=${fmt(picked.utc)}/${fmt(endMs)}`;
-                const ics = "data:text/calendar;charset=utf-8," + encodeURIComponent(["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//Churlish//OS//EN", "BEGIN:VEVENT", "UID:" + picked.utc + "@churlishos", "DTSTART:" + fmt(picked.utc), "DTEND:" + fmt(endMs), "SUMMARY:" + title, "END:VEVENT", "END:VCALENDAR"].join("\r\n"));
+                const ics = "data:text/calendar;charset=utf-8," + encodeURIComponent(["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//CreativeImpact//OS//EN", "BEGIN:VEVENT", "UID:" + picked.utc + "@creativeimpactos", "DTSTART:" + fmt(picked.utc), "DTEND:" + fmt(endMs), "SUMMARY:" + title, "END:VEVENT", "END:VCALENDAR"].join("\r\n"));
                 const btn: React.CSSProperties = { flex: 1, textAlign: "center", background: "transparent", border: "1px solid #34343c", color: "#ece8e1", padding: "10px", fontFamily: "'JetBrains Mono', monospace", fontSize: 11, letterSpacing: ".1em", textTransform: "uppercase", textDecoration: "none" };
                 return (
                   <div style={{ display: "flex", gap: 10 }}>
                     <a href={gcal} target="_blank" rel="noopener noreferrer" style={btn}>+ Google Calendar</a>
-                    <a href={ics} download="churlish-call.ics" style={btn}>Download .ics</a>
+                    <a href={ics} download="creative-impact-call.ics" style={btn}>Download .ics</a>
                   </div>
                 );
               })() : null}
@@ -186,7 +186,7 @@ export default function BookPage() {
               ))}
             </div>
           )}
-          <div style={{ fontSize: 10, color: "#56524b", marginTop: 16, textAlign: "center" }}>Times shown in {tz} · Churlish Media</div>
+          <div style={{ fontSize: 10, color: "#56524b", marginTop: 16, textAlign: "center" }}>Times shown in {tz} · Creative Impact</div>
         </div>
       </div>
     </div>

@@ -1,0 +1,132 @@
+/* ============================================================================
+   Churlish OS — mobile optimization layer.
+   The cockpit is a 1:1 port with inline styles, so this file retrofits
+   responsiveness from the outside: attribute-substring selectors + !important.
+   Same design, it just folds on narrow screens. Desktop is untouched.
+
+   NOTE: selectors appear twice ("a:b" and "a: b") because server-rendered
+   pages serialize inline styles without spaces while client-rendered pages
+   (the cockpit) go through the CSSOM, which adds spaces and leading zeros.
+   ========================================================================== */
+
+@media (max-width: 760px) {
+
+  /* ---- shell: sidebar becomes a top strip, content flows below ---------- */
+  div[style*="display:flex"][style*="min-height:100vh"],
+  div[style*="display: flex"][style*="min-height: 100vh"] {
+    display: block !important;
+  }
+
+  aside[style*="width:264px"],
+  aside[style*="width: 264px"] {
+    width: 100% !important;
+    height: auto !important;
+    position: static !important;
+    border-right: none !important;
+    border-bottom: 1px solid #26262c !important;
+  }
+
+  /* logo header: tighter */
+  aside[style*="264px"] > div:first-child {
+    padding: 12px 14px 10px !important;
+  }
+  /* SYSTEM ONLINE strip + ONE-MAN HQ footer: not worth phone pixels */
+  aside[style*="264px"] > div[style*="padding:10px 14px"],
+  aside[style*="264px"] > div[style*="padding: 10px 14px"],
+  aside[style*="264px"] > div[style*="border-top"],
+  aside[style*="264px"] > div[style*="border-top:"] {
+    display: none !important;
+  }
+
+  /* nav: horizontal swipe strip of module chips */
+  aside[style*="264px"] nav {
+    display: flex !important;
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
+    padding: 8px 8px !important;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+  aside[style*="264px"] nav::-webkit-scrollbar { display: none; }
+  aside[style*="264px"] nav > div { display: none !important; }   /* // MODULES label */
+  aside[style*="264px"] nav button {
+    width: auto !important;
+    white-space: nowrap !important;
+    padding: 9px 12px !important;
+    margin-bottom: 0 !important;
+    font-size: 14.5px !important;
+    flex-shrink: 0;
+  }
+  aside[style*="264px"] nav button span:first-child { display: none !important; }  /* 01/02 codes */
+
+  /* ---- topbar ticker: let it swipe instead of squeezing ----------------- */
+  main > div[style*="white-space:nowrap"],
+  main > div[style*="white-space: nowrap"] {
+    overflow-x: auto !important;
+    padding: 8px 12px !important;
+    gap: 10px !important;
+    scrollbar-width: none;
+  }
+  main > div[style*="nowrap"]::-webkit-scrollbar { display: none; }
+
+  /* ---- hero: target bar full width, countdown boxes share rows ---------- */
+  section div[style*="min-width:330px"],
+  section div[style*="min-width: 330px"] { min-width: 100% !important; }
+  section div[style*="min-width:138px"],
+  section div[style*="min-width: 138px"] { flex: 1 1 40% !important; min-width: 120px !important; }
+
+  /* ---- content wrappers: reclaim the margins ----------------------------- */
+  [style*="padding:24px 26px"],
+  [style*="padding: 24px 26px"] { padding: 16px 12px 72px !important; }
+  [style*="padding:22px 26px"],
+  [style*="padding: 22px 26px"] { padding: 16px 12px !important; }
+
+  /* ---- stat/summary grids: 4-up and 3-up become 2-up; 5-up becomes 2-up -- */
+  [style*="repeat(4,1fr)"],
+  [style*="repeat(4, 1fr)"],
+  [style*="repeat(3,1fr)"],
+  [style*="repeat(3, 1fr)"],
+  [style*="repeat(5,1fr)"],
+  [style*="repeat(5, 1fr)"] {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+
+  /* ---- two-column layouts stack ------------------------------------------ */
+  [style*="grid-template-columns:1fr 1fr"],
+  [style*="grid-template-columns: 1fr 1fr"],
+  [style*="1.1fr 1fr"],
+  [style*="1.15fr 1fr"],
+  [style*="1.15fr .85fr"],
+  [style*="1.15fr 0.85fr"],
+  [style*="236px 1fr"] {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* ---- data tables (rosters): keep their columns, swipe sideways --------- */
+  [style*="2fr 1.2fr"],
+  [style*="1fr 1.6fr"],
+  [style*=".9fr 1.6fr"],
+  [style*="0.9fr 1.6fr"],
+  [style*="1fr 70px"],
+  [style*="1fr 60px"] {
+    min-width: 600px;
+  }
+  div:has(> [style*="2fr 1.2fr"]),
+  div:has(> [style*="1fr 1.6fr"]),
+  div:has(> [style*=".9fr 1.6fr"]),
+  div:has(> [style*="0.9fr 1.6fr"]),
+  div:has(> [style*="1fr 70px"]),
+  div:has(> [style*="1fr 60px"]) {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* ---- big display numbers scale down a notch ---------------------------- */
+  [style*="font-size:40px"],
+  [style*="font-size: 40px"] { font-size: 32px !important; }
+  [style*="font-size:44px"],
+  [style*="font-size: 44px"] { font-size: 32px !important; }
+
+  /* ---- comfortable tap targets on form controls -------------------------- */
+  input, select, textarea, button { font-size: max(13px, 1em); }
+}

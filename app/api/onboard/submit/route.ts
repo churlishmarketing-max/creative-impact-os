@@ -67,7 +67,7 @@ export async function POST(req: Request) {
   await admin.from("onboarding_runs").update({ status: "processed", submitted_at: new Date().toISOString() }).eq("id", run.id);
   await admin.from("client_events").insert({ user_id: run.user_id, client_id: run.client_id, kind: "onboarding", message: "Onboarding form submitted — record + brand kit updated" });
 
-  // onboarding.submitted -> Pennyworth responds AUTOMATICALLY (auto mode per
+  // onboarding.submitted -> Anchor responds AUTOMATICALLY (auto mode per
   // operator's standing instruction — no approval wait on submission replies).
   // If this template chains to a Part 2, the response delivers the next form.
   try {

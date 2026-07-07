@@ -40,7 +40,7 @@ const TOOLS = [
   { name: "set_kpi", description: "Set the current period's value for a KPI, matched by (partial) name.", input_schema: { type: "object", properties: { name: { type: "string" }, value: { type: "number" } }, required: ["name", "value"] } },
   { name: "add_work_item", description: "Add a work item to a client's dashboard board, matched by (partial) client name.", input_schema: { type: "object", properties: { client_name: { type: "string" }, title: { type: "string" }, type: { type: "string", enum: ["video", "ad", "doc", "web", "social", "strategy", "other"] } }, required: ["client_name", "title"] } },
   { name: "add_log", description: "Write a line to the sys.log feed.", input_schema: { type: "object", properties: { message: { type: "string" } }, required: ["message"] } },
-  { name: "draft_client_email", description: "Have Pennyworth (the client concierge) draft an email to a client, matched by (partial) client name. By DEFAULT it queues in the client's COMMS panel for the operator's approval. Set send_now=true ONLY when the operator explicitly said to send it without review (e.g. 'send it', 'send him an email now').", input_schema: { type: "object", properties: { client_name: { type: "string" }, instruction: { type: "string", description: "What the email should say / accomplish, in plain english." }, send_now: { type: "boolean" } }, required: ["client_name", "instruction"] } },
+  { name: "draft_client_email", description: "Have Anchor (the client producer) draft an email to a client, matched by (partial) client name. By DEFAULT it queues in the client's COMMS panel for the operator's approval. Set send_now=true ONLY when the operator explicitly said to send it without review (e.g. 'send it', 'send him an email now').", input_schema: { type: "object", properties: { client_name: { type: "string" }, instruction: { type: "string", description: "What the email should say / accomplish, in plain english." }, send_now: { type: "boolean" } }, required: ["client_name", "instruction"] } },
   { name: "send_pending_email", description: "Send a client's most recent PENDING draft (the one waiting for approval) — use when the operator approves a draft you already created (e.g. 'send it', 'looks good, send'). Does NOT write a new email.", input_schema: { type: "object", properties: { client_name: { type: "string" } }, required: ["client_name"] } },
 ];
 
@@ -133,7 +133,7 @@ async function runTool(admin: NonNullable<ReturnType<typeof getAdminClient>>, ui
   }
 
   if (name === "add_client") {
-    const { error } = await admin.from("clients").insert({ user_id: uid, name: String(input.name), contact_name: (input.contact as string) || null, email: (input.email as string) || null, phone: (input.phone as string) || null, industry: (input.industry as string) || null, status: STAGES.includes(String(input.status)) ? "Lead" : String(input.status || "Lead"), source: "Rookie" });
+    const { error } = await admin.from("clients").insert({ user_id: uid, name: String(input.name), contact_name: (input.contact as string) || null, email: (input.email as string) || null, phone: (input.phone as string) || null, industry: (input.industry as string) || null, status: STAGES.includes(String(input.status)) ? "Lead" : String(input.status || "Lead"), source: "Showrunner" });
     if (error) return "ERROR: " + error.message;
     await log(`client added · ${input.name}`);
     return `Client added: ${input.name}${input.email ? " (" + input.email + ")" : ""}.`;
@@ -281,7 +281,7 @@ async function runTool(admin: NonNullable<ReturnType<typeof getAdminClient>>, ui
       const sent = await sendQueuedEmail(draft.id, uid);
       if (!sent.ok) return `Draft created ("${draft.subject}") but SEND FAILED (${sent.error}) — it's waiting in ${client.name}'s COMMS panel instead.`;
       await log(`email sent · ${client.name} · ${draft.subject}`);
-      return `SENT to ${client.name} (${client.email}) as Pennyworth — "${draft.subject}":\n\n${draft.body}`;
+      return `SENT to ${client.name} (${client.email}) as Anchor — "${draft.subject}":\n\n${draft.body}`;
     }
     await log(`email drafted · ${client.name} · ${draft.subject}`);
     return `Draft queued for approval in ${client.name}'s COMMS panel (their dashboard) — "${draft.subject}":\n\n${draft.body}\n\nSay "send it" and I'll push it out, or approve it from the dashboard.`;
@@ -322,9 +322,9 @@ export async function POST(req: Request) {
   const history: { role: string; content: unknown }[] = Array.isArray(body.messages) ? body.messages.slice(-14) : [];
   if (!history.length) return NextResponse.json({ ok: false, error: "empty" }, { status: 400 });
 
-  const { data: agent } = await admin.from("agents").select("voice_prompt").eq("user_id", user.id).eq("name", "Rookie").maybeSingle();
+  const { data: agent } = await admin.from("agents").select("voice_prompt").eq("user_id", user.id).eq("name", "Showrunner").maybeSingle();
   const board = await boardSummary(admin, user.id);
-  const system = `${agent?.voice_prompt || "You are Rookie, the Creative Impact OS operator copilot."}\n\nLIVE BOARD CONTEXT (as of this message):\n${JSON.stringify(board)}\n\nToday: ${new Date().toDateString()}. Current ISO week: ${weekKey()}.\n\nCAPABILITIES NOTE: You can change mission-level settings (set_sprint: target, dates, THE ONE THING), manage Founder OS goals (add_goal/complete_goal), rewrite the working strategy (set_strategy), and ingest uploaded receipts/statements/CSVs — extract each line item and log via add_expenses_bulk (use the document's dates; ask before logging if any line is unreadable or ambiguous). Changing the sprint target or dates is a big lever — restate the change and act only when the instruction is explicit.\n\nCLIENT EMAIL: draft_client_email hands the writing to Pennyworth (the client concierge) — client-facing mail is his voice, not yours. Drafts queue for approval by default; pass send_now=true ONLY on an explicit send order. When the operator approves a draft you just showed them ("send it"), use send_pending_email — never redraft. Show the operator the draft body after creating it. Use list_clients to see or disambiguate the roster; client matching covers names, contact names, and emails.`;
+  const system = `${agent?.voice_prompt || "You are Showrunner, the Creative Impact OS operator copilot."}\n\nLIVE BOARD CONTEXT (as of this message):\n${JSON.stringify(board)}\n\nToday: ${new Date().toDateString()}. Current ISO week: ${weekKey()}.\n\nCAPABILITIES NOTE: You can change mission-level settings (set_sprint: target, dates, THE ONE THING), manage Founder OS goals (add_goal/complete_goal), rewrite the working strategy (set_strategy), and ingest uploaded receipts/statements/CSVs — extract each line item and log via add_expenses_bulk (use the document's dates; ask before logging if any line is unreadable or ambiguous). Changing the sprint target or dates is a big lever — restate the change and act only when the instruction is explicit.\n\nCLIENT EMAIL: draft_client_email hands the writing to Anchor (the client producer) — client-facing mail is his voice, not yours. Drafts queue for approval by default; pass send_now=true ONLY on an explicit send order. When the operator approves a draft you just showed them ("send it"), use send_pending_email — never redraft. Show the operator the draft body after creating it. Use list_clients to see or disambiguate the roster; client matching covers names, contact names, and emails.`;
 
   const convo: { role: string; content: unknown }[] = history.map((m) => ({ role: m.role === "assistant" ? "assistant" : "user", content: m.content }));
 

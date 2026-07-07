@@ -143,69 +143,32 @@ create policy own_rows on public.client_events for all to authenticated
 
 -- SEEDS ---------------------------------------------------------------------------
 do $$
-declare uid uuid; tpl uuid; stg uuid; demo uuid;
+declare uid uuid; tpl uuid;
 begin
   select id into uid from auth.users order by created_at limit 1;
   if uid is null then raise exception 'No user found — create your account first.'; end if;
 
-  -- The offer ladder (edit freely later)
+  -- The Creative Impact offer ladder (edit freely later)
   insert into public.offers (user_id, name, slug, type, price_monthly_cents, min_term_months) values
-    (uid, 'Authority Diagnostic',   'authority-diagnostic',   'diagnostic', 75000,  null),
-    (uid, 'Ad Creative Tournament', 'ad-creative-tournament', 'one_off',    250000, null),
-    (uid, '48-Hour Tool Sprint',    'tool-sprint-48h',        'one_off',    500000, null),
-    (uid, 'Authority Engine',       'authority-engine',       'retainer',   350000, 3),
-    (uid, 'Authority Lite',         'authority-lite',         'retainer',   null,   3),
-    (uid, 'CRF Growth',             'crf-growth',             'retainer',   240000, 3),
-    (uid, 'Crucible Core',          'crucible-core',          'coaching',   null,   null),
-    (uid, 'Spark',                  'spark',                  'one_off',    null,   null)
+    (uid, 'Authority Audit',      'authority-audit',      'diagnostic', null,   null),  -- free 30-min door-opener
+    (uid, 'Story Capture Pilot',  'story-capture-pilot',  'one_off',    240000, null),  -- $2,400 single capture day
+    (uid, 'Authority Engine',     'authority-engine',     'retainer',   350000, 3),     -- $3,500/mo · 3-mo min
+    (uid, 'Market Domination',    'market-domination',    'retainer',   600000, 3)      -- $6,000/mo · expansion
   on conflict (user_id, slug) do nothing;
 
-  -- Default pipeline template + the 8 stages
+  -- Default delivery pipeline template + stages (the four-downs loop, post-signature)
   select id into tpl from public.pipeline_templates where user_id = uid and name = 'Creative Impact Default';
   if tpl is null then
     insert into public.pipeline_templates (user_id, name) values (uid, 'Creative Impact Default') returning id into tpl;
     insert into public.pipeline_stages (user_id, template_id, name, sort_order, stall_days) values
-      (uid, tpl, 'Signed',          0, null),
-      (uid, tpl, 'Onboarding',      1, 3),
-      (uid, tpl, 'Strategy',        2, 5),
-      (uid, tpl, 'Production',      3, 7),
-      (uid, tpl, 'Review/Delivery', 4, 3),
-      (uid, tpl, 'Live/Optimize',   5, 14),
-      (uid, tpl, 'Completed',       6, null),
-      (uid, tpl, 'Advocacy',        7, null);
+      (uid, tpl, 'Signed',            0, null),
+      (uid, tpl, 'Onboarding',        1, 3),
+      (uid, tpl, 'Pre-Pro',           2, 5),
+      (uid, tpl, 'Capture Day',       3, 7),
+      (uid, tpl, 'Edit & Deploy',     4, 7),
+      (uid, tpl, 'Live/Optimize',     5, 14),
+      (uid, tpl, 'Renew/Expand',      6, null),
+      (uid, tpl, 'Advocacy',          7, null);
   end if;
-
-  -- One real-shaped demo client (no real PII)
-  select id into demo from public.clients where user_id = uid and name = 'GE Outdoors (Demo)';
-  if demo is null then
-    select id into stg from public.pipeline_stages where template_id = tpl and sort_order = 3; -- Production
-    insert into public.clients (user_id, name, contact_name, email, industry, status, source, ladder, pipeline_stage_id, stage_entered_at, offer_id, notes)
-    values (uid, 'GE Outdoors (Demo)', 'Gary Ellis', 'demo@example.com', 'Outdoor retail', 'Active', 'Referral', 'Retainer',
-            stg, now() - interval '2 days',
-            (select id from public.offers where user_id = uid and slug = 'authority-engine'),
-            'Demo client seeded by the dashboard build — safe to delete.')
-    returning id into demo;
-
-    insert into public.brand_kits (user_id, client_id, colors, fonts, voice_notes, do_not, assets) values
-      (uid, demo,
-       '[{"name":"Forest","hex":"#1E4D2B","usage":"primary"},{"name":"Blaze","hex":"#E8722C","usage":"accent"},{"name":"Bone","hex":"#F2EFE6","usage":"background"},{"name":"Charcoal","hex":"#22241F","usage":"text"}]'::jsonb,
-       '[{"role":"headline","family":"Bebas Neue","weight":400,"source":"google"},{"role":"body","family":"Inter","weight":400,"source":"google"}]'::jsonb,
-       'Plainspoken, field-tested, zero corporate gloss. Talks like a guide, not a brochure.',
-       '["No stock-photo energy","Never say ''solutions''","No exclamation points in ads"]'::jsonb,
-       '[{"label":"Brand guide (PDF)","url":"https://example.com/brand.pdf"},{"label":"B-roll folder","url":"https://example.com/broll"}]'::jsonb);
-
-    insert into public.work_items (user_id, client_id, title, status, type, due_date, external_link, sort_order) values
-      (uid, demo, 'September launch ad set — 6 variants', 'in_progress', 'ad',    current_date + 4, null, 0),
-      (uid, demo, 'Founder story film — edit v2',         'in_review',   'video', current_date + 2, 'https://example.com/review', 1),
-      (uid, demo, 'Landing page — trail series',          'in_progress', 'web',   current_date + 9, null, 2),
-      (uid, demo, 'Brand voice guide',                    'completed',   'doc',   null, null, 3),
-      (uid, demo, 'Q2 creative tournament — scoreboard',  'delivered',   'ad',    null, 'https://example.com/scoreboard', 4);
-
-    insert into public.client_events (user_id, client_id, kind, message, created_at) values
-      (uid, demo, 'system',     'Client created (demo seed)',                       now() - interval '14 days'),
-      (uid, demo, 'onboarding', 'Onboarding form submitted — brand kit populated',  now() - interval '12 days'),
-      (uid, demo, 'stage',      'Advanced to Strategy',                             now() - interval '11 days'),
-      (uid, demo, 'stage',      'Advanced to Production',                           now() - interval '2 days'),
-      (uid, demo, 'work',       'Delivered: Q2 creative tournament — scoreboard',   now() - interval '1 day');
-  end if;
+  -- No demo client is seeded — the roster starts real and stays real.
 end $$;

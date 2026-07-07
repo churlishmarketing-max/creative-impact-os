@@ -14,7 +14,7 @@ no auto-updating feed — that's the January project.
 ```
 app/
   cockpit/Cockpit.jsx   the cockpit, ported 1:1 from the mockup (do not redesign)
-  cockpit.css           fonts (Barlow Condensed / JetBrains Mono) + keyframes
+  cockpit.css           fonts (Oswald / Archivo) + broadcast keyframes
   login/page.tsx        the single sign-in screen
   page.tsx              the gated home (the cockpit)
 lib/
@@ -22,8 +22,8 @@ lib/
   supabase/client.ts    browser Supabase client
 proxy.ts                locks the WHOLE app behind login
 supabase/
-  schema.sql            run this once to create the tables
-  seed.sql              run this once to load the starting numbers
+  SETUP_CREATIVE_IMPACT.sql  ONE-SHOT setup: paste this single file (after creating your auth user)
+  schema.sql … 16 + seed.sql  the same setup as individual, ordered migrations
 .env.local.example      copy to .env.local and paste your Supabase keys
 ```
 
@@ -44,7 +44,7 @@ coverage, and the Tripwire all compute themselves — you never type them.
    -> **Create new user**. Enter your email + a password. Turn ON
    **"Auto Confirm User"** (so you can log in immediately). Click **Create**.
 5. Seed the starting numbers: **SQL Editor** -> **New query**, paste all of
-   `supabase/seed.sql`, click **Run**.
+   `supabase/SETUP_CREATIVE_IMPACT.sql`, click **Run**.
 6. Get your keys: **Project Settings** (gear) -> **API**. Copy:
    - the **Project URL**
    - the **anon / publishable** key (NOT the `service_role` key)

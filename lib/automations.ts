@@ -1,5 +1,5 @@
 // Lifecycle automations (server-only). Called from the stage-advance hook and
-// the daily cron. Everything client-facing is drafted by Pennyworth and queued
+// the daily cron. Everything client-facing is drafted by Anchor and queued
 // for approval in COMMS — EXCEPT the onboarding nudge, which auto-sends (same
 // standing instruction as submission responses: routine onboarding mechanics
 // don't wait on the operator).
@@ -48,7 +48,7 @@ export async function draftReferralStep(admin: Admin, userId: string, clientId: 
     context: { link: `${SITE}/r/${code}` },
   });
   if (res.ok) {
-    await admin.from("client_events").insert({ user_id: userId, client_id: clientId, kind: "email", message: `Pennyworth drafted referral ask ${step}/3 (awaiting approval)` });
+    await admin.from("client_events").insert({ user_id: userId, client_id: clientId, kind: "email", message: `Anchor drafted referral ask ${step}/3 (awaiting approval)` });
   }
   return res;
 }

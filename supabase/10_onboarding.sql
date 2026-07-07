@@ -77,7 +77,7 @@ begin
   select id into uid from auth.users order by created_at limit 1;
   if uid is null then raise exception 'No user found.'; end if;
 
-  -- shared brand-kit section fields are repeated per template so each stays editable independently
+  -- brand-kit fields are repeated per template so each stays editable independently
   if not exists (select 1 from public.onboarding_templates where user_id = uid and name = 'Authority Engine — Full Intake') then
     insert into public.onboarding_templates (user_id, name, offer_id, intro_copy, sections) values
     (uid, 'Authority Engine — Full Intake',
@@ -101,6 +101,12 @@ begin
          {"key":"do_not","label":"Never say / never show (one per line)","type":"textarea","maps_to":"kit.do_not"},
          {"key":"brand_assets","label":"Brand guide / asset folder link","type":"url","maps_to":"kit.asset.Brand assets"}
        ]},
+       {"title":"The capture day","fields":[
+         {"key":"locations","label":"Where do we shoot? (shop, job sites, office — list what shows the real work)","type":"textarea","required":true,"maps_to":"custom"},
+         {"key":"on_camera","label":"Who''s comfortable on camera? Who should we warm up?","type":"textarea","maps_to":"custom"},
+         {"key":"story","label":"The story a stranger should walk away knowing","type":"textarea","maps_to":"custom"},
+         {"key":"blackouts","label":"Days/times we can NEVER shoot","type":"text","maps_to":"custom"}
+       ]},
        {"title":"The funnel","fields":[
          {"key":"lead_path","label":"How does someone find you today, start to booked job?","type":"textarea","required":true,"maps_to":"custom"},
          {"key":"spend","label":"Monthly marketing spend (all-in)","type":"select","options":["Under $1k","$1k–$5k","$5k–$15k","$15k+"],"maps_to":"custom"},
@@ -109,29 +115,15 @@ begin
      ]'::jsonb);
 
     insert into public.onboarding_templates (user_id, name, offer_id, intro_copy, sections) values
-    (uid, 'Authority Lite — Intake',
-     (select id from public.offers where user_id = uid and slug = 'authority-lite'),
-     'Quick intake — just the essentials so we can start shipping.',
+    (uid, 'Story Capture Pilot — Intake',
+     (select id from public.offers where user_id = uid and slug = 'story-capture-pilot'),
+     'One half-day, one story. Point us at the good stuff and we''ll do the rest.',
      '[
-       {"title":"Basics","fields":[
+       {"title":"The shoot","fields":[
          {"key":"contact","label":"Best contact name","type":"text","required":true,"maps_to":"client.contact"},
          {"key":"phone","label":"Best phone","type":"text","maps_to":"client.phone"},
-         {"key":"logo","label":"Logo link","type":"url","maps_to":"kit.logo_url"},
-         {"key":"color_primary","label":"Primary brand color","type":"color","maps_to":"kit.color.primary"},
-         {"key":"voice","label":"How should you sound?","type":"textarea","maps_to":"kit.voice"},
-         {"key":"goal","label":"What does a win look like in 90 days?","type":"textarea","required":true,"maps_to":"custom"}
-       ]}
-     ]'::jsonb);
-
-    insert into public.onboarding_templates (user_id, name, offer_id, intro_copy, sections) values
-    (uid, 'CRF Growth — Intake',
-     (select id from public.offers where user_id = uid and slug = 'crf-growth'),
-     'Point us at the footage and the channels — we take it from there.',
-     '[
-       {"title":"Footage + channels","fields":[
-         {"key":"footage","label":"Footage source (Drive/Dropbox/Frame.io link)","type":"url","required":true,"maps_to":"kit.asset.Footage"},
-         {"key":"channels","label":"Where do we post?","type":"multiselect","options":["Instagram","TikTok","YouTube Shorts","Facebook","LinkedIn"],"maps_to":"custom"},
-         {"key":"cadence","label":"Posting cadence","type":"select","options":["3x/week","5x/week","Daily"],"maps_to":"custom"},
+         {"key":"locations","label":"Where do we shoot?","type":"textarea","required":true,"maps_to":"custom"},
+         {"key":"story","label":"If a stranger watches one video about you, what should they walk away knowing?","type":"textarea","required":true,"maps_to":"custom"},
          {"key":"logo","label":"Logo link","type":"url","maps_to":"kit.logo_url"},
          {"key":"color_primary","label":"Primary brand color","type":"color","maps_to":"kit.color.primary"},
          {"key":"do_not","label":"Never say / never show (one per line)","type":"textarea","maps_to":"kit.do_not"}
@@ -139,31 +131,16 @@ begin
      ]'::jsonb);
 
     insert into public.onboarding_templates (user_id, name, offer_id, intro_copy, sections) values
-    (uid, 'Crucible — Deep Diagnostic Intake',
-     (select id from public.offers where user_id = uid and slug = 'crucible-core'),
-     'The deeper you go here, the harder the diagnostic hits. Nothing you write leaves the room.',
+    (uid, 'Market Domination — Expansion Intake',
+     (select id from public.offers where user_id = uid and slug = 'market-domination'),
+     'Two capture days a month, multi-platform. Tell us where to point the extra firepower.',
      '[
-       {"title":"The state of it","fields":[
+       {"title":"Expansion targets","fields":[
          {"key":"contact","label":"Best contact name","type":"text","required":true,"maps_to":"client.contact"},
-         {"key":"revenue","label":"Trailing 12-month revenue (rough)","type":"text","required":true,"maps_to":"custom"},
-         {"key":"bottleneck","label":"What do YOU think the bottleneck is?","type":"textarea","required":true,"maps_to":"custom"},
-         {"key":"tried","label":"What have you already tried? How did it go?","type":"textarea","maps_to":"custom"},
-         {"key":"numbers","label":"Link any numbers you have (dashboards, sheets)","type":"url","maps_to":"kit.asset.Numbers"}
-       ]}
-     ]'::jsonb);
-
-    insert into public.onboarding_templates (user_id, name, offer_id, intro_copy, sections) values
-    (uid, 'Spark — Product Brand Intake',
-     (select id from public.offers where user_id = uid and slug = 'spark'),
-     'Tell us about the product like you''d tell a friend — we''ll translate it into the campaign.',
-     '[
-       {"title":"The product","fields":[
-         {"key":"product","label":"What is it, in one sentence?","type":"textarea","required":true,"maps_to":"custom"},
-         {"key":"buyer","label":"Who buys it, and why do they care?","type":"textarea","required":true,"maps_to":"custom"},
-         {"key":"logo","label":"Logo link","type":"url","maps_to":"kit.logo_url"},
-         {"key":"color_primary","label":"Primary brand color","type":"color","maps_to":"kit.color.primary"},
-         {"key":"color_accent","label":"Accent color","type":"color","maps_to":"kit.color.accent"},
-         {"key":"assets","label":"Product photos / b-roll folder link","type":"url","maps_to":"kit.asset.Product assets"}
+         {"key":"working","label":"What''s working best from the Engine so far?","type":"textarea","required":true,"maps_to":"custom"},
+         {"key":"channels","label":"Where do we expand?","type":"multiselect","options":["YouTube (long-form)","Google Ads","Meta Ads","LinkedIn","TikTok","Email/newsletter"],"maps_to":"custom"},
+         {"key":"second_location","label":"Second location / crew / service line to feature?","type":"textarea","maps_to":"custom"},
+         {"key":"goal","label":"The 6-month number that would make this a no-brainer","type":"textarea","required":true,"maps_to":"custom"}
        ]}
      ]'::jsonb);
   end if;

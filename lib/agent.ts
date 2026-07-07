@@ -13,7 +13,7 @@ export type DraftArgs = {
   kind: string;            // onboarding_welcome | onboarding_confirmation | ...
   task: string;            // plain-english instruction for the agent
   context?: Record<string, string | undefined>; // merge facts (link, offer, etc.)
-  agentName?: string;      // default Pennyworth
+  agentName?: string;      // default Anchor
 };
 
 export async function draftAgentEmail(a: DraftArgs): Promise<{ ok: boolean; id?: string; subject?: string; body?: string; error?: string }> {
@@ -23,7 +23,7 @@ export async function draftAgentEmail(a: DraftArgs): Promise<{ ok: boolean; id?:
 
   const { data: agent } = await admin
     .from("agents").select("*")
-    .eq("user_id", a.userId).eq("name", a.agentName || "Pennyworth")
+    .eq("user_id", a.userId).eq("name", a.agentName || "Anchor")
     .maybeSingle();
   if (!agent) return { ok: false, error: "no_agent" };
 

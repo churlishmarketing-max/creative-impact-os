@@ -18,10 +18,10 @@ end $$;
 -- SPRINT — one row per user: the editable targets + dates ------------------------
 create table if not exists public.sprint (
   user_id        uuid primary key references auth.users(id) on delete cascade default auth.uid(),
-  target_cents   bigint not null default 15000000,         -- $150,000
-  sellby_date    date   not null default '2026-08-31',
+  target_cents   bigint not null default 10000000,         -- $100,000
+  sellby_date    date   not null default '2026-10-31',
   deadline_date  date   not null default '2026-12-31',
-  one_thing_title text  default 'Publish the $750 Authority Diagnostic',
+  one_thing_title text  default 'Sell out August''s four capture days',
   one_thing_body  text  default '',
   updated_at     timestamptz not null default now()
 );
@@ -33,7 +33,7 @@ create table if not exists public.deals (
   name         text not null default '',
   offer        text not null default '',
   value_cents  bigint not null default 0,
-  stage        text not null default 'Lead',  -- Lead / Diagnostic Sent / Diagnostic Done / Proposal / Signed / Collected / Lost
+  stage        text not null default 'Lead',  -- Lead / Audit Booked / Audit Done / Proposal / Signed / Collected / Lost
   expected_date date,
   created_at   timestamptz not null default now(),
   updated_at   timestamptz not null default now()

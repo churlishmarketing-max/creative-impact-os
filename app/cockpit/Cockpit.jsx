@@ -218,7 +218,7 @@ class Cockpit extends React.Component {
     ] },
     { cat: 'PRODUCTION', items: [
       { name: 'Shoot-Day Run Sheet', fmt: 'DOC', meta: 'Half-day capture · step by step', tag: 'LIVE' },
-      { name: 'Charlotte Cold List — 128 Leads', fmt: 'CSV', meta: 'Tiered by Scout · refreshed daily', tag: 'LIVE' },
+      { name: 'Charlotte Cold List', fmt: 'CSV', meta: 'Tiered by Scout', tag: 'LIVE' },
       { name: 'Agent Fleet SOPs', fmt: 'DOC', meta: '6 sources · run order + handoffs' },
       { name: 'Contract + Invoice Templates', fmt: 'DOC', meta: '3-mo minimum · ad spend separate' }
     ] }
@@ -245,7 +245,7 @@ class Cockpit extends React.Component {
   };
 
   PLANS = [
-    { n: 'Q1', t: 'Sell Out August', when: 'THIS WEEK', d: 'Four capture days on the calendar, free Authority Audit as the door-opener, Scout’s 128-lead Charlotte list as the fuel. Until all four are sold, nothing else counts.', state: 'ACTIVE' },
+    { n: 'Q1', t: 'Sell Out August', when: 'THIS WEEK', d: 'Four capture days on the calendar, free Authority Audit as the door-opener, Scout’s Charlotte cold list as the fuel. Until all four are sold, nothing else counts.', state: 'ACTIVE' },
     { n: 'Q2', t: 'Fill the Funnel', when: 'WEEKS 1–4', d: 'Scout + Anchor run the cold list daily. Hold the floor: 3 discovery calls and 2 audits delivered every week, 8 clips shipped.', state: 'NEXT' },
     { n: 'Q3', t: 'Sign $100K', when: 'BY OCT 31', d: 'Audits convert to plans convert to contracts. Keep pipeline coverage ≥3× the gap, always. Every signed client goes straight onto the capture calendar.', state: 'QUEUED' },
     { n: 'Q4', t: 'Collect & Renew', when: 'BY DEC 31', d: 'Deliver, collect, and run the expansion play at day 60 / renewal at day 75. Protect the base — one saved account is a month of audits.', state: 'QUEUED' }
@@ -317,7 +317,9 @@ class Cockpit extends React.Component {
         { id: 'g3', text: 'Ship the 500-brands Charlotte archive reel', type: 'business', owner: 'EB', target: 0, done: false },
         { id: 'g4', text: 'Protect health through the sprint — no week-5 wall', type: 'life', owner: 'BOTH', target: 0, done: false }
       ],
-      log: this.LOGSEED.slice(),
+      // Real mode: The Wire shows only real log_entries from the DB — no demo
+      // feed, no fabricated agent activity. Demo wire lines are local-dev only.
+      log: store.enabled ? [] : this.LOGSEED.slice(),
       toast: ''
     };
   }
@@ -686,6 +688,8 @@ class Cockpit extends React.Component {
   }
 
   pushLog() {
+    // Real mode: never invent wire lines — the feed is real log_entries only.
+    if (store.enabled) return;
     const a = this.AMB[Math.floor(Math.random() * this.AMB.length)];
     const d = new Date();
     const t = String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
@@ -1129,7 +1133,7 @@ class Cockpit extends React.Component {
 
     // Bottomline ticker: live agent wire, newest last (falls back to the static line).
     const tickerItems = (this.state.log || []).slice(-6).map(l => (l.tag + ': ' + l.msg).toUpperCase());
-    if (!tickerItems.length) tickerItems.push('SCOUT: STANDING BY', 'ANCHOR: STANDING BY', 'SHOWRUNNER: ALL CLEAR');
+    if (!tickerItems.length) tickerItems.push('CREATIVE IMPACT OS — LIVE', 'THE DRIVE TO ' + goalShort + ' IS ON', 'AGENT RUNS APPEAR HERE AS THEY HAPPEN');
     tickerItems.push('TARGET: CHARLOTTE AUTHORITY');
 
     return {
@@ -2936,6 +2940,7 @@ Signed: {{signer}}      Date: {{date}}`;
               <span style={{ color: "var(--muted)" }}>{l.msg}</span>
             </div>
           ))}
+          {!log.length ? <div style={{ padding: "8px 0", fontSize: "11px", color: "var(--dim)" }}>Quiet wire. Agent runs land here as they happen — nothing is simulated.</div> : null}
         </div>
 
         <div style={{ background: "var(--panel)", border: "1px solid var(--line)", borderRadius: "4px", padding: "16px 18px" }}>

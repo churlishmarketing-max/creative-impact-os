@@ -35,7 +35,8 @@ export default function BookPage() {
   const [err, setErr] = useState("");
   const [token, setToken] = useState("");
   const [picked, setPicked] = useState<Slot | null>(null);
-  const [form, setForm] = useState({ name: "", email: "", phone: "", notes: "" });
+  const [form, setForm] = useState({ name: "", email: "", phone: "", business: "", website: "", socials: "", reason: "", notes: "" });
+  const [offers, setOffers] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState(false);
 
@@ -49,6 +50,7 @@ export default function BookPage() {
       const { data } = await sb.rpc("get_booking", { p_token: tk });
       if (!data || !data.config) { setErr("This booking page could not be found."); setLoading(false); return; }
       setCfg(data.config as Config);
+      setOffers(((data.offers as string[]) || []).filter(Boolean));
       const t = new Set<number>((data.taken || []).map((iso: string) => new Date(iso).getTime()));
       setTaken(t);
       setLoading(false);
@@ -95,14 +97,17 @@ export default function BookPage() {
   }
 
   async function confirm() {
-    if (!picked || !form.name.trim() || !form.email.trim()) return;
+    if (!picked || !form.name.trim() || !form.email.trim() || !form.phone.trim() || !form.business.trim()) {
+      setErr("Name, email, phone, and business name are required.");
+      return;
+    }
     setBusy(true); setErr("");
     const start = new Date(picked.utc).toISOString();
     const end = new Date(picked.utc + slotMins * 60000).toISOString();
     const whenText = new Date(picked.utc).toLocaleString("en-US", { timeZone: tz, weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) + " (" + tz + ")";
     let data: any = null;
     try {
-      const res = await fetch("/api/book", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ token, name: form.name, email: form.email, phone: form.phone, notes: form.notes, start, end, whenText, title: cfg?.title }) });
+      const res = await fetch("/api/book", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ token, name: form.name, email: form.email, phone: form.phone, notes: form.notes, details: { business: form.business, website: form.website, socials: form.socials, reason: form.reason }, start, end, whenText, title: cfg?.title }) });
       data = await res.json();
     } catch {}
     setBusy(false);
@@ -116,7 +121,7 @@ export default function BookPage() {
 
   const wrap: React.CSSProperties = { minHeight: "100vh", background: "#0a1322", color: "#f4f7fc", display: "flex", justifyContent: "center", padding: "36px 20px", fontFamily: "'Archivo', sans-serif" };
   const card: React.CSSProperties = { width: "560px", maxWidth: "100%", background: "#101d33", border: "1px solid #24385c", borderTop: "3px solid #ffb81c", height: "fit-content" };
-  const inp: React.CSSProperties = { width: "100%", background: "#060c17", border: "1px solid #33455f", color: "#f4f7fc", padding: "10px 12px", fontFamily: "'Archivo', sans-serif", fontSize: 13, marginBottom: 10 };
+  const inp: React.CSSProperties = { width: "100%", background: "#060c17", border: "1px solid #33455f", color: "#f4f7fc", padding: "10px 12px", fontFamily: "'JetBrains Mono', monospace", fontSize: 13, marginBottom: 10 };
 
   if (loading) return <div style={wrap}><div style={{ color: "#5c7096", fontSize: 13 }}>Loading…</div></div>;
   if (err && !cfg) return <div style={wrap}><div style={{ color: "#8ea3c4", fontSize: 13, textAlign: "center" }}>{err}</div></div>;
@@ -147,8 +152,8 @@ export default function BookPage() {
                 const title = cfg?.title || "Call with Creative Impact";
                 const endMs = picked.utc + slotMins * 60000;
                 const gcal = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(title)}&dates=${fmt(picked.utc)}/${fmt(endMs)}`;
-                const ics = "data:text/calendar;charset=utf-8," + encodeURIComponent(["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//CreativeImpact//OS//EN", "BEGIN:VEVENT", "UID:" + picked.utc + "@creativeimpactos", "DTSTART:" + fmt(picked.utc), "DTEND:" + fmt(endMs), "SUMMARY:" + title, "END:VEVENT", "END:VCALENDAR"].join("\r\n"));
-                const btn: React.CSSProperties = { flex: 1, textAlign: "center", background: "transparent", border: "1px solid #33455f", color: "#f4f7fc", padding: "10px", fontFamily: "'Archivo', sans-serif", fontSize: 11, letterSpacing: ".1em", textTransform: "uppercase", textDecoration: "none" };
+                const ics = "data:text/calendar;charset=utf-8," + encodeURIComponent(["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//Creative Impact//OS//EN", "BEGIN:VEVENT", "UID:" + picked.utc + "@creativeimpactos", "DTSTART:" + fmt(picked.utc), "DTEND:" + fmt(endMs), "SUMMARY:" + title, "END:VEVENT", "END:VCALENDAR"].join("\r\n"));
+                const btn: React.CSSProperties = { flex: 1, textAlign: "center", background: "transparent", border: "1px solid #33455f", color: "#f4f7fc", padding: "10px", fontFamily: "'JetBrains Mono', monospace", fontSize: 11, letterSpacing: ".1em", textTransform: "uppercase", textDecoration: "none" };
                 return (
                   <div style={{ display: "flex", gap: 10 }}>
                     <a href={gcal} target="_blank" rel="noopener noreferrer" style={btn}>+ Google Calendar</a>
@@ -160,13 +165,22 @@ export default function BookPage() {
           ) : picked ? (
             <div>
               <div style={{ fontSize: 12, color: "#8ea3c4", marginBottom: 14 }}>You picked <span style={{ color: "#ffb81c" }}>{new Date(picked.utc).toLocaleString("en-US", { timeZone: tz, weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}</span> ({tz}).</div>
-              <input style={inp} placeholder="Your name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
-              <input style={inp} placeholder="Email" type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
-              <input style={inp} placeholder="Phone (optional)" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
-              <textarea style={{ ...inp, minHeight: 60, resize: "vertical" }} placeholder="What do you want to cover? (optional)" value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
+              <input style={inp} placeholder="Your name *" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
+              <input style={inp} placeholder="Email *" type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
+              <input style={inp} placeholder="Phone *" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
+              <input style={inp} placeholder="Business name *" value={form.business} onChange={(e) => setForm({ ...form, business: e.target.value })} />
+              <input style={inp} placeholder="Website (if you have one)" value={form.website} onChange={(e) => setForm({ ...form, website: e.target.value })} />
+              <input style={inp} placeholder="Socials — IG / Facebook / YouTube handles" value={form.socials} onChange={(e) => setForm({ ...form, socials: e.target.value })} />
+              <select style={{ ...inp, cursor: "pointer" }} value={form.reason} onChange={(e) => setForm({ ...form, reason: e.target.value })}>
+                <option value="">What are you reaching out for?</option>
+                {offers.map((o) => <option key={o} value={o}>{o}</option>)}
+                <option value="Not sure yet — need direction">Not sure yet — need direction</option>
+                <option value="Something else">Something else</option>
+              </select>
+              <textarea style={{ ...inp, minHeight: 60, resize: "vertical" }} placeholder="Anything else we should know before the call?" value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
               <div style={{ display: "flex", gap: 10 }}>
-                <button onClick={() => setPicked(null)} style={{ flex: "0 0 auto", background: "transparent", border: "1px solid #33455f", color: "#8ea3c4", padding: 12, fontFamily: "'Archivo', sans-serif", fontSize: 11, letterSpacing: ".12em", textTransform: "uppercase", cursor: "pointer" }}>Back</button>
-                <button onClick={confirm} disabled={busy || !form.name.trim() || !form.email.trim()} style={{ flex: 1, background: "#ffb81c", color: "#1a1608", border: "none", padding: 12, fontFamily: "'Archivo', sans-serif", fontSize: 11, fontWeight: 700, letterSpacing: ".14em", textTransform: "uppercase", cursor: (busy || !form.name.trim() || !form.email.trim()) ? "default" : "pointer", opacity: (busy || !form.name.trim() || !form.email.trim()) ? 0.5 : 1 }}>{busy ? "Booking…" : "Confirm →"}</button>
+                <button onClick={() => setPicked(null)} style={{ flex: "0 0 auto", background: "transparent", border: "1px solid #33455f", color: "#8ea3c4", padding: 12, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, letterSpacing: ".12em", textTransform: "uppercase", cursor: "pointer" }}>Back</button>
+                <button onClick={confirm} disabled={busy || !form.name.trim() || !form.email.trim()} style={{ flex: 1, background: "#ffb81c", color: "#1a1608", border: "none", padding: 12, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, fontWeight: 700, letterSpacing: ".14em", textTransform: "uppercase", cursor: (busy || !form.name.trim() || !form.email.trim()) ? "default" : "pointer", opacity: (busy || !form.name.trim() || !form.email.trim()) ? 0.5 : 1 }}>{busy ? "Booking…" : "Confirm →"}</button>
               </div>
               {err ? <div style={{ color: "#ffb81c", fontSize: 12, marginTop: 10, textAlign: "center" }}>{err}</div> : null}
             </div>
@@ -179,7 +193,7 @@ export default function BookPage() {
                   <div style={{ fontSize: 10, letterSpacing: ".16em", color: "#5c7096", textTransform: "uppercase", marginBottom: 8 }}>{d.label}</div>
                   <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
                     {d.slots.map((s) => (
-                      <button key={s.utc} onClick={() => setPicked(s)} style={{ background: "transparent", border: "1px solid #33455f", color: "#f4f7fc", padding: "9px 13px", fontFamily: "'Archivo', sans-serif", fontSize: 12.5, cursor: "pointer" }}>{s.label}</button>
+                      <button key={s.utc} onClick={() => setPicked(s)} style={{ background: "transparent", border: "1px solid #33455f", color: "#f4f7fc", padding: "9px 13px", fontFamily: "'JetBrains Mono', monospace", fontSize: 12.5, cursor: "pointer" }}>{s.label}</button>
                     ))}
                   </div>
                 </div>

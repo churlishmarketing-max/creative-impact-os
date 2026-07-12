@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getAdminClient } from "@/lib/supabase/admin";
 import { sendEmail, emailShell, esc } from "@/lib/email";
 import { runOnboardingNudges, detectStalls, runReferralFollowups, runAdvocacyCatchup, type Stall } from "@/lib/automations";
+import { runDiagnosticJobs } from "@/lib/diagnostic/cron";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -22,6 +23,7 @@ export async function GET(req: Request) {
   const stalls: Stall[] = await detectStalls(admin).catch((e) => { console.error("stalls failed", e); return []; });
   const referrals = await runReferralFollowups(admin).catch((e) => { console.error("referrals failed", e); return -1; });
   const advocacy = await runAdvocacyCatchup(admin).catch((e) => { console.error("advocacy failed", e); return -1; });
+  const diagnostic = await runDiagnosticJobs(admin).catch((e) => { console.error("diagnostic jobs failed", e); return null; });
 
   // Stall digest to the operator (one email listing everything newly stalled).
   if (stalls.length) {
@@ -31,9 +33,9 @@ export async function GET(req: Request) {
       to,
       bcc: null, // already going straight to the operator
       subject: `Creative Impact OS — ${stalls.length} client${stalls.length > 1 ? "s" : ""} stalled`,
-      html: emailShell(`<div style="font-size:13.5px;color:#c9c4bb;line-height:1.75">These clients have sat in a pipeline stage past its threshold:</div>${rows}<div style="font-size:12px;color:#8ea3c4;margin-top:14px">Each is flagged once per stage — advance them or touch base to clear it.</div>`),
+      html: emailShell(`<div style="font-size:13.5px;color:#b9c8e0;line-height:1.75">These clients have sat in a pipeline stage past its threshold:</div>${rows}<div style="font-size:12px;color:#8ea3c4;margin-top:14px">Each is flagged once per stage — advance them or touch base to clear it.</div>`),
     }).catch((e) => console.error("stall digest failed", e));
   }
 
-  return NextResponse.json({ ok: true, nudges, stalls: stalls.length, referrals, advocacy });
+  return NextResponse.json({ ok: true, nudges, stalls: stalls.length, referrals, advocacy, diagnostic });
 }

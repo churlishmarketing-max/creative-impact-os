@@ -37,7 +37,21 @@ export async function proxy(req: NextRequest) {
     path.startsWith("/intake/") ||
     path.startsWith("/onboard/") ||
     path.startsWith("/r/") ||                 // tracked referral links
+    path.startsWith("/go/") ||                // stable public redirects (booking, etc.)
     path.startsWith("/status/") ||            // client read-only status pages
+    path === "/diagnostic" ||                 // Authority Diagnostic offer page
+    path.startsWith("/diagnostic/") ||        // intake + report token pages (NOT /diagnostics, the operator board)
+    path === "/api/diagnostic/checkout" ||
+    path === "/api/diagnostic/confirm" ||
+    path === "/api/diagnostic/intake" ||
+    path === "/api/diagnostic/upload" ||
+    path === "/api/diagnostic/submit" ||
+    path === "/api/diagnostic/from-session" ||
+    path === "/api/stripe/webhook" ||
+    path === "/api/clarity/ingest" ||
+    path === "/api/fleet/ingest" ||
+    path === "/api/fleet/roster" ||
+    path === "/api/clarity/email" ||
     path === "/manifest.json" ||              // PWA manifest (Android app wrapper)
     path === "/sw.js" ||                      // service worker
     path.startsWith("/icons/") ||             // app icons

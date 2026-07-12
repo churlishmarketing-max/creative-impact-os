@@ -152,9 +152,11 @@ class Cockpit extends React.Component {
   ];
 
   LADDER = [
-    { n: 'Authority Audit', p: 'FREE · 30 MIN', d: 'The door-opener. No pitch slap — they walk away with a written plan either way. It pre-qualifies and starts the relationship on proof.', accent: 'var(--gold)' },
-    { n: 'Authority Engine', p: '$3,500/MO · 3-MO MIN', d: 'The core. One capture day, 8–12 clips, ads, funnel, follow-up, monthly review. Priced fixed — never discount month one.', accent: 'var(--white)' },
-    { n: 'Market Domination', p: '$6,000/MO · EXPANSION', d: 'Two capture days, multi-platform, full reporting. The day-60 expansion conversation for clients the Engine is already winning for.', accent: 'var(--gold)' }
+    { o: '01', n: 'Authority Audit', p: 'FREE · 30 MIN', d: 'The door-opener. No pitch slap — they walk away with a written plan either way. It pre-qualifies and starts the relationship on proof.', w: 'Every relationship starts here. The plan sells the next rung so you don’t have to.', accent: 'var(--gold)' },
+    { o: '02', n: 'Authority Diagnostic', p: '$750 PIF · 5 DAYS', d: 'The written teardown of their ad account — scored, benchmarked, a dollar on every fix. Report in hand within 5 business days.', w: 'When they want the deep read before committing monthly. The $750 credits into Engine month one.', accent: 'var(--white)' },
+    { o: '03', n: 'Story Capture Pilot', p: '$2,400 ONE-TIME', d: 'One half-day capture: an Authority Video, a photo set, 8–12 clips. The taste of the Engine, delivered in a week.', w: 'When they need proof of the machine before a retainer.', accent: 'var(--gold)' },
+    { o: '04', n: 'Authority Engine', p: '$3,500/MO · 3-MO MIN', d: 'The core. One capture day, 8–12 clips, ads, funnel, follow-up, monthly review. Priced fixed — never discount month one.', w: 'The default retainer pitch — the Diagnostic credit lands here.', accent: 'var(--white)' },
+    { o: '05', n: 'Market Domination', p: '$6,000/MO · EXPANSION', d: 'Two capture days, multi-platform, full reporting. The day-60 expansion conversation for clients the Engine is already winning for.', w: 'When results earn the expansion conversation. Never pitched cold.', accent: 'var(--gold)' }
   ];
 
   SCRIPT = [
@@ -572,6 +574,8 @@ class Cockpit extends React.Component {
               {(this.state.ops && this.state.ops.__fb) ? 'FB ✓ ' + (this.state.ops.__fb.page_name || 'Connected') : 'Connect Facebook'}
             </Hover>
             <Hover as="button" onClick={() => this.openIntakeSettings()} baseStyle={{ background: "transparent", border: "1px solid var(--line2)", color: "var(--muted)", fontFamily: "var(--mono)", fontWeight: "700", fontSize: "11px", letterSpacing: ".12em", padding: "10px 16px", cursor: "pointer", textTransform: "uppercase", transition: ".15s" }} hoverStyle={{ borderColor: "var(--red)", color: "var(--cream)" }}>Intake Form</Hover>
+            <Hover as="button" onClick={() => { window.location.assign('/diagnostics'); }} title="The $750 Authority Diagnostic pipeline — checkout, intakes, drafts awaiting your approval"
+              baseStyle={{ background: "transparent", border: "1px solid var(--line2)", color: "var(--muted)", fontFamily: "var(--mono)", fontWeight: "700", fontSize: "11px", letterSpacing: ".12em", padding: "10px 16px", cursor: "pointer", textTransform: "uppercase", transition: ".15s" }} hoverStyle={{ borderColor: "var(--gold)", color: "var(--white)" }}>⚡ Diagnostics</Hover>
             <Hover as="button" onClick={() => this.openClient(null)} baseStyle={{ background: "var(--red)", border: "1px solid var(--red)", color: "var(--golddark)", fontFamily: "var(--mono)", fontWeight: "700", fontSize: "11px", letterSpacing: ".12em", padding: "10px 16px", cursor: "pointer", textTransform: "uppercase", transition: ".15s" }} hoverStyle={{ background: "var(--red2)" }}>+ Add Client</Hover>
           </div>
         </div>
@@ -1457,6 +1461,7 @@ class Cockpit extends React.Component {
 
   // --- Proposals + e-sign (Phase 3: HoneyBook replacement, slice 3) ---
   LADDER_PRESETS = [
+    { desc: 'Authority Diagnostic', unit: 750 },
     { desc: 'Story Capture Pilot', unit: 2400 },
     { desc: 'Authority Engine (per month)', unit: 3500 },
     { desc: 'Authority Engine · 3-mo term', unit: 10500 },
@@ -2773,13 +2778,17 @@ Signed: {{signer}}      Date: {{date}}`;
     ) : null}
 
     <div style={{ marginTop: "26px" }}>
-      <div style={{ fontSize: "10px", fontWeight: 800, letterSpacing: ".2em", color: "var(--gold)", marginBottom: "11px" }}>WHAT THIS CALL SELLS — THE LADDER</div>
+      <div style={{ fontSize: "10px", fontWeight: 800, letterSpacing: ".2em", color: "var(--gold)", marginBottom: "11px" }}>WHAT THIS CALL SELLS — THE LADDER · SELL IN THIS ORDER</div>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: "14px" }}>
         {ladder.map((l, i) => (
-          <div key={i} style={{ background: "var(--panel2)", border: "1px solid var(--line)", borderTop: "4px solid " + l.accent, borderRadius: "4px", padding: "16px 18px" }}>
-            <div style={{ fontSize: "9.5px", fontWeight: 800, letterSpacing: ".16em", textTransform: "uppercase", color: l.accent }}>{l.p}</div>
+          <div key={i} style={{ background: "var(--panel2)", border: "1px solid var(--line)", borderTop: "4px solid " + l.accent, borderRadius: "4px", padding: "16px 18px", display: "flex", flexDirection: "column" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: "10px" }}>
+              <div style={{ fontSize: "9.5px", fontWeight: 800, letterSpacing: ".16em", textTransform: "uppercase", color: l.accent }}>{l.p}</div>
+              <div style={{ fontFamily: "var(--num)", fontWeight: 700, fontSize: "19px", color: "var(--dim)", lineHeight: 1, flexShrink: 0 }}>{l.o}</div>
+            </div>
             <div style={{ fontFamily: "var(--num)", fontWeight: 700, fontSize: "21px", color: "var(--white)", marginTop: "7px", lineHeight: 1, textTransform: "uppercase" }}>{l.n}</div>
             <div style={{ fontSize: "12px", color: "var(--muted)", lineHeight: "1.55", marginTop: "8px" }}>{l.d}</div>
+            <div style={{ fontSize: "11px", color: "var(--dim)", lineHeight: "1.5", marginTop: "auto", paddingTop: "10px" }}><span style={{ color: l.accent, fontWeight: 800, letterSpacing: ".1em", fontSize: "9px" }}>WHEN · </span>{l.w}</div>
           </div>
         ))}
       </div>
@@ -2939,6 +2948,8 @@ Signed: {{signer}}      Date: {{date}}`;
               </div>
             ))}
           </div>
+          <Hover as="button" onClick={() => { window.location.assign('/fleet'); }} title="Live run reports from the fleet — what each agent actually did, and when"
+            baseStyle={{ marginTop: "14px", background: "var(--gold)", border: "none", color: "var(--golddark)", fontWeight: 900, fontSize: "10.5px", letterSpacing: ".14em", padding: "10px 16px", cursor: "pointer", textTransform: "uppercase", borderRadius: "3px" }} hoverStyle={{ background: "var(--gold2)" }}>⚡ Live Run Reports</Hover>
         </div>
       </div>
     </div>

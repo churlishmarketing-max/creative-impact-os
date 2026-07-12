@@ -1,5 +1,6 @@
 -- ============================================================================
--- CREATIVE IMPACT OS — ONE-SHOT DATABASE SETUP
+-- CREATIVE IMPACT OS — ONE-SHOT DATABASE SETUP (updated 2026-07-12: adds
+-- Authority Diagnostic, booking lead capture, fleet telemetry + roster)
 -- ============================================================================
 -- HOW TO USE (Brandon):
 --   1. Create your login user FIRST: Supabase → Authentication → Users →
@@ -682,6 +683,7 @@ begin
   -- The Creative Impact offer ladder (edit freely later)
   insert into public.offers (user_id, name, slug, type, price_monthly_cents, min_term_months) values
     (uid, 'Authority Audit',      'authority-audit',      'diagnostic', null,   null),  -- free 30-min door-opener
+    (uid, 'Authority Diagnostic', 'authority-diagnostic', 'diagnostic', 75000,  null),  -- $750 written ad-account teardown
     (uid, 'Story Capture Pilot',  'story-capture-pilot',  'one_off',    240000, null),  -- $2,400 single capture day
     (uid, 'Authority Engine',     'authority-engine',     'retainer',   350000, 3),     -- $3,500/mo · 3-mo min
     (uid, 'Market Domination',    'market-domination',    'retainer',   600000, 3)      -- $6,000/mo · expansion
@@ -1160,7 +1162,428 @@ $$;
 revoke all on function public.get_client_status(text) from public;
 grant execute on function public.get_client_status(text) to anon, authenticated;
 
--- ▶▶▶ 16_broadcast.sql ▶▶▶
+-- ▶▶▶ 16_diagnostic.sql ▶▶▶
+
+-- ============================================================================
+-- Creative Impact OS — Authority Diagnostic (Phase 1) + Clarity Engine (OS side)
+-- The $750 paid front-end offer as an OS product line:
+-- checkout -> intake -> analysis -> Brandon approves -> token report link.
+-- Run once in the Supabase SQL Editor (after 15). Safe to re-run.
+-- Spec: docs/authority-diagnostic/ (SPEC.md is law).
+-- ============================================================================
+
+create extension if not exists pgcrypto;
+
+-- BENCHMARKS AS DATA (agents read rows, never hardcode) -----------------------
+create table if not exists public.benchmark_configs (
+  key        text primary key,                -- 'default_local_service_meta', 'hvac', ...
+  user_id    uuid not null references auth.users(id) on delete cascade default auth.uid(),
+  label      text not null default '',
+  industry   text,
+  thresholds jsonb not null default '{}'::jsonb,
+  projection jsonb not null default '{"target_hook_rate":0.27,"relief_bonus":1.15,"cap_multiple":2.5}'::jsonb,
+  is_default boolean not null default false,
+  created_at timestamptz not null default now()
+);
+alter table public.benchmark_configs enable row level security;
+drop policy if exists own_rows on public.benchmark_configs;
+create policy own_rows on public.benchmark_configs for all to authenticated
+  using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+-- CLARITY SESSIONS (free tool, top of the ladder; synced from Lovable) --------
+create table if not exists public.clarity_sessions (
+  id                      uuid primary key default gen_random_uuid(),
+  user_id                 uuid not null references auth.users(id) on delete cascade,
+  email                   text,                -- normalized lowercase
+  answers                 jsonb not null default '{}'::jsonb,
+  board_read              jsonb,
+  pdf_path                text,
+  source                  text not null default 'lovable',   -- lovable | os_pwa
+  external_id             text unique,         -- Lovable-side session id (idempotent sync)
+  converted_diagnostic_id uuid,
+  upsell_email_sent_at    timestamptz,         -- E0 dedupe
+  created_at              timestamptz not null default now()
+);
+create index if not exists clarity_email_idx on public.clarity_sessions (lower(email));
+alter table public.clarity_sessions enable row level security;
+drop policy if exists own_rows on public.clarity_sessions;
+create policy own_rows on public.clarity_sessions for all to authenticated
+  using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+-- CORE PIPELINE ----------------------------------------------------------------
+-- status: created|paid|intake_sent|intake_in_progress|intake_complete|analyzing
+--         |draft_ready|in_review|approved|delivered|follow_up|converted|closed
+create table if not exists public.diagnostics (
+  id                 uuid primary key default gen_random_uuid(),
+  user_id            uuid not null references auth.users(id) on delete cascade,
+  client_id          uuid not null references public.clients(id) on delete cascade,
+  status             text not null default 'created',
+  benchmark_key      text not null default 'default_local_service_meta',
+  stripe_session_id  text unique,
+  stripe_payment_id  text,
+  amount_cents       bigint not null default 75000,
+  is_comp            boolean not null default false,   -- operator-comped (first three are free)
+  intake_token       text not null default gen_random_uuid()::text,
+  report_token       text not null default gen_random_uuid()::text,
+  clarity_session_id uuid references public.clarity_sessions(id) on delete set null,
+  credit_deadline    date,                              -- delivered + 90 days
+  converted_at       timestamptz,
+  trace_id           text not null default ('dx_' || replace(gen_random_uuid()::text, '-', '')),
+  created_at         timestamptz not null default now(),
+  updated_at         timestamptz not null default now()
+);
+create unique index if not exists diagnostics_intake_token_idx on public.diagnostics(intake_token);
+create unique index if not exists diagnostics_report_token_idx on public.diagnostics(report_token);
+create index if not exists diagnostics_status_idx on public.diagnostics(user_id, status);
+drop trigger if exists touch_diagnostics on public.diagnostics;
+create trigger touch_diagnostics before update on public.diagnostics
+  for each row execute function public.touch_updated_at();
+alter table public.diagnostics enable row level security;
+drop policy if exists own_rows on public.diagnostics;
+create policy own_rows on public.diagnostics for all to authenticated
+  using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+create table if not exists public.diagnostic_intakes (
+  diagnostic_id  uuid primary key references public.diagnostics(id) on delete cascade,
+  user_id        uuid not null references auth.users(id) on delete cascade,
+  payload        jsonb not null default '{}'::jsonb,   -- full autosaved form state
+  industry       text,
+  website_url    text,
+  landing_url    text,
+  is_retargeting text,                                 -- yes | no | mixed
+  anomalies      jsonb not null default '[]'::jsonb,   -- soft-validation warnings
+  screenshots    jsonb not null default '[]'::jsonb,   -- [{path,name}] in storage
+  site_text      text,                                 -- fetched homepage+landing extract
+  submitted_at   timestamptz,
+  updated_at     timestamptz not null default now()
+);
+alter table public.diagnostic_intakes enable row level security;
+drop policy if exists own_rows on public.diagnostic_intakes;
+create policy own_rows on public.diagnostic_intakes for all to authenticated
+  using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+-- Raw + computed live together so every ratio is auditable (Fable Law 6).
+create table if not exists public.diagnostic_metrics (
+  diagnostic_id uuid primary key references public.diagnostics(id) on delete cascade,
+  user_id       uuid not null references auth.users(id) on delete cascade,
+  raw           jsonb not null default '{}'::jsonb,
+  computed      jsonb not null default '{}'::jsonb,    -- nulls preserved, never zeros
+  ratings       jsonb not null default '{}'::jsonb,
+  matrix_1      text,
+  matrix_2      text,
+  freq_override boolean not null default false,
+  action        text,                                  -- scale|tweak|refresh|kill|insufficient_data
+  computed_at   timestamptz not null default now()
+);
+alter table public.diagnostic_metrics enable row level security;
+drop policy if exists own_rows on public.diagnostic_metrics;
+create policy own_rows on public.diagnostic_metrics for all to authenticated
+  using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+create table if not exists public.diagnostic_reports (
+  id             uuid primary key default gen_random_uuid(),
+  diagnostic_id  uuid not null references public.diagnostics(id) on delete cascade,
+  user_id        uuid not null references auth.users(id) on delete cascade,
+  version        int not null default 1,
+  report         jsonb not null default '{}'::jsonb,   -- report-blueprint.md §7 contract
+  internal_notes text,                                 -- adversary pass — NEVER client-visible
+  data_gaps      jsonb not null default '[]'::jsonb,
+  confidence     jsonb not null default '[]'::jsonb,
+  is_approved    boolean not null default false,
+  approved_at    timestamptz,
+  delivered_at   timestamptz,
+  created_at     timestamptz not null default now(),
+  unique (diagnostic_id, version)
+);
+alter table public.diagnostic_reports enable row level security;
+drop policy if exists own_rows on public.diagnostic_reports;
+create policy own_rows on public.diagnostic_reports for all to authenticated
+  using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+-- Fleet-standard audit trail: every transition, every actor.
+create table if not exists public.diagnostic_events (
+  id            bigint generated always as identity primary key,
+  diagnostic_id uuid not null references public.diagnostics(id) on delete cascade,
+  user_id       uuid not null references auth.users(id) on delete cascade,
+  trace_id      text not null default '',
+  actor         text not null default 'system',  -- client|agent|brandon|system|stripe
+  event         text not null default '',
+  from_status   text,
+  to_status     text,
+  payload       jsonb not null default '{}'::jsonb,
+  created_at    timestamptz not null default now()
+);
+create index if not exists diagnostic_events_idx on public.diagnostic_events(diagnostic_id, created_at);
+alter table public.diagnostic_events enable row level security;
+drop policy if exists own_rows on public.diagnostic_events;
+create policy own_rows on public.diagnostic_events for all to authenticated
+  using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+-- PUBLIC REPORT ACCESS — token page; 404s until approved AND delivered. -------
+create or replace function public.get_diagnostic_report(p_token text)
+returns jsonb language sql security definer set search_path = public as $$
+  select jsonb_build_object(
+    'business', c.name,
+    'report', r.report,
+    'delivered_at', r.delivered_at,
+    'credit_deadline', d.credit_deadline
+  )
+  from public.diagnostics d
+  join public.clients c on c.id = d.client_id
+  join public.diagnostic_reports r on r.diagnostic_id = d.id and r.is_approved and r.delivered_at is not null
+  where d.report_token = p_token
+  order by r.version desc
+  limit 1;
+$$;
+revoke all on function public.get_diagnostic_report(text) from public;
+grant execute on function public.get_diagnostic_report(text) to anon, authenticated;
+
+-- STORAGE bucket for intake screenshots (written via service role only) -------
+insert into storage.buckets (id, name, public)
+values ('diagnostic-uploads', 'diagnostic-uploads', false)
+on conflict (id) do nothing;
+
+-- SEED benchmark configs (scoring-engine.md §2) --------------------------------
+do $$
+declare uid uuid;
+begin
+  select id into uid from auth.users order by created_at limit 1;
+  if uid is null then raise exception 'No user found.'; end if;
+
+  insert into public.benchmark_configs (key, user_id, label, industry, is_default, thresholds) values
+  ('default_local_service_meta', uid, 'Local high-ticket service — Meta', null, true,
+   '{"cpl":{"excellent":[0,30],"good":[31,50],"fair":[51,80],"bad":[81,null]},
+     "efficiency":{"exceptional":[0.5,null],"sweet":[0.4,0.49],"good":[0.3,0.39],"fair":[0.2,0.29],"poor":[null,0.2]},
+     "hook_rate":{"excellent":[0.3,null],"good":[0.2,0.29],"fair":[0.1,0.19],"poor":[null,0.1]},
+     "hold_rate":{"excellent":[0.15,null],"good":[0.1,0.149],"fair":[0.05,0.099],"poor":[null,0.05]},
+     "link_ctr":{"excellent":[0.012,null],"good":[0.008,0.0119],"fair":[0.005,0.0079],"poor":[null,0.005]},
+     "ctr_all":{"excellent":[0.025,null],"good":[0.015,0.0249],"fair":[0.01,0.0149],"poor":[null,0.01]},
+     "optin":{"excellent":[0.2,null],"good":[0.1,0.19],"fair":[0.05,0.09],"poor":[null,0.05]},
+     "cpc_link":{"excellent":[0,1.5],"good":[1.51,3],"fair":[3.01,5],"poor":[5,null]},
+     "cpc_all":{"excellent":[0,0.5],"good":[0.51,1.5],"fair":[1.51,3],"poor":[3,null]},
+     "cpm":{"excellent":[0,10],"good":[10,20],"fair":[20,40],"poor":[40,null]},
+     "frequency":{"optimal":[1,2],"caution":[2,3],"high_risk":[3,5],"fatigue":[5,null]}}'::jsonb),
+  ('hvac', uid, 'HVAC — Midwest metro', 'hvac', false,
+   '{"cpl":{"excellent":[0,35],"good":[35,75],"fair":[76,110],"bad":[110,null]},
+     "hook_rate":{"excellent":[0.3,null],"good":[0.25,0.29],"fair":[0.12,0.24],"poor":[null,0.12]}}'::jsonb)
+  on conflict (key) do nothing;
+end $$;
+
+-- ▶▶▶ 17_booking_details.sql ▶▶▶
+
+-- ============================================================================
+-- Creative Impact OS — Booking upgrade: full lead capture on the public booker.
+-- Adds business/website/socials/reason to bookings, exposes the offer list to
+-- the booking page, and auto-creates/links a Lead client on every booking.
+-- Run once in the SQL Editor (after 16). Safe to re-run.
+-- ============================================================================
+
+alter table public.bookings add column if not exists details jsonb not null default '{}'::jsonb;
+
+-- The booking page also needs the offer names for the "what are you reaching
+-- out for?" select.
+create or replace function public.get_booking(p_token text)
+returns jsonb language sql security definer set search_path = public as $$
+  select jsonb_build_object(
+    'config', a.ops->'__booking',
+    'offers', coalesce((
+      select jsonb_agg(o.name order by o.created_at)
+      from public.offers o where o.user_id = a.user_id
+    ), '[]'::jsonb),
+    'taken', coalesce((
+      select jsonb_agg(b.start_at)
+      from public.bookings b
+      where b.user_id = a.user_id and b.status = 'booked' and b.start_at > now()
+    ), '[]'::jsonb)
+  )
+  from public.app_state a
+  where a.ops->'__booking'->>'token' = p_token
+  limit 1;
+$$;
+revoke all on function public.get_booking(text) from public;
+grant execute on function public.get_booking(text) to anon, authenticated;
+
+-- Booking now carries details AND becomes a Lead in the roster automatically
+-- (matched by email if they already exist). p_details has a default so the
+-- previous app version keeps working until the deploy lands.
+create or replace function public.create_booking(
+  p_token text, p_name text, p_email text, p_phone text, p_notes text,
+  p_start timestamptz, p_end timestamptz, p_details jsonb default '{}'::jsonb
+) returns jsonb language plpgsql security definer set search_path = public as $$
+declare uid uuid; cid uuid; biz text;
+begin
+  select user_id into uid from public.app_state where ops->'__booking'->>'token' = p_token;
+  if uid is null then return jsonb_build_object('ok', false, 'error', 'not_found'); end if;
+  if exists (select 1 from public.bookings where user_id = uid and status = 'booked' and start_at = p_start) then
+    return jsonb_build_object('ok', false, 'error', 'taken');
+  end if;
+
+  -- find-or-create the client (Lead) so no booking is ever a dead end
+  if nullif(p_email, '') is not null then
+    select id into cid from public.clients
+      where user_id = uid and lower(email) = lower(p_email) limit 1;
+    if cid is null then
+      biz := coalesce(nullif(p_details->>'business', ''), nullif(p_name, ''), p_email);
+      insert into public.clients (user_id, name, contact_name, email, phone, status, source, notes)
+      values (uid, biz, nullif(p_name, ''), lower(p_email), nullif(p_phone, ''), 'Lead', 'Booking',
+              nullif(concat_ws(E'\n',
+                case when nullif(p_details->>'website','') is not null then 'Website: ' || (p_details->>'website') end,
+                case when nullif(p_details->>'socials','') is not null then 'Socials: ' || (p_details->>'socials') end
+              ), ''))
+      returning id into cid;
+    end if;
+    insert into public.client_events (user_id, client_id, kind, message)
+    values (uid, cid, 'system', 'Booked a call' ||
+      coalesce(' — ' || nullif(p_details->>'reason', ''), ''));
+  end if;
+
+  insert into public.bookings (user_id, client_id, name, email, phone, notes, start_at, end_at, details)
+  values (uid, cid, nullif(p_name,''), nullif(p_email,''), nullif(p_phone,''), nullif(p_notes,''), p_start, p_end, coalesce(p_details, '{}'::jsonb));
+  return jsonb_build_object('ok', true);
+end $$;
+revoke all on function public.create_booking(text,text,text,text,text,timestamptz,timestamptz,jsonb) from public;
+grant execute on function public.create_booking(text,text,text,text,text,timestamptz,timestamptz,jsonb) to anon, authenticated;
+-- retire the old signature so there's exactly one
+drop function if exists public.create_booking(text,text,text,text,text,timestamptz,timestamptz);
+
+-- ▶▶▶ 18_fleet.sql ▶▶▶
+
+-- ============================================================================
+-- Creative Impact OS — Fleet reports: the Cowork agents phone their runs home.
+-- Agents keep RUNNING in Claude Cowork (that's where their horsepower is);
+-- this table is where their results land so the cockpit shows real telemetry.
+-- Run once in the SQL Editor (after 17). Safe to re-run.
+-- ============================================================================
+
+create table if not exists public.fleet_reports (
+  id         uuid primary key default gen_random_uuid(),
+  user_id    uuid not null references auth.users(id) on delete cascade,
+  agent      text not null default '',            -- kid-flash | blue-beetle | guardian | iris-west | ...
+  title      text not null default '',            -- one-line headline of the run
+  summary    text not null default '',            -- the run report (plain text / markdown)
+  payload    jsonb not null default '{}'::jsonb,  -- structured extras (counts, links, per-client notes)
+  run_at     timestamptz not null default now(),
+  created_at timestamptz not null default now()
+);
+create index if not exists fleet_reports_idx on public.fleet_reports(user_id, agent, run_at desc);
+create index if not exists fleet_reports_time_idx on public.fleet_reports(user_id, run_at desc);
+alter table public.fleet_reports enable row level security;
+drop policy if exists own_rows on public.fleet_reports;
+create policy own_rows on public.fleet_reports for all to authenticated
+  using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+-- ▶▶▶ 19_fleet_roster_marvel.sql ▶▶▶
+
+-- ============================================================================
+-- CREATIVE IMPACT OS — Fleet roster: MARVEL PLACEHOLDER EDITION.
+-- Use this INSTEAD of 19_fleet_roster.sql (that one seeds the Creative Impact DC
+-- fleet). Every unit here is a PLACEHOLDER: the real agents and skills get
+-- built by Ja'Rel through his own Claude account, then wired to
+-- /api/fleet/ingest (run reports) and /api/fleet/roster (roster updates).
+-- Until then the /fleet page renders the org chart with "no runs reported."
+--
+-- DC → Marvel mapping (same role, new name):
+--   EVE→FRIDAY · Fable Mind→The Ancient One · Watchtower→The Watcher
+--   Voice Guard→Daredevil · Avatar Bible→Cerebro · LLM Council→The Illuminati
+--   YouTube Council→The Bugle Desk · Suicide Squad→Thunderbolts
+--   Board of Directors→Hellfire Club · Kid Flash→Quicksilver
+--   Blue Beetle→Falcon · Red Robin→Spider-Man · Iris West→Ben Urich
+--   Guardian→Luke Cage · Cassandra Cain→Echo · Martian Manhunter→Professor X
+--   Doctor Mid-Nite→Doctor Strange · Brother Eye→E.D.I.T.H. · Oracle→Maria Hill
+--   Pennyworth→Anchor (broadcast name, per Brandon 2026-07-12) · Cyborg→War Machine · Steele→Ironheart
+--   The Flash→Speed · Lois Lane→Trish Walker · The Question→Jessica Jones
+--   Huntress→Black Widow · Alfred→Stan (the editor) · Rookie→Showrunner (broadcast name)
+--   Diagnostic Agent→Banner
+-- Dropped as Creative Impact-specific: HLP units, MindCTRL council, client files.
+--
+-- Run once in the Creative Impact Supabase SQL Editor (after the fleet_reports
+-- migration). Safe to re-run (upserts the seed).
+-- ============================================================================
+
+create table if not exists public.fleet_roster (
+  id        uuid primary key default gen_random_uuid(),
+  user_id   uuid not null references auth.users(id) on delete cascade,
+  key       text not null,               -- kebab id; matches fleet_reports.agent
+  name      text not null default '',
+  alias     text not null default '',
+  division  text not null default 'fleet',  -- command | war-rooms | fleet | production | systems | clients
+  job       text not null default '',
+  triggers  text not null default '',
+  schedule  text,                        -- null = on demand / event-driven
+  loc       text not null default 'WS',  -- WS (workspace skill) | CC (Claude Code fleet) | OS (native)
+  sort      int not null default 100,
+  updated_at timestamptz not null default now(),
+  unique (user_id, key)
+);
+alter table public.fleet_roster enable row level security;
+drop policy if exists own_rows on public.fleet_roster;
+create policy own_rows on public.fleet_roster for all to authenticated
+  using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+do $$
+declare uid uuid;
+begin
+  select id into uid from auth.users order by created_at limit 1;
+  if uid is null then raise exception 'No user found.'; end if;
+
+  insert into public.fleet_roster (user_id, key, name, alias, division, job, triggers, schedule, loc, sort) values
+  -- COMMAND LAYER (5)
+  (uid,'friday','FRIDAY','Executive Operator','command','Default operating layer. Runs the weekly loop, routes every job to the right specialist, enforces the goal ledger.','TO BUILD · "FRIDAY" · operator mode · plan my week','Boots every session','WS',1),
+  (uid,'the-ancient-one','The Ancient One','The Doctrine','command','Model-agnostic reasoning doctrine: interview-first, absence hunting, adversary pass, numbers over adjectives, ship with receipts.','TO BUILD · start of any session · any strategic/pricing output','Boots every session','WS',2),
+  (uid,'the-watcher','The Watcher','Fleet Supervisor','command','Verifies every agent ran and produced clean, on-brand output. Flags failures and drift, escalates red items.','TO BUILD · "run The Watcher" · evaluator mode','Daily','WS',3),
+  (uid,'daredevil','Daredevil','The Law','command','Brand voice + visual law: banned words, banned CTAs, structure, color law, typography — enforced before anything ships.','TO BUILD · before ANY branded output',null,'WS',4),
+  (uid,'cerebro','Cerebro','The Dossier','command','Stores and serves client avatar profiles so every skill writes to a real person.','TO BUILD · "avatar for [client]"',null,'WS',5),
+  -- WAR ROOMS (4)
+  (uid,'the-illuminati','The Illuminati','The Tribunal','war-rooms','Blind advisor panel + peer review + chairman verdict on real decisions: Green-light / Reshape / Kill + cheapest 48-hr test.','TO BUILD · "council this" · decisions with stakes',null,'WS',10),
+  (uid,'the-bugle-desk','The Bugle Desk','Packaging War Room','war-rooms','Multi-seat board for video ideas, titles, thumbnails, hooks, channel calls. Kills yes-man feedback before publish.','TO BUILD · "would this get the click"',null,'WS',11),
+  (uid,'thunderbolts','Thunderbolts','The Hit Squad','war-rooms','Four-move assassination of a business/offer/funnel: Kill Order, Absence Detector, Decision Archaeology, tribunal.','TO BUILD · "find the fatal flaw"',null,'WS',12),
+  (uid,'hellfire-club','Hellfire Club','The Boardroom','war-rooms','Portfolio war room ruling against the long-term revenue goals; sequences ventures and protects focus.','TO BUILD · "convene the board" · portfolio review',null,'WS',13),
+  -- FLEET AGENTS (17)
+  (uid,'quicksilver','Quicksilver','Lead Research','fleet','Sources, qualifies, tiers, verifies prospect lists. Feeds Falcon; keeps the funnel floor fed.','TO BUILD · "run Quicksilver" · list sourcing','Daily · morning','WS',20),
+  (uid,'falcon','Falcon','Brand Outreach','fleet','Multi-touch email + LinkedIn outreach, routes replies, books 15-min calls.','TO BUILD · "run Falcon" · outreach · booking','Daily','WS',21),
+  (uid,'spider-man','Spider-Man','Short-Form & Ad Creative','fleet','Multiplies raw footage into walls of clips + ad variations, on-voice and CTA-clean. Owns ad refreshes.','TO BUILD · "run Spidey" · shorts · ad creative','Daily','WS',22),
+  (uid,'ben-urich','Ben Urich','The Reporter','fleet','7-day sweep of niche news, platform shifts, local angles, competitor headlines — filed as content angles with expiry dates.','TO BUILD · "anything timely"','Weekly · Monday AM','WS',23),
+  (uid,'luke-cage','Luke Cage','The Renewal Saver','fleet','Watches every retainer contract clock + account health; builds receipts-based renewal cases before the window opens.','TO BUILD · churn signals','Weekly','WS',24),
+  (uid,'echo','Echo','The Receipts Scorer','fleet','Scores drafts against actual historical performance — the tape, not theory. Refuses to fake a score with no data.','TO BUILD · "score this"',null,'WS',25),
+  (uid,'professor-x','Professor X','The Voice Forge','fleet','Extracts a client''s real voice into a voice file; the whole fleet wears it. Mandatory before the first copy deliverable.','TO BUILD · "build a voice file"','Every onboarding','WS',26),
+  (uid,'doctor-strange','Doctor Strange','Funnel Page Surgeon','fleet','Audits the page the click lands on. Mandatory pre-launch surgery on every funnel.','TO BUILD · "why isn''t my page converting"','Every funnel launch','WS',27),
+  (uid,'edith','E.D.I.T.H.','Answer Engine Visibility','fleet','Makes the client THE answer when someone asks ChatGPT/Claude/Perplexity for "best X in [city]."','TO BUILD · AEO/GEO mentions',null,'WS',28),
+  (uid,'maria-hill','Maria Hill','Comms Triage','fleet','Daily inbox brief — what matters, what waits, what needs the operator.','TO BUILD · daily inbox brief','Daily','CC',29),
+  (uid,'anchor','Anchor','The Client Producer','fleet','Client-facing email agent inside the OS: outreach, audit booking, onboarding, lifecycle — plus the daily money brief when built.','Built into the OS · money brief TO BUILD','Daily','OS',30),
+  (uid,'war-machine','War Machine','Ad Monitor','fleet','Daily ad brief — spend, results, anything drifting toward scale-or-kill.','TO BUILD · daily ad brief','Daily','CC',31),
+  (uid,'ironheart','Ironheart','Production Board','fleet','Keeps the production board current — every project, status, deadline.','TO BUILD · board update','Daily','CC',32),
+  (uid,'speed','Speed','Publish Queue','fleet','Runs the daily publish queue — what ships, where, when.','TO BUILD · publish queue','Daily','CC',33),
+  (uid,'trish-walker','Trish Walker','Episode Kit','fleet','Builds the episode kit when a show episode drops.','TO BUILD · episode drop','Per episode','CC',34),
+  (uid,'jessica-jones','Jessica Jones','The Intel Brief','fleet','Friday intel brief — market movement, competitor activity.','TO BUILD · Friday brief','Weekly · Friday','CC',35),
+  (uid,'black-widow','Black Widow','Revenue Leak Sweep','fleet','Sweeps for money that should be landing and isn''t: unbilled scope, dormant offers, dropped follow-ups.','TO BUILD · "run the leak sweep"','Periodic','CC',36),
+  -- PRODUCTION ENGINES (13)
+  (uid,'stan','Stan','The AI Editor','production','Long-form video brain: animation plans, storyboards, visual-direction specs, placement tables.','TO BUILD · "storyboard this video"',null,'WS',40),
+  (uid,'clip-finder','Clip Finder','General Clip Pass','production','All-client clip finder: hook-strength scoring, timestamps, platform targets.','TO BUILD · "find clips"',null,'WS',41),
+  (uid,'content-calendar-engine','Content Calendar Engine','The Calendar','production','Monthly calendars with funnel tags, cadence, hooks, CTAs.','TO BUILD · "content calendar for [client]"','Monthly per client','WS',42),
+  (uid,'ad-script-factory','Ad Script Factory','Call-Out Creative','production','Direct-response scripts: pattern interrupt, pain call-out, pivot, proof, offer, one CTA.','TO BUILD · "write an ad for"',null,'WS',43),
+  (uid,'ad-diagnostic-engine','Ad Diagnostic Engine','Performance Law','production','Benchmarks + prescriptions for CPL/CTR/Hook Rate; scale-or-kill calls; enforces CTA standards.','TO BUILD · any ad metrics',null,'WS',44),
+  (uid,'email-sequence-writer','Email Sequence Writer','The Nurture Desk','production','Ready-to-load nurture sequences with timing and trigger logic.','TO BUILD · "nurture sequence for"',null,'WS',45),
+  (uid,'strategy-doc-builder','Strategy Doc Builder','The Gameplan Desk','production','Strategy docs, playbooks, KPI trackers — branded .docx/.xlsx with revenue models.','TO BUILD · "gameplan for"',null,'WS',46),
+  (uid,'master-plan-formula','Master Plan Formula','The Strategic Formula','production','Brain-dump → 10-section master plan + 5-section exec summary.','TO BUILD · "master plan for [business]"',null,'WS',47),
+  (uid,'master-plan-style','Master Plan Style','The Signature Render','production','The exact Master Plan visual system — HTML + PDF + DOCX.','TO BUILD · "Master Plan style"',null,'WS',48),
+  (uid,'proposal-generator','Proposal Generator','The Pitch Desk','production','Proposal docs with tiered pricing and avatar pain language, send-ready.','TO BUILD · "proposal for [client]"',null,'WS',49),
+  (uid,'invoice-scoper','Invoice Scoper','The Billing Desk','production','Campaign scope → billable line items for the OS.','TO BUILD · "invoice for [client]"',null,'WS',50),
+  (uid,'editor-brief-generator','Editor Brief Generator','The Handoff Desk','production','Zero-follow-up briefs for editors, VAs, production team.','TO BUILD · "brief for [editor]"',null,'WS',51),
+  (uid,'youtube-metadata','YouTube Metadata','The Publishing Desk','production','Titles, descriptions, tags, thumbnails, chapters for client channels.','TO BUILD · "title options"',null,'WS',52),
+  -- SYSTEMS & PROTOCOLS (3)
+  (uid,'verification-loop','Verification Loop','Ship With Receipts','systems','Definition of Done → evidence per item → edge-case stress test. Nothing flagship ships unproven.','TO BUILD · before any flagship build ships',null,'CC',60),
+  (uid,'goal-runner','Goal Runner','The Build Rig','systems','Large multi-deliverable builds run to done with parallel sub-agents; graded by The Watcher, never self-approved.','TO BUILD · any large build',null,'CC',61),
+  (uid,'session-handoff','Session Handoff','The Relay','systems','Packages session state when context fills, sessions run long, or models switch.','TO BUILD · context full · model switch',null,'CC',62),
+  -- OS NATIVES (2)
+  (uid,'showrunner','Showrunner','The Supervisor','systems','The OS console agent — reads the board, executes orders, drafts hand off to Anchor, never touches money or deletes.','Built into the OS',null,'OS',70),
+  (uid,'banner','Banner','Diagnostic Agent','systems','Runs the paid diagnostic reports inside the OS: metrics, matrices, honest projections.','Built into the OS · connect when cloned',null,'OS',71)
+  on conflict (user_id, key) do update set
+    name = excluded.name, alias = excluded.alias, division = excluded.division,
+    job = excluded.job, triggers = excluded.triggers, schedule = excluded.schedule,
+    loc = excluded.loc, sort = excluded.sort, updated_at = now();
+end $$;
+
+-- ▶▶▶ 20_broadcast.sql ▶▶▶
 
 -- ============================================================================
 -- Creative Impact OS — Broadcast additions: capture days + deliverables tracker.

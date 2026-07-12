@@ -151,6 +151,7 @@ begin
   -- The Creative Impact offer ladder (edit freely later)
   insert into public.offers (user_id, name, slug, type, price_monthly_cents, min_term_months) values
     (uid, 'Authority Audit',      'authority-audit',      'diagnostic', null,   null),  -- free 30-min door-opener
+    (uid, 'Authority Diagnostic', 'authority-diagnostic', 'diagnostic', 75000,  null),  -- $750 written ad-account teardown
     (uid, 'Story Capture Pilot',  'story-capture-pilot',  'one_off',    240000, null),  -- $2,400 single capture day
     (uid, 'Authority Engine',     'authority-engine',     'retainer',   350000, 3),     -- $3,500/mo · 3-mo min
     (uid, 'Market Domination',    'market-domination',    'retainer',   600000, 3)      -- $6,000/mo · expansion

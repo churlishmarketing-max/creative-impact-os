@@ -33,7 +33,9 @@ in a password manager). A second Supabase user would see an empty, separate OS
    Ctrl+A → Ctrl+C → paste into the editor → **RUN**. Wait for green
    **Success**. This builds every table AND loads the Creative Impact seeds
    ($100K sprint, offer ladder, Anchor + Showrunner, intake forms, Marvel
-   fleet roster). It's safe to re-run as a whole.
+   fleet roster). ⚠️ **Do NOT re-run this file later** — the embedded seed
+   uses ON CONFLICT DO UPDATE on the sprint row and will silently reset your
+   target, dates and THE ONE THING to defaults, and re-arm stage emails.
 4. **Delete the query tab afterward.** Never re-run old tabs later.
 5. Project Settings → **API** → copy three values into a notepad:
    - Project URL

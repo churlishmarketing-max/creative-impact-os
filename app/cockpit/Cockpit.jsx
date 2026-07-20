@@ -1474,7 +1474,7 @@ class Cockpit extends React.Component {
   nextProposalNumber() { return this.nextDocNumber(this.state.proposals, 'PRO-'); }
   DEFAULT_AGREEMENT = `CLIENT SERVICE AGREEMENT
 
-This agreement is made on {{date}} between Churlish Media ("Company") and {{client}} ("Client").
+This agreement is made on {{date}} between Creative Impact ("Company") and {{client}} ("Client").
 
 1. SCOPE. The Company will provide the services and deliverables itemized above ({{title}}) for a total of {{total}}.
 
@@ -1666,7 +1666,7 @@ Signed: {{signer}}      Date: {{date}}`;
   // --- Scheduling (Phase 4: native booker) ---
   bookingCfg() {
     const d = (this.state.ops && this.state.ops.__booking) || {};
-    return Object.assign({ tz: 'America/Chicago', slotMins: 30, horizonDays: 14, leadHours: 12, title: 'Book a call with Churlish', token: '', days: {} }, d);
+    return Object.assign({ tz: 'America/Chicago', slotMins: 30, horizonDays: 14, leadHours: 12, title: 'Book a call with Creative Impact', token: '', days: {} }, d);
   }
   setBooking(patchObj) {
     this.setState(s => { const ops = Object.assign({}, s.ops); ops.__booking = Object.assign({}, this.bookingCfg(), patchObj); return { ops }; }, () => this.saveStore());
@@ -1996,7 +1996,7 @@ Signed: {{signer}}      Date: {{date}}`;
 
         {kpis.length === 0 ? (
           <div style={{ border: "1px dashed var(--line2)", padding: "34px", textAlign: "center", color: "var(--dim)", fontSize: "13px", lineHeight: 1.7 }}>
-            No KPIs yet. Start with the Churlish set:
+            No KPIs yet. Start with the Creative Impact set:
             <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", justifyContent: "center", marginTop: "14px" }}>
               {this.KPI_PRESETS.map((p) => (
                 <button key={p.name} onClick={() => this.saveKpi(p)} style={{ background: "transparent", border: "1px dashed var(--line2)", color: "var(--muted)", fontFamily: "var(--mono)", fontSize: "10.5px", letterSpacing: ".06em", padding: "8px 12px", cursor: "pointer" }}>+ {p.name} ({p.cadence})</button>

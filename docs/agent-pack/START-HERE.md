@@ -68,9 +68,9 @@ START-HERE.md          this file
 INTEGRATION.md         how agents connect to the OS (endpoints, secret, tests)
 ROSTER.md              the full 44-unit org map for context
 agents/
-  maria-hill.md        Comms Triage — daily inbox brief          (build 1st)
+  jessica-jones.md     The Intel Brief — weekly Friday           (build 1st)
   black-widow.md       Revenue Leak Sweep — periodic             (build 2nd)
-  jessica-jones.md     The Intel Brief — weekly Friday           (build 3rd)
+  maria-hill.md        Comms Triage — daily inbox brief          (build 3rd)
   ironheart.md         Production Board — daily                  (build 4th)
   speed.md             Publish Queue — daily                     (build 5th)
   war-machine.md       Ad Monitor — daily        (PARKED until ads are live)
@@ -79,8 +79,20 @@ agents/
                        (your own build practices, not CRM-attached)
 ```
 
-Build order above = value order for the current $100K sprint. Ship one agent
-end-to-end (including its report-home step) before starting the next.
+Ship one agent end-to-end (including its report-home step) before starting
+the next.
+
+**Build order — note the correction.** The individual briefs say Maria Hill is
+"build 1st"; **that is superseded.** Maria Hill is the one agent blocked on
+infrastructure that does not exist yet (the `hello@creativeimpactmedia.co`
+mailbox). Build in this order instead:
+
+1. **Jessica Jones** — needs only web search. Zero dependencies, so it is the
+   fastest end-to-end proof that the bridge works.
+2. **Black Widow** — defends the $100K number most directly. ⚠️ It correctly
+   reports *nothing* against an empty board, so real deals/invoices/shoots must
+   be entered first — otherwise a working agent looks broken and gets "fixed."
+3. **Maria Hill** — the moment the mailbox exists and read access is granted.
 
 ## Before you can start (Brandon's two prerequisites)
 

@@ -8,7 +8,9 @@
 --   2. Supabase → SQL Editor → New query. Open this file in Notepad,
 --      Ctrl+A, Ctrl+C, paste it here, hit RUN. Green 'Success' = done.
 --   3. Delete this query tab afterward (never re-run old tabs).
--- Safe to re-run as a whole: every block guards against duplicates.
+-- ⚠️ RUN THIS ONCE, ON A NEW EMPTY PROJECT ONLY. Do NOT re-run it later: the
+-- seed at the end uses ON CONFLICT DO UPDATE and will reset the sprint target,
+-- dates and THE ONE THING to defaults, wiping cockpit edits.
 -- ============================================================================
 
 

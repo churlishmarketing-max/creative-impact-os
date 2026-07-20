@@ -1,3 +1,10 @@
+> **⚠️ HISTORICAL — DO NOT FOLLOW THESE STEPS.** This described first-time
+> setup from scratch, which is COMPLETE. The database is built, the app is live
+> at os.creativeimpactmedia.co, and the repo is pushed. Re-running its SQL
+> instructions can overwrite live settings.
+> **For current state and next steps, read `HANDOFF.md` at the repo root.**
+> Kept only as launch history.
+
 # Creative Impact OS — Stage 1
 
 The Command Center cockpit, turned into a real, single-user web app. Same design

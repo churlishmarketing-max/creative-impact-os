@@ -1,6 +1,8 @@
 -- ============================================================================
 -- CREATIVE IMPACT OS — Fleet roster: MARVEL PLACEHOLDER EDITION.
--- Use this INSTEAD of 19_fleet_roster.sql (that one seeds the Creative Impact DC
+-- Use this INSTEAD of 19_fleet_roster.sql (that file belongs to the CHURLISH
+-- repo and seeds Churlish DC-named units — it is deliberately NOT in this repo;
+-- do not copy it in).
 -- fleet). Every unit here is a PLACEHOLDER: the real agents and skills get
 -- built by Ja'Rel through his own Claude account, then wired to
 -- /api/fleet/ingest (run reports) and /api/fleet/roster (roster updates).

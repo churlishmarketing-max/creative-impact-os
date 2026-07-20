@@ -89,7 +89,7 @@ export default function FleetDashboard() {
         {ready && rosterMissing ? (
           <div style={{ ...panel, borderLeft: `3px solid ${C.gold}`, padding: "16px 18px", marginBottom: 16 }}>
             <div style={{ fontSize: 13, color: C.cream, marginBottom: 6 }}>Roster not installed yet.</div>
-            <div style={{ fontSize: 12, color: C.muted, lineHeight: 1.7 }}>Run <b style={{ color: C.cream }}>supabase/19_fleet_roster.sql</b> in the SQL Editor — it seeds all 47 units from the Second Brain roster. Live run reports below still work either way.</div>
+            <div style={{ fontSize: 12, color: C.muted, lineHeight: 1.7 }}>Run <b style={{ color: C.cream }}>supabase/19_fleet_roster_marvel.sql</b> in the SQL Editor — it seeds all 44 units of the Creative Impact fleet. Live run reports below still work either way.</div>
           </div>
         ) : null}
 

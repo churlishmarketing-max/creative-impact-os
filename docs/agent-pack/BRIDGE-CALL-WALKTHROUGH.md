@@ -1,135 +1,140 @@
-# Fleet Bridge — Phone Call Walkthrough
+# Fleet Bridge — Setup Walkthrough (in-house PC)
 
-**Who's on the call:** Brandon (owns the OS / Vercel) + Ja'Rel (builds the agents).
-**Goal:** open the connection so Ja'Rel's agents report into the OS fleet dashboard.
-**Time:** ~15 minutes.
-**Done when:** a test line from Ja'Rel appears on Brandon's `/fleet` page.
+**Setup:** Ja'Rel builds the Creative Impact fleet on Brandon's second PC,
+in a Claude account Brandon owns.
+**Goal:** open the connection so those agents report into the OS fleet dashboard.
+**Time:** ~30 minutes (most of it account setup, done once).
+**Done when:** a test line appears on the `/fleet` page of the OS.
 
-Nothing here is risky or hard to undo. The worst case is a typo in a password,
-and you'll know immediately because the OS will say so.
-
----
-
-## BEFORE THE CALL — Brandon only (2 min)
-
-1. Open your password manager → create a new item called
-   **"Creative Impact OS — Fleet Secret."**
-2. Use its password generator: **40+ characters**, letters and numbers.
-   (Avoid symbols like `'` `"` `$` — they can confuse command lines.)
-3. Save it. Do NOT text or email it yet — that happens on the call, securely.
-
-You never type this secret into a chat window, a document, or a website other
-than Vercel.
+Nothing here is risky or hard to undo. The worst case is a typo, and the OS
+tells you exactly which one.
 
 ---
 
-## PART 1 — Brandon adds the secret to Vercel (5 min)
-*Ja'Rel: just listen, nothing for you yet.*
+## STEP 0 — The account decision (do this first)
 
-1. Go to **vercel.com** and sign in.
-2. Click the project **creative-impact-os**.
-3. Top nav: **Settings**.
-4. Left sidebar: **Environment Variables**.
-5. In the **Key** field type exactly: `FLEET_INGEST_SECRET`
-   - All caps, underscores, no spaces. Typos here are the #1 failure.
-6. In the **Value** field: paste the secret from your password manager.
-7. Leave **Production / Preview / Development** all checked.
-8. Click **Save**.
+**Create a NEW Claude account for Creative Impact.** Brandon owns the email,
+password, and recovery. Ja'Rel signs into that account on the second PC.
 
-**Say out loud:** "Secret saved."
+**Do NOT use Brandon's personal Claude account.** It holds all of Churlish
+Media — the fleet, client avatars, financials, chat history. A separate CI
+account keeps Churlish walled off, keeps the fleet in Brandon's control, and
+makes the subscription a clean Creative Impact expense to split with Emmanuel.
 
-## PART 2 — Brandon redeploys (2 min)
-Environment variables do nothing until a fresh deploy. This step is not optional.
+Suggested login: an address on the Creative Impact domain (e.g.
+`os@creativeimpactmedia.co` — same one used for the OS login, or a dedicated
+one). Store the credentials in Brandon's password manager.
 
-1. Top nav: **Deployments**.
-2. Find the newest deployment at the top of the list.
-3. Click the **⋯** (three dots) on its right side → **Redeploy**.
-4. A dialog appears → click **Redeploy** to confirm.
-5. Wait for the status dot to turn **Ready** (about 1–2 minutes).
+> Heads up: agent work needs a paid Claude plan. Budget that as a Creative
+> Impact operating cost, not a personal one.
 
-**Say out loud:** "Deploy is Ready."
+---
 
-## PART 3 — Confirm the bridge is armed (1 min)
-Brandon: tell Claude "the secret is set" and it will probe the endpoint from
-outside and confirm. You're looking for the answer to change from
-`not_configured` to `unauthorized` — that means the lock now exists and is
-correctly rejecting anyone without the key.
+## STEP 1 — Prep the second PC (10 min, Brandon)
 
-*(If you're not in a Claude session: skip this, Part 5 proves it anyway.)*
+1. **Give Ja'Rel his own Windows user account** on that PC:
+   Settings → Accounts → Other users → **Add account**.
+   Keeps his work separate from Brandon's files. Standard user is fine.
+2. Sign in as that user, open a browser, go to **claude.ai**.
+3. Sign in with the **Creative Impact** Claude account from Step 0.
+4. Confirm it's the right account — it should be empty, with none of the
+   Churlish projects or chat history in the sidebar. If you see Churlish
+   work, you're in the wrong account. Sign out and try again.
 
-## PART 4 — Brandon sends Ja'Rel the secret, securely (2 min)
+## STEP 2 — Put the secret on that PC (5 min, Brandon)
 
-Use your password manager's share feature:
-- **1Password:** open the item → **Share** → set expiry (1 day) → copy link.
-- **Bitwarden:** **Send** → paste the secret → set expiry → copy link.
-- **LastPass / Dashlane:** any "share item" / "one-time link" feature.
+Because the PC is in your house, **Ja'Rel never has to handle the raw secret.**
+You type it in once, yourself.
 
-Send Ja'Rel the **link** (text/Slack is fine — the link is the protection, and
-it expires). Never send the raw secret itself in a message.
+1. In your password manager, generate a **40+ character** password
+   (letters and numbers; skip symbols like `'` `"` `$` — they break command
+   lines). Save it as **"Creative Impact OS — Fleet Secret."**
+2. On the second PC, signed in as Ja'Rel's user, open **Notepad**.
+3. Paste the secret — nothing else, no quotes, no label, no trailing spaces.
+4. Save as: `C:\Users\<Ja'Rel's username>\.creative-impact\os-secret.txt`
+   (create the `.creative-impact` folder first; in the Save dialog set
+   "Save as type" to **All Files** so it doesn't become `.txt.txt`).
+5. Tell Ja'Rel: "the secret is in that file — read it from there, never copy
+   it into a skill or a repo."
 
-**Ja'Rel:** open the link, copy the secret, store it wherever your Cowork
-skills read secrets from. Never paste it into a skill file, a repo, or a doc.
+## STEP 3 — Add the secret to Vercel (5 min, Brandon)
 
-## PART 5 — Ja'Rel runs the bridge test (3 min)
+The same value has to exist on the OS side, or it will reject every report.
 
-Ja'Rel: run this from a Claude Cowork session (Bash) or your own terminal.
-Replace `PASTE_SECRET_HERE` with the real value:
+1. **vercel.com** → sign in → project **creative-impact-os**.
+2. Top nav **Settings** → left sidebar **Environment Variables**.
+3. Key: `FLEET_INGEST_SECRET` — all caps, underscores, no spaces.
+   *(Typos here are the #1 failure.)*
+4. Value: paste the same secret from Step 2.
+5. Leave Production / Preview / Development all checked → **Save**.
 
-```bash
-curl -s -X POST https://os.creativeimpactmedia.co/api/fleet/ingest \
-  -H "Content-Type: application/json" \
-  -H "x-os-secret: PASTE_SECRET_HERE" \
-  -d '{"agent":"bridge-test","title":"bridge test — 1 ping","summary":"If Brandon can read this on the fleet page, the bridge works."}'
+## STEP 4 — Redeploy (2 min, Brandon)
+
+Environment variables do nothing until a fresh deploy. Not optional.
+
+1. Top nav **Deployments**.
+2. Newest deployment at the top → **⋯** (three dots) → **Redeploy** → confirm.
+3. Wait for **Ready** (1–2 minutes).
+
+## STEP 5 — Test the bridge from that PC (3 min)
+
+On the second PC, open **PowerShell** (Start → type "PowerShell") and paste
+this whole block. It reads the secret from the file — nothing to retype:
+
+```powershell
+$secret = (Get-Content "$env:USERPROFILE\.creative-impact\os-secret.txt" -Raw).Trim()
+$body = @{
+  agent   = "bridge-test"
+  title   = "bridge test - 1 ping"
+  summary = "If this shows on the fleet page, the bridge works."
+} | ConvertTo-Json
+Invoke-RestMethod -Uri "https://os.creativeimpactmedia.co/api/fleet/ingest" `
+  -Method Post -ContentType "application/json" `
+  -Headers @{ "x-os-secret" = $secret } -Body $body
 ```
 
-*(On Windows PowerShell the single quotes behave differently — easiest fix is
-to run it from Git Bash / WSL, or from a Cowork Bash session.)*
+**What you should see:** `ok : True`
 
-**Read the response out loud to Brandon:**
-
-| What you see | What it means | What to do |
+| If you see instead | What it means | Fix |
 |---|---|---|
-| `{"ok":true}` | **Success.** Go to Part 6. | Nothing — celebrate |
-| `{"ok":false,"error":"unauthorized"}` | Secret doesn't match | Re-copy it; check for a trailing space at either end |
-| `{"ok":false,"error":"not_configured"}` | Vercel var missing or no redeploy | Brandon: recheck Parts 1 & 2 (spelling + Redeploy) |
-| `{"ok":false,"error":"no_owner"}` | Database has no owner row | Stop — tell Claude, it's a setup issue |
-| Nothing / connection error | Wrong URL or offline | Check the URL is exactly as written above |
+| `unauthorized` (403) | Secret in the file ≠ secret in Vercel | Recheck Step 2 vs Step 3 — usually a stray space |
+| `not_configured` (400) | Vercel var missing, or no redeploy | Recheck Steps 3 & 4 |
+| `no_owner` (400) | Database has no owner row | Stop — ask Claude, it's a setup issue |
+| "Cannot find path" | Secret file isn't where Step 2 put it | Check the filename — likely saved as `.txt.txt` |
+| Connection error | Wrong URL or offline | Compare the URL character by character |
 
-## PART 6 — Brandon confirms it landed (2 min)
+## STEP 6 — Confirm it landed (2 min, Brandon)
 
 1. Go to **https://os.creativeimpactmedia.co** and log in.
-2. Click tab **05 AGENT FLEET** → button **⚡ LIVE RUN REPORTS**
-   (or go straight to `https://os.creativeimpactmedia.co/fleet`).
-3. Look at the **LIVE RUN FEED** at the bottom. You should see
-   **bridge-test — bridge test · 1 ping** with a timestamp.
+2. Tab **05 AGENT FLEET** → **⚡ LIVE RUN REPORTS**
+   (or go straight to `/fleet`).
+3. In the **LIVE RUN FEED**, you should see **bridge-test** with a timestamp.
 
-**Expected and fine:** `bridge-test` also shows under
-**"⚠ Reporting but not on the roster."** That's correct — `bridge-test` is a
-throwaway name, not a real registered unit. Real agents won't do this as long
-as their name matches their roster key.
+**Expected, not a bug:** `bridge-test` also appears under
+**"⚠ Reporting but not on the roster."** That's correct — it's a throwaway
+name, not a registered unit. Real agents land on their own cards as long as
+their name matches their roster key.
 
-**Say out loud:** "I see it." — the bridge is open. You're done.
+The bridge is open. Everything after this is just building agents.
 
 ---
 
-## PART 7 — What happens from here (no action today)
+## What's different now that the fleet is in-house
 
-- Ja'Rel builds agents in the order in `START-HERE.md`:
-  **Maria Hill** (daily inbox brief) first, then Black Widow, Jessica Jones,
-  Ironheart, Speed.
-- Every agent ends every run with the same POST — just with its own
-  `agent` key, a real `title` (with numbers), and a real `summary`.
-- Those runs appear on Brandon's `/fleet` page and on the OS ticker
-  automatically. No further setup, ever.
-- **Rule to remember:** an agent's `agent` value must match its roster `key`.
-  If Ja'Rel renames a unit, he syncs the roster first (`/api/fleet/roster`,
-  see `INTEGRATION.md`) so it lands on its own card instead of the warning list.
+- **Ownership solved.** The agents live in a Claude account Brandon controls.
+  Still worth committing each finished agent's instructions to the repo
+  (`docs/agent-pack/built/`) so they survive account changes too.
+- **The secret never travels.** No password-manager share links, no expiring
+  sends. It lives in one file on one machine.
+- **Data access is simpler.** When Maria Hill needs the `hello@` inbox or
+  Black Widow needs a read-only board key, those credentials live on a machine
+  in Brandon's house rather than a contractor's laptop.
+- **Billing is clean.** One CI subscription, a Creative Impact expense.
 
-## Blockers Brandon still owes, per agent
+## Still owed before certain agents can run live
 
-- **Maria Hill** needs read access to the `hello@creativeimpactmedia.co`
-  mailbox — that mailbox doesn't exist yet (it comes with the Resend/email
-  build). Ja'Rel can build the agent's logic before then, but it can't run
-  live until the inbox exists.
-- **Black Widow v2** (reading the OS board directly) needs a **read-only**
-  Supabase key from Brandon. v1 works without it — Brandon pastes the board in.
+- **Maria Hill** needs the `hello@creativeimpactmedia.co` mailbox to exist —
+  it doesn't yet (it arrives with the Resend/email build). The agent can be
+  built now; it just can't run live until the inbox is real.
+- **Black Widow v2** needs a **read-only** Supabase key from Brandon.
+  v1 works without it — Brandon pastes the board in.

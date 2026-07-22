@@ -54,24 +54,31 @@ const TOOLS = [
 
 async function boardSummary(admin: NonNullable<ReturnType<typeof getAdminClient>>, uid: string) {
   const wk = weekKey();
-  const [dealsR, weekR, clientsR, kpisR] = await Promise.all([
+  const [dealsR, weekR, clientsR, kpisR, sprintR] = await Promise.all([
     admin.from("deals").select("value_cents,stage").eq("user_id", uid),
     admin.from("weeks").select("*").eq("user_id", uid).eq("week_key", wk).maybeSingle(),
     admin.from("clients").select("id", { count: "exact", head: true }).eq("user_id", uid),
     admin.from("kpis").select("name,cadence,target,unit").eq("user_id", uid),
+    admin.from("sprint").select("target_cents,sellby_date,deadline_date,one_thing_title").eq("user_id", uid).maybeSingle(),
   ]);
   const deals = dealsR.data || [];
   const sum = (f: (d: { stage: string }) => boolean) => c2d(deals.filter(f).reduce((s, d: { value_cents?: number; stage: string }) => s + (Number((d as { value_cents?: number }).value_cents) || 0), 0));
   const collected = sum((d) => d.stage === "Collected");
   const signed = sum((d) => d.stage === "Signed" || d.stage === "Collected");
   const open = sum((d) => !["Collected", "Signed", "Lost"].includes(d.stage));
-  const goal = 150000;
+  // The goal is whatever the operator set on the war board — never a constant.
+  // (This was hardcoded to 150000, which made every coverage figure wrong.)
+  const goal = c2d(sprintR.data?.target_cents);
   const gap = Math.max(0, goal - collected);
   const w = weekR.data;
   return {
     week: wk,
-    goal, collected, signed_in_year: signed, open_pipeline: open,
-    coverage: gap ? +(open / gap).toFixed(2) : null,
+    goal: goal || "no sprint target set",
+    sellby_date: sprintR.data?.sellby_date || null,
+    deadline_date: sprintR.data?.deadline_date || null,
+    one_thing: sprintR.data?.one_thing_title || null,
+    collected, signed_in_year: signed, open_pipeline: open,
+    coverage: goal && gap ? +(open / gap).toFixed(2) : null,
     friday_five: w ? { calls: w.calls, offers_out: w.offers_out, signed: c2d(w.signed_cents), collected: c2d(w.collected_cents), founder_free_pct: w.founder_free_pct } : "not logged yet",
     open_deals: deals.filter((d) => !["Collected", "Signed", "Lost"].includes(d.stage)).length,
     clients: clientsR.count || 0,

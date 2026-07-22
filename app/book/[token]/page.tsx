@@ -4,6 +4,21 @@ import React, { useEffect, useState } from "react";
 import { getBrowserClient } from "@/lib/supabase/client";
 import { icsDataUri, googleCalUrl } from "@/lib/ics";
 
+// Coerce an operator-entered timezone into a valid IANA zone. The Scheduling
+// field is free text, so "America/New York" (space instead of underscore) or a
+// stray typo can otherwise throw a RangeError inside Intl and crash the whole
+// page. Spaces become underscores; anything Intl still rejects falls back to
+// Eastern (the Charlotte default) so the booker always renders.
+function safeTz(tz: unknown): string {
+  const cleaned = String(tz || "").trim().replace(/\s+/g, "_");
+  try {
+    new Intl.DateTimeFormat("en-US", { timeZone: cleaned });
+    return cleaned;
+  } catch {
+    return "America/New_York";
+  }
+}
+
 // The visitor's own IANA timezone, e.g. "America/Chicago" for an operator in Omaha.
 function visitorTz(): string {
   try { return Intl.DateTimeFormat().resolvedOptions().timeZone || ""; } catch { return ""; }
@@ -73,7 +88,7 @@ export default function BookPage() {
     })();
   }, []);
 
-  const tz = cfg?.tz || "America/New_York";
+  const tz = safeTz(cfg?.tz);
   const slotMins = cfg?.slotMins || 30;
 
   function buildDays(): DayGroup[] {

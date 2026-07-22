@@ -2,6 +2,22 @@
 
 import React, { useEffect, useState } from "react";
 import { getBrowserClient } from "@/lib/supabase/client";
+import { icsDataUri, googleCalUrl } from "@/lib/ics";
+
+// The visitor's own IANA timezone, e.g. "America/Chicago" for an operator in Omaha.
+function visitorTz(): string {
+  try { return Intl.DateTimeFormat().resolvedOptions().timeZone || ""; } catch { return ""; }
+}
+
+// The same instant rendered in the visitor's local timezone — only worth showing
+// when it differs from the business timezone the slots are displayed in.
+function localHint(utc: number, businessTz: string): string {
+  const vt = visitorTz();
+  if (!vt || vt === businessTz) return "";
+  const local = new Date(utc).toLocaleString("en-US", { timeZone: vt, weekday: "short", hour: "numeric", minute: "2-digit" });
+  const abbr = vt.split("/").pop()?.replace(/_/g, " ") || vt;
+  return `${local} your time (${abbr})`;
+}
 
 type DayCfg = { on?: boolean; start?: string; end?: string };
 type Config = { title?: string; tz?: string; slotMins?: number; horizonDays?: number; leadHours?: number; days?: Record<string, DayCfg> };
@@ -57,7 +73,7 @@ export default function BookPage() {
     })();
   }, []);
 
-  const tz = cfg?.tz || "America/Chicago";
+  const tz = cfg?.tz || "America/New_York";
   const slotMins = cfg?.slotMins || 30;
 
   function buildDays(): DayGroup[] {
@@ -146,25 +162,33 @@ export default function BookPage() {
             <div>
               <div style={{ background: "#0c1f14", border: "1px solid #1d3d2a", color: "#2ee06f", padding: 16, fontSize: 13, lineHeight: 1.5, marginBottom: 14 }}>
                 ✓ Booked{picked ? " for " + new Date(picked.utc).toLocaleString("en-US", { timeZone: tz, weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) : ""}. Talk soon.
+                {picked && localHint(picked.utc, tz) ? <div style={{ color: "#8ea3c4", fontSize: 11, marginTop: 6 }}>That's {localHint(picked.utc, tz)}.</div> : null}
               </div>
               {picked ? (() => {
-                const fmt = (ms: number) => new Date(ms).toISOString().replace(/[-:]/g, "").replace(/\.\d{3}/, "");
                 const title = cfg?.title || "Call with Creative Impact";
-                const endMs = picked.utc + slotMins * 60000;
-                const gcal = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(title)}&dates=${fmt(picked.utc)}/${fmt(endMs)}`;
-                const ics = "data:text/calendar;charset=utf-8," + encodeURIComponent(["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//Creative Impact//OS//EN", "BEGIN:VEVENT", "UID:" + picked.utc + "@creativeimpactos", "DTSTART:" + fmt(picked.utc), "DTEND:" + fmt(endMs), "SUMMARY:" + title, "END:VEVENT", "END:VCALENDAR"].join("\r\n"));
+                const ev = {
+                  start: picked.utc,
+                  end: picked.utc + slotMins * 60000,
+                  title,
+                  description: form.notes || undefined,
+                  uid: picked.utc + "@creativeimpactos",
+                  alarmMinutes: 60,
+                };
                 const btn: React.CSSProperties = { flex: 1, textAlign: "center", background: "transparent", border: "1px solid #33455f", color: "#f4f7fc", padding: "10px", fontFamily: "'JetBrains Mono', monospace", fontSize: 11, letterSpacing: ".1em", textTransform: "uppercase", textDecoration: "none" };
                 return (
-                  <div style={{ display: "flex", gap: 10 }}>
-                    <a href={gcal} target="_blank" rel="noopener noreferrer" style={btn}>+ Google Calendar</a>
-                    <a href={ics} download="creative-impact-call.ics" style={btn}>Download .ics</a>
+                  <div>
+                    <div style={{ display: "flex", gap: 10 }}>
+                      <a href={googleCalUrl(ev)} target="_blank" rel="noopener noreferrer" style={btn}>+ Google Calendar</a>
+                      <a href={icsDataUri(ev)} download="creative-impact-call.ics" style={btn}>+ Apple / Phone</a>
+                    </div>
+                    <div style={{ fontSize: 10, color: "#5c7096", marginTop: 8, textAlign: "center" }}>Saves to your calendar in your own local time.</div>
                   </div>
                 );
               })() : null}
             </div>
           ) : picked ? (
             <div>
-              <div style={{ fontSize: 12, color: "#8ea3c4", marginBottom: 14 }}>You picked <span style={{ color: "#ffb81c" }}>{new Date(picked.utc).toLocaleString("en-US", { timeZone: tz, weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}</span> ({tz}).</div>
+              <div style={{ fontSize: 12, color: "#8ea3c4", marginBottom: 14 }}>You picked <span style={{ color: "#ffb81c" }}>{new Date(picked.utc).toLocaleString("en-US", { timeZone: tz, weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}</span> ({tz}).{localHint(picked.utc, tz) ? <span style={{ display: "block", marginTop: 4, color: "#5c7096" }}>{localHint(picked.utc, tz)}</span> : null}</div>
               <input style={inp} placeholder="Your name *" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
               <input style={inp} placeholder="Email *" type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
               <input style={inp} placeholder="Phone *" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />

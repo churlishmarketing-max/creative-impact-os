@@ -1666,7 +1666,7 @@ Signed: {{signer}}      Date: {{date}}`;
   // --- Scheduling (Phase 4: native booker) ---
   bookingCfg() {
     const d = (this.state.ops && this.state.ops.__booking) || {};
-    return Object.assign({ tz: 'America/Chicago', slotMins: 30, horizonDays: 14, leadHours: 12, title: 'Book a call with Creative Impact', token: '', days: {} }, d);
+    return Object.assign({ tz: 'America/New_York', slotMins: 30, horizonDays: 14, leadHours: 12, title: 'Book a call with Creative Impact', token: '', days: {} }, d);
   }
   setBooking(patchObj) {
     this.setState(s => { const ops = Object.assign({}, s.ops); ops.__booking = Object.assign({}, this.bookingCfg(), patchObj); return { ops }; }, () => this.saveStore());
@@ -2287,7 +2287,7 @@ Signed: {{signer}}      Date: {{date}}`;
               <div style={{ flex: "2 1 140px" }}><label style={lbl}>Page title</label><input style={Object.assign({}, inp, { width: "100%" })} value={cfg.title} onChange={(e) => this.setBooking({ title: e.target.value })} /></div>
             </div>
             <div style={{ display: "flex", gap: "10px", marginBottom: "16px", flexWrap: "wrap" }}>
-              <div style={{ flex: "1 1 120px" }}><label style={lbl}>Timezone (IANA)</label><input style={Object.assign({}, inp, { width: "100%" })} value={cfg.tz} placeholder="America/Chicago" onChange={(e) => this.setBooking({ tz: e.target.value })} /></div>
+              <div style={{ flex: "1 1 120px" }}><label style={lbl}>Timezone (IANA)</label><input style={Object.assign({}, inp, { width: "100%" })} value={cfg.tz} placeholder="America/New_York" onChange={(e) => this.setBooking({ tz: e.target.value })} /></div>
               <div style={{ flex: "0 1 110px" }}><label style={lbl}>Slot length</label>
                 <select style={Object.assign({}, inp, { width: "100%" })} value={cfg.slotMins} onChange={(e) => this.setBooking({ slotMins: +e.target.value })}>
                   {[15, 30, 45, 60].map(n => <option key={n} value={n}>{n} min</option>)}

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { sendEmail, emailShell, esc } from "@/lib/email";
+import { buildIcs } from "@/lib/ics";
 
 export const runtime = "nodejs";
 
@@ -24,9 +25,18 @@ export async function POST(req: Request) {
   if (error || !data?.ok) return NextResponse.json(data || { ok: false, error: error?.message }, { status: 200 });
 
   // Fire-and-forget notifications (never block the booking on email).
+  // The invite is UTC-anchored, so it saves into each recipient's own local
+  // timezone — an operator in Omaha sees Central for an Eastern-scheduled slot.
   const evTitle = title || "Call with Creative Impact";
-  const fmt = (iso: string) => iso.replace(/[-:]/g, "").replace(/\.\d{3}/, "");
-  const ics = ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//Creative Impact//OS//EN", "BEGIN:VEVENT", "UID:" + start + "@creativeimpactos", "DTSTART:" + fmt(new Date(start).toISOString()), "DTEND:" + fmt(new Date(end).toISOString()), "SUMMARY:" + evTitle, "DESCRIPTION:" + (notes || ""), "END:VEVENT", "END:VCALENDAR"].join("\r\n");
+  const ics = buildIcs({
+    start,
+    end,
+    title: evTitle,
+    description: notes || undefined,
+    uid: start + "@creativeimpactos",
+    organizer: { name: "Creative Impact", email: process.env.EMAIL_BCC || "hello@creativeimpactmedia.co" },
+    alarmMinutes: 60,
+  });
   const when = whenText || new Date(start).toUTCString();
   if (email) {
     await sendEmail({

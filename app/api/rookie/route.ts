@@ -42,6 +42,9 @@ const TOOLS = [
   { name: "add_log", description: "Write a line to the sys.log feed.", input_schema: { type: "object", properties: { message: { type: "string" } }, required: ["message"] } },
   { name: "draft_client_email", description: "Have Anchor (the client producer) draft an email to a client, matched by (partial) client name. By DEFAULT it queues in the client's COMMS panel for the operator's approval. Set send_now=true ONLY when the operator explicitly said to send it without review (e.g. 'send it', 'send him an email now').", input_schema: { type: "object", properties: { client_name: { type: "string" }, instruction: { type: "string", description: "What the email should say / accomplish, in plain english." }, send_now: { type: "boolean" } }, required: ["client_name", "instruction"] } },
   { name: "send_pending_email", description: "Send a client's most recent PENDING draft (the one waiting for approval) — use when the operator approves a draft you already created (e.g. 'send it', 'looks good, send'). Does NOT write a new email.", input_schema: { type: "object", properties: { client_name: { type: "string" } }, required: ["client_name"] } },
+  { name: "create_invoice", description: "DRAFT an invoice (never sends it). Provide either an amount (DOLLARS) or line items with unit prices; the amount is computed from items when given. Generates the invoice number and a secret pay link. Sending stays with a human — done from the Invoices tab.", input_schema: { type: "object", properties: { client_name: { type: "string", description: "Who it's for (fuzzy match). Optional." }, title: { type: "string" }, amount: { type: "number", description: "Total in DOLLARS; ignored if items are given." }, items: { type: "array", items: { type: "object", properties: { desc: { type: "string" }, qty: { type: "number" }, unit: { type: "number", description: "Unit price in DOLLARS." } }, required: ["desc"] } }, due_date: { type: "string", description: "YYYY-MM-DD, optional." }, notes: { type: "string" } } } },
+  { name: "create_proposal", description: "DRAFT a proposal with e-sign link (never sends it). Provide amount (DOLLARS) or line items, optional intro and terms (contract language). Generates the number and a secret accept link. Sending stays with a human — done from the Proposals tab.", input_schema: { type: "object", properties: { client_name: { type: "string", description: "Who it's for (fuzzy match). Optional." }, title: { type: "string" }, intro: { type: "string" }, amount: { type: "number", description: "Total in DOLLARS; ignored if items are given." }, items: { type: "array", items: { type: "object", properties: { desc: { type: "string" }, qty: { type: "number" }, unit: { type: "number", description: "Unit price in DOLLARS." } }, required: ["desc"] } }, terms: { type: "string" } } } },
+  { name: "update_booking", description: "Reschedule or cancel an UPCOMING booked call, matched by attendee name/email or client. Reschedule needs a new start time as an ISO timestamp WITH timezone offset (e.g. 2026-08-27T14:00:00-04:00 for 2pm Eastern). Cancel sets the call to cancelled and frees the slot; it does not itself email the client.", input_schema: { type: "object", properties: { who: { type: "string", description: "Attendee name/email or client name (fuzzy match)." }, action: { type: "string", enum: ["reschedule", "cancel"] }, start_at: { type: "string", description: "New start, ISO with tz offset. Required for reschedule." }, end_at: { type: "string", description: "New end, ISO. Optional — defaults to the original call length." } }, required: ["who", "action"] } },
 ];
 
 async function boardSummary(admin: NonNullable<ReturnType<typeof getAdminClient>>, uid: string) {
@@ -133,7 +136,7 @@ async function runTool(admin: NonNullable<ReturnType<typeof getAdminClient>>, ui
   }
 
   if (name === "add_client") {
-    const { error } = await admin.from("clients").insert({ user_id: uid, name: String(input.name), contact_name: (input.contact as string) || null, email: (input.email as string) || null, phone: (input.phone as string) || null, industry: (input.industry as string) || null, status: STAGES.includes(String(input.status)) ? "Lead" : String(input.status || "Lead"), source: "Showrunner" });
+    const { error } = await admin.from("clients").insert({ user_id: uid, name: String(input.name), contact_name: (input.contact as string) || null, email: (input.email as string) || null, phone: (input.phone as string) || null, industry: (input.industry as string) || null, status: STAGES.includes(String(input.status)) ? "Lead" : String(input.status || "Lead"), source: "Jarvis" });
     if (error) return "ERROR: " + error.message;
     await log(`client added · ${input.name}`);
     return `Client added: ${input.name}${input.email ? " (" + input.email + ")" : ""}.`;
@@ -299,6 +302,88 @@ async function runTool(admin: NonNullable<ReturnType<typeof getAdminClient>>, ui
     return `SENT: "${pending.subject}" to ${matches[0].name} (${matches[0].email}).`;
   }
 
+  // Build [{desc, qty, unit_cents}] line items and a cents total from tool input.
+  const lineItems = (raw: unknown) => {
+    const arr = Array.isArray(raw) ? (raw as Record<string, unknown>[]) : [];
+    const items = arr.filter((it) => it.desc).map((it) => ({ desc: String(it.desc), qty: Number(it.qty) || 1, unit_cents: Math.round(Number(it.unit || 0) * 100) }));
+    const total = items.reduce((s, it) => s + it.qty * it.unit_cents, 0);
+    return { items, total };
+  };
+  const siteUrl = () => process.env.NEXT_PUBLIC_SITE_URL || "https://os.creativeimpactmedia.co";
+
+  if (name === "create_invoice") {
+    let clientId: string | null = null, clientName = "";
+    if (input.client_name) {
+      const m = await matchClients(admin, uid, input.client_name);
+      if (!m.length) return `No client matching "${input.client_name}". Add the client first, or omit the client.`;
+      if (m.length > 1) return `Ambiguous — matches: ${m.map(clientLabel).join(", ")}. Which one?`;
+      clientId = m[0].id; clientName = m[0].name;
+    }
+    const { items, total } = lineItems(input.items);
+    let amount_cents = total || (input.amount != null ? Math.round(Number(input.amount) * 100) : 0);
+    if (!amount_cents) return "Provide an amount (dollars) or line items with unit prices.";
+    const { count } = await admin.from("invoices").select("id", { count: "exact", head: true }).eq("user_id", uid);
+    const number = "INV-" + String((count || 0) + 1).padStart(4, "0");
+    const due = /^\d{4}-\d{2}-\d{2}$/.test(String(input.due_date || "")) ? String(input.due_date) : null;
+    const { data: inv, error } = await admin.from("invoices").insert({ user_id: uid, client_id: clientId, number, title: String(input.title || ""), items, amount_cents, status: "draft", due_date: due, notes: input.notes ? String(input.notes) : null }).select("token").maybeSingle();
+    if (error) return "ERROR: " + error.message;
+    await log(`invoice drafted · ${number} · ${clientName || "no client"} · $${c2d(amount_cents)}`);
+    return `Invoice ${number} drafted${clientName ? " for " + clientName : ""}: $${c2d(amount_cents)} (status: draft). Pay link: ${siteUrl()}/pay/${inv?.token}. NOT sent — review it on the Invoices tab and send from there.`;
+  }
+
+  if (name === "create_proposal") {
+    let clientId: string | null = null, clientName = "";
+    if (input.client_name) {
+      const m = await matchClients(admin, uid, input.client_name);
+      if (!m.length) return `No client matching "${input.client_name}". Add the client first, or omit the client.`;
+      if (m.length > 1) return `Ambiguous — matches: ${m.map(clientLabel).join(", ")}. Which one?`;
+      clientId = m[0].id; clientName = m[0].name;
+    }
+    const { items, total } = lineItems(input.items);
+    let amount_cents = total || (input.amount != null ? Math.round(Number(input.amount) * 100) : 0);
+    if (!amount_cents) return "Provide an amount (dollars) or line items with unit prices.";
+    const { count } = await admin.from("proposals").select("id", { count: "exact", head: true }).eq("user_id", uid);
+    const number = "PRO-" + String((count || 0) + 1).padStart(4, "0");
+    const { data: prop, error } = await admin.from("proposals").insert({ user_id: uid, client_id: clientId, number, title: String(input.title || ""), intro: input.intro ? String(input.intro) : null, items, amount_cents, terms: input.terms ? String(input.terms) : null, status: "draft" }).select("token").maybeSingle();
+    if (error) return "ERROR: " + error.message;
+    await log(`proposal drafted · ${number} · ${clientName || "no client"} · $${c2d(amount_cents)}`);
+    return `Proposal ${number} drafted${clientName ? " for " + clientName : ""}: $${c2d(amount_cents)} (status: draft). Accept link: ${siteUrl()}/proposal/${prop?.token}. NOT sent — review it on the Proposals tab and send from there.`;
+  }
+
+  if (name === "update_booking") {
+    const term = String(input.who || "").trim();
+    const { data: all } = await admin.from("bookings").select("id,name,email,start_at,end_at,status,client_id").eq("user_id", uid).eq("status", "booked").gte("start_at", new Date().toISOString()).order("start_at", { ascending: true });
+    let matches = all || [];
+    if (term) {
+      const tl = term.toLowerCase();
+      matches = matches.filter((b) => (b.name || "").toLowerCase().includes(tl) || (b.email || "").toLowerCase().includes(tl));
+      if (!matches.length) {
+        const cm = await matchClients(admin, uid, term);
+        const ids = new Set(cm.map((c) => c.id));
+        matches = (all || []).filter((b) => b.client_id && ids.has(b.client_id));
+      }
+    }
+    if (!matches.length) return `No upcoming booked call matching "${term}".`;
+    if (matches.length > 1) return `Multiple upcoming calls match: ${matches.map((m) => `${m.name || m.email} (${new Date(m.start_at).toUTCString()})`).join("; ")}. Which one?`;
+    const bk = matches[0];
+    if (input.action === "cancel") {
+      const { error } = await admin.from("bookings").update({ status: "cancelled" }).eq("id", bk.id);
+      if (error) return "ERROR: " + error.message;
+      await log(`call cancelled · ${bk.name || bk.email || "guest"}`);
+      return `Cancelled the call with ${bk.name || bk.email || "guest"} (was ${new Date(bk.start_at).toUTCString()}). The slot is open again on the booker. The client was not emailed — tell me if you want a note drafted.`;
+    }
+    const start = String(input.start_at || "");
+    if (!/\dT\d/.test(start) || isNaN(new Date(start).getTime())) return "To reschedule, give the new start time as an ISO timestamp with timezone offset (e.g. 2026-08-27T14:00:00-04:00).";
+    const durMs = new Date(bk.end_at).getTime() - new Date(bk.start_at).getTime();
+    const endIso = /\dT\d/.test(String(input.end_at || "")) && !isNaN(new Date(String(input.end_at)).getTime())
+      ? new Date(String(input.end_at)).toISOString()
+      : new Date(new Date(start).getTime() + (durMs > 0 ? durMs : 30 * 60000)).toISOString();
+    const { error } = await admin.from("bookings").update({ start_at: new Date(start).toISOString(), end_at: endIso }).eq("id", bk.id);
+    if (error) return "ERROR: " + error.message;
+    await log(`call rescheduled · ${bk.name || bk.email || "guest"} → ${new Date(start).toUTCString()}`);
+    return `Rescheduled the call with ${bk.name || bk.email || "guest"} to ${new Date(start).toUTCString()}. The client was not emailed — tell me if you want a note drafted.`;
+  }
+
   return "Unknown tool.";
 }
 
@@ -322,9 +407,12 @@ export async function POST(req: Request) {
   const history: { role: string; content: unknown }[] = Array.isArray(body.messages) ? body.messages.slice(-14) : [];
   if (!history.length) return NextResponse.json({ ok: false, error: "empty" }, { status: 400 });
 
-  const { data: agent } = await admin.from("agents").select("voice_prompt").eq("user_id", user.id).eq("name", "Showrunner").maybeSingle();
+  // Persona voice: prefer a "Jarvis" agent row, fall back to the legacy
+  // "Showrunner" row so an existing seed still supplies the voice.
+  let { data: agent } = await admin.from("agents").select("voice_prompt").eq("user_id", user.id).eq("name", "Jarvis").maybeSingle();
+  if (!agent) ({ data: agent } = await admin.from("agents").select("voice_prompt").eq("user_id", user.id).eq("name", "Showrunner").maybeSingle());
   const board = await boardSummary(admin, user.id);
-  const system = `${agent?.voice_prompt || "You are Showrunner, the Creative Impact OS operator copilot."}\n\nLIVE BOARD CONTEXT (as of this message):\n${JSON.stringify(board)}\n\nToday: ${new Date().toDateString()}. Current ISO week: ${weekKey()}.\n\nCAPABILITIES NOTE: You can change mission-level settings (set_sprint: target, dates, THE ONE THING), manage Founder OS goals (add_goal/complete_goal), rewrite the working strategy (set_strategy), and ingest uploaded receipts/statements/CSVs — extract each line item and log via add_expenses_bulk (use the document's dates; ask before logging if any line is unreadable or ambiguous). Changing the sprint target or dates is a big lever — restate the change and act only when the instruction is explicit.\n\nCLIENT EMAIL: draft_client_email hands the writing to Anchor (the client producer) — client-facing mail is his voice, not yours. Drafts queue for approval by default; pass send_now=true ONLY on an explicit send order. When the operator approves a draft you just showed them ("send it"), use send_pending_email — never redraft. Show the operator the draft body after creating it. Use list_clients to see or disambiguate the roster; client matching covers names, contact names, and emails.`;
+  const system = `${agent?.voice_prompt || "You are Jarvis, the Creative Impact OS operator copilot."}\n\nYou are Jarvis. You are an AI and say so plainly if asked; you never pose as Brandon, Emmanuel, or a client.\n\nLIVE BOARD CONTEXT (as of this message):\n${JSON.stringify(board)}\n\nToday: ${new Date().toDateString()}. Current ISO week: ${weekKey()}.\n\nCAPABILITIES NOTE: You can change mission-level settings (set_sprint: target, dates, THE ONE THING), manage Founder OS goals (add_goal/complete_goal), rewrite the working strategy (set_strategy), set KPIs, and ingest uploaded receipts/statements/CSVs — extract each line item and log via add_expenses_bulk (use the document's dates; ask before logging if any line is unreadable or ambiguous). Changing the sprint target or dates is a big lever — restate the change and act only when the instruction is explicit.\n\nINVOICES & PROPOSALS: create_invoice and create_proposal DRAFT the document and generate its client link — they never email the client. Sending an invoice or proposal is an outbound, money-adjacent action that stays with a human: after drafting, show the operator the number, amount, and link, and tell them to send it from the Invoices/Proposals tab. Do not claim anything was sent.\n\nCALLS: update_booking reschedules or cancels an upcoming booked call. Rescheduling needs an explicit new start time. Cancelling frees the slot on the public booker; restate the call before cancelling.\n\nCLIENT EMAIL: draft_client_email hands the writing to Anchor (the client producer) — client-facing mail is his voice, not yours. Drafts queue for approval by default; pass send_now=true ONLY on an explicit send order. When the operator approves a draft you just showed them ("send it"), use send_pending_email — never redraft. Show the operator the draft body after creating it. Use list_clients to see or disambiguate the roster; client matching covers names, contact names, and emails.\n\nYou can add and update, but you NEVER delete anything, and you never send an invoice, proposal, or client email without the operator's explicit go-ahead.`;
 
   const convo: { role: string; content: unknown }[] = history.map((m) => ({ role: m.role === "assistant" ? "assistant" : "user", content: m.content }));
 

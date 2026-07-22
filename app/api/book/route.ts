@@ -39,13 +39,35 @@ export async function POST(req: Request) {
   });
   const when = whenText || new Date(start).toUTCString();
   if (email) {
+    // Welcome-and-set-expectations email, in the founders' voice. Copy is
+    // Brandon's; the confirmed slot and the invite ride along with it so the
+    // booker has the time in writing as well as on their calendar.
+    const firstName = String(name || "").trim().split(/\s+/)[0] || "there";
+    const p = 'style="font-size:14px;line-height:1.75;color:#d7e0ee;margin:0 0 14px"';
     await sendEmail({
       to: email,
       bcc: null, // the operator gets the full-detail notification below instead
-      subject: `Booked: ${evTitle} — ${when}`,
-      html: emailShell(`<div style="font-size:15px;margin-bottom:10px">You're booked in.</div>
-        <div style="color:#8ea3c4;font-size:13px;line-height:1.7">${esc(evTitle)}<br><b style="color:#f4f7fc">${esc(when)}</b>${notes ? `<br><br>Notes: ${esc(notes)}` : ""}</div>
-        <div style="color:#8ea3c4;font-size:12px;margin-top:16px">The calendar invite is attached. Talk soon.</div>`),
+      subject: `You're booked in, ${firstName} — here's what happens next`,
+      html: emailShell(`
+        <div ${p}>Hey ${esc(firstName)},</div>
+        <div ${p}>Congratulations on taking the first step.</div>
+        <div ${p}>Most businesses know they need better marketing—but very few actually do something about it. The fact that you're here tells us you're serious about growing, and that's exactly the kind of business we love working with.</div>
+        <div style="border-left:2px solid #ffb81c;padding:10px 14px;margin:0 0 16px;background:#0b1526">
+          <div style="font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:#5c7096;margin-bottom:4px">Your call is confirmed</div>
+          <div style="font-size:14px;color:#f4f7fc;font-weight:700">${esc(when)}</div>
+          <div style="font-size:12px;color:#8ea3c4;margin-top:4px">${esc(evTitle)} · calendar invite attached</div>
+        </div>
+        <div ${p}><b style="color:#f4f7fc">Here's what happens next:</b></div>
+        <div ${p}>One of our team members will be reaching out to you within the next 24 hours. We'll hop on a quick call—10 to 15 minutes—to learn more about your business, where you're at right now, and where you're trying to go.</div>
+        <div ${p}>This isn't a sales pitch. We use this conversation to make sure your business is the right fit for our system. What we do isn't for everyone—and we'd rather be upfront about that now than waste your time later.</div>
+        <div ${p}>In the meantime, keep an eye on your phone. We'll be in touch soon.</div>
+        <div ${p}>Talk soon,</div>
+        <div style="font-size:13px;line-height:1.7;color:#8ea3c4;margin-top:18px;border-top:1px solid #24385c;padding-top:14px">
+          <b style="color:#f4f7fc">Brandon King &amp; Emmanuel Bibbs</b><br>
+          Founders &amp; Creative Director<br>
+          Creative Impact Media<br>
+          402-819-8168 &nbsp;|&nbsp; <a href="https://www.creativeimpactmedia.co" style="color:#ffb81c;text-decoration:none">www.creativeimpactmedia.co</a>
+        </div>`),
       ics,
     });
   }

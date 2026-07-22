@@ -68,11 +68,12 @@ async function leakSweep(admin: Admin, userId: string) {
   const leaks: { amount: number; line: string }[] = [];
   const clean: string[] = [];
 
-  const [invR, propR, dealR, shootR] = await Promise.all([
+  const [invR, propR, dealR, shootR, offerR] = await Promise.all([
     admin.from("invoices").select("number,title,amount_cents,status,due_date").eq("user_id", userId),
     admin.from("proposals").select("number,title,amount_cents,status,created_at").eq("user_id", userId),
     admin.from("deals").select("name,offer,value_cents,stage,expected_date,updated_at").eq("user_id", userId),
     admin.from("shoots").select("shoot_date,client,kind,status").eq("user_id", userId),
+    admin.from("offers").select("name,slug,price_monthly_cents").eq("user_id", userId),
   ]);
 
   // 1. Invoices sent and past their due date.
@@ -106,13 +107,19 @@ async function leakSweep(admin: Admin, userId: string) {
   });
   if (!stalled.length && !auditDone.length) clean.push("no stalled deals");
 
-  // 4. OPEN capture days inside 21 days = unsold inventory (Story Capture Pilot).
-  const PILOT_CENTS = 240000;
+  // 4. OPEN capture days inside 21 days = unsold inventory, valued at the
+  // Story Capture Pilot price FROM THE OFFERS BOARD. The pricing ladder is not
+  // ratified yet, so if that offer isn't priced we report the slot as
+  // "unpriced" rather than inventing a figure — never estimate.
+  const pilot = (offerR.data || []).find((o) => /story[\s-]?capture|pilot/i.test(`${o.slug || ""} ${o.name || ""}`));
+  const pilotCents = Number(pilot?.price_monthly_cents) || 0;
   const horizon = new Date(now.getTime() + 21 * 86400000).toISOString().slice(0, 10);
   const openSlots = (shootR.data || []).filter((s) => String(s.status).toUpperCase() === "OPEN" && String(s.shoot_date) >= today && String(s.shoot_date) <= horizon);
   openSlots.forEach((s) => {
     const out = daysBetween(new Date(String(s.shoot_date)), now);
-    leaks.push({ amount: PILOT_CENTS, line: `${money(PILOT_CENTS)} — ${s.shoot_date} capture day unsold, ${out}d out → push audit bookings` });
+    leaks.push(pilotCents
+      ? { amount: pilotCents, line: `${money(pilotCents)} — ${s.shoot_date} capture day unsold, ${out}d out → push audit bookings` }
+      : { amount: 0, line: `unpriced — ${s.shoot_date} capture day unsold, ${out}d out → push audit bookings (no Story Capture Pilot price on the Offers board)` });
   });
   if (!openSlots.length) clean.push("no unsold capture days inside 21 days");
 
@@ -129,7 +136,7 @@ async function leakSweep(admin: Admin, userId: string) {
     "",
     `CLEAN: ${clean.length ? clean.join(" · ") : "—"}`,
     "",
-    "Note: renewals are not swept yet (no renewal-date field on clients). Figures come straight from the board; nothing is estimated.",
+    "Note: renewals are not swept yet (no renewal-date field on clients). Every figure comes straight from the board — invoice/proposal/deal values as recorded, capture days at the Offers-board pilot price. Nothing is estimated; anything unpriced says so.",
   ].join("\n");
 
   return {

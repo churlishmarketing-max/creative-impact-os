@@ -3,6 +3,7 @@ import { getAdminClient } from "@/lib/supabase/admin";
 import { sendEmail, emailShell, esc } from "@/lib/email";
 import { runOnboardingNudges, detectStalls, runReferralFollowups, runAdvocacyCatchup, type Stall } from "@/lib/automations";
 import { runDiagnosticJobs } from "@/lib/diagnostic/cron";
+import { dispatchDueAutomations } from "@/lib/automations-engine";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -24,6 +25,8 @@ export async function GET(req: Request) {
   const referrals = await runReferralFollowups(admin).catch((e) => { console.error("referrals failed", e); return -1; });
   const advocacy = await runAdvocacyCatchup(admin).catch((e) => { console.error("advocacy failed", e); return -1; });
   const diagnostic = await runDiagnosticJobs(admin).catch((e) => { console.error("diagnostic jobs failed", e); return null; });
+  // Operator/Jarvis-defined automations (AUTOMATIONS tab). Never fails the sweep.
+  const automations = await dispatchDueAutomations(admin).catch((e) => { console.error("automations failed", e); return { error: String(e) }; });
 
   // Stall digest to the operator (one email listing everything newly stalled).
   if (stalls.length) {
@@ -37,5 +40,5 @@ export async function GET(req: Request) {
     }).catch((e) => console.error("stall digest failed", e));
   }
 
-  return NextResponse.json({ ok: true, nudges, stalls: stalls.length, referrals, advocacy, diagnostic });
+  return NextResponse.json({ ok: true, nudges, stalls: stalls.length, referrals, advocacy, diagnostic, automations });
 }

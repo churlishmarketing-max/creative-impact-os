@@ -64,7 +64,8 @@ class Cockpit extends React.Component {
     { num: '13', label: 'Scheduling', id: 'scheduling' },
     { num: '14', label: 'KPIs', id: 'kpis' },
     { num: '15', label: 'Expenses', id: 'expenses' },
-    { num: '16', label: 'Jarvis', id: 'rookie' }
+    { num: '16', label: 'Jarvis', id: 'rookie' },
+    { num: '17', label: 'Automations', id: 'automations' }
   ];
 
   // Local-dev demo data only. Real (Supabase) mode starts EMPTY — the DB is the
@@ -2196,6 +2197,128 @@ Signed: {{signer}}      Date: {{date}}`;
     }
   }
 
+  // --- 17: Automations (operator- and Jarvis-created recurring work) ---
+  async loadAutomations() {
+    try {
+      const res = await fetch('/api/automations');
+      const j = await res.json();
+      if (j.ok) this.setState({ autos: j.automations || [], autoMsg: j.needsMigration ? j.hint : '' });
+      else this.setState({ autos: [], autoMsg: j.error || 'Could not load automations.' });
+    } catch (e) { this.setState({ autos: [], autoMsg: 'Could not reach the automations API.' }); }
+  }
+  async autoPost(body, okMsg) {
+    this.setState({ autoBusy: true });
+    try {
+      const res = await fetch('/api/automations', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+      const j = await res.json();
+      this.setState({ autoBusy: false, autoMsg: j.ok ? (okMsg || '') : (j.error || 'Failed.') });
+      if (j.ok) { this.flash(okMsg || 'AUTOMATION SAVED ✓'); await this.loadAutomations(); }
+      return j;
+    } catch (e) { this.setState({ autoBusy: false, autoMsg: 'Request failed.' }); return { ok: false }; }
+  }
+  autoForm() {
+    return Object.assign({ name: '', description: '', action: 'leak_sweep', cadence: 'weekly', day_of_week: 1, note: '' }, this.state.autoForm || {});
+  }
+  setAutoForm(patch) { this.setState({ autoForm: Object.assign({}, this.autoForm(), patch) }); }
+
+  renderAutomationsTab() {
+    if (this.state.autos == null && !this._autosLoading) { this._autosLoading = true; setTimeout(() => this.loadAutomations(), 0); }
+    const autos = this.state.autos || [];
+    const f = this.autoForm();
+    const DOW = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    const ACTIONS = [
+      { v: 'leak_sweep', label: 'Revenue leak sweep', hint: 'Unpaid invoices, quiet proposals, stalled deals, unsold capture days - each with a dollar figure, read straight off the board.' },
+      { v: 'board_digest', label: 'Board digest', hint: 'Collected / signed / open pipeline / coverage snapshot.' },
+      { v: 'log_marker', label: 'Heartbeat note', hint: 'Posts a line you choose. Useful to prove the scheduler is alive.' },
+    ];
+    const inp = { background: "var(--deep)", border: "1px solid var(--line2)", color: "var(--cream)", fontFamily: "var(--mono)", fontSize: "12.5px", padding: "9px 11px", width: "100%" };
+    const lbl = { display: "block", fontSize: "9px", letterSpacing: ".18em", color: "var(--dim)", textTransform: "uppercase", marginBottom: "5px" };
+    const cadenceLabel = (a) => a.cadence === 'weekly' ? `weekly · ${DOW[a.day_of_week == null ? 1 : a.day_of_week]}` : a.cadence === 'monthly' ? `monthly · day ${a.day_of_month || 1}` : a.cadence;
+
+    return (
+      <div style={{ padding: "28px 26px 96px", maxWidth: "1000px", margin: "0 auto", width: "100%" }}>
+        <div style={{ marginBottom: "6px" }}>
+          <div style={{ fontSize: "10px", letterSpacing: ".26em", color: "var(--red)" }}>// 17 · THE AUTOMATIONS DESK</div>
+          <h1 style={{ fontFamily: "var(--cond)", fontWeight: 900, fontSize: "48px", lineHeight: ".92", margin: "6px 0 0", letterSpacing: ".005em" }}>AUTO<span style={{ display: "inline-block", background: "var(--red)", color: "var(--golddark)", padding: "0 12px" }}>MATIONS</span></h1>
+          <div style={{ fontSize: "12px", letterSpacing: ".04em", color: "var(--muted)", marginTop: "9px", maxWidth: "660px", lineHeight: "1.6" }}>Recurring work the OS runs on its own. Every run posts to the AGENT FLEET feed and the sys.log, so nothing happens invisibly. Jarvis can create these too - just ask him.</div>
+        </div>
+        <div style={{ height: "1px", background: "linear-gradient(90deg,var(--red),transparent 55%)", margin: "16px 0 22px" }}></div>
+
+        {this.state.autoMsg ? (
+          <div style={{ background: "#2a1a06", border: "1px solid var(--gold)", color: "var(--gold)", padding: "12px 14px", fontSize: "12px", lineHeight: 1.6, marginBottom: "18px" }}>{this.state.autoMsg}</div>
+        ) : null}
+
+        <div style={{ fontSize: "10px", letterSpacing: ".2em", color: "var(--dim)", textTransform: "uppercase", marginBottom: "10px" }}>Live automations ({autos.length})</div>
+        {autos.length === 0 ? (
+          <div style={{ color: "var(--dim)", fontSize: "12.5px", padding: "16px 0", borderTop: "1px solid var(--line)", borderBottom: "1px solid var(--line)", marginBottom: "26px" }}>Nothing scheduled yet. Create one below, or tell Jarvis "every Monday run the leak sweep".</div>
+        ) : (
+          <div style={{ borderTop: "1px solid var(--line)", marginBottom: "26px" }}>
+            {autos.map((a) => (
+              <div key={a.id} style={{ borderBottom: "1px solid var(--line)", padding: "13px 0", display: "flex", alignItems: "center", gap: "14px", flexWrap: "wrap" }}>
+                <div style={{ width: "8px", height: "8px", borderRadius: "50%", background: a.enabled ? "var(--good)" : "var(--line2)", flexShrink: 0 }}></div>
+                <div style={{ flex: "1 1 260px", minWidth: 0 }}>
+                  <div style={{ fontSize: "13.5px", color: "var(--cream)", fontWeight: 700 }}>{a.name}</div>
+                  <div style={{ fontSize: "11px", color: "var(--dim)", marginTop: "3px" }}>{cadenceLabel(a)} · {a.action}{a.created_by === 'jarvis' ? ' · created by Jarvis' : ''}</div>
+                  {a.description ? <div style={{ fontSize: "11px", color: "var(--muted)", marginTop: "4px", lineHeight: 1.5 }}>{a.description}</div> : null}
+                </div>
+                <div style={{ flex: "0 0 auto", fontSize: "10.5px", color: "var(--dim)", textAlign: "right", minWidth: "130px" }}>
+                  {a.last_run_at ? <>last run {String(a.last_run_at).slice(0, 10)}<br /><span style={{ color: a.last_status === 'ok' ? 'var(--good)' : 'var(--red)' }}>{a.last_status}</span> · {a.run_count}x</> : 'never run'}
+                </div>
+                <div style={{ display: "flex", gap: "8px", flex: "0 0 auto" }}>
+                  <button onClick={() => this.autoPost({ op: 'run', id: a.id }, 'AUTOMATION RAN ✓')} disabled={this.state.autoBusy} style={{ background: "transparent", border: "1px solid var(--line2)", color: "var(--muted)", fontFamily: "var(--mono)", fontSize: "10px", letterSpacing: ".1em", padding: "7px 11px", cursor: "pointer", textTransform: "uppercase" }}>Run now</button>
+                  <button onClick={() => this.autoPost({ op: 'toggle', id: a.id, enabled: !a.enabled }, a.enabled ? 'AUTOMATION PAUSED' : 'AUTOMATION ON ✓')} disabled={this.state.autoBusy} style={{ background: a.enabled ? "transparent" : "var(--good)", border: "1px solid " + (a.enabled ? "var(--line2)" : "var(--good)"), color: a.enabled ? "var(--muted)" : "var(--golddark)", fontFamily: "var(--mono)", fontSize: "10px", letterSpacing: ".1em", padding: "7px 11px", cursor: "pointer", textTransform: "uppercase", fontWeight: 700 }}>{a.enabled ? 'Pause' : 'Enable'}</button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <div style={{ fontSize: "10px", letterSpacing: ".2em", color: "var(--dim)", textTransform: "uppercase", marginBottom: "12px" }}>New automation</div>
+        <div style={{ background: "var(--panel)", border: "1px solid var(--line)", padding: "18px 20px" }}>
+          <div style={{ display: "flex", gap: "12px", flexWrap: "wrap", marginBottom: "12px" }}>
+            <div style={{ flex: "1 1 240px" }}><label style={lbl}>Name</label><input style={inp} value={f.name} placeholder="Monday leak sweep" onChange={(e) => this.setAutoForm({ name: e.target.value })} /></div>
+            <div style={{ flex: "1 1 180px" }}><label style={lbl}>What it does</label>
+              <select style={Object.assign({}, inp, { cursor: "pointer" })} value={f.action} onChange={(e) => this.setAutoForm({ action: e.target.value })}>
+                {ACTIONS.map((a) => <option key={a.v} value={a.v}>{a.label}</option>)}
+              </select>
+            </div>
+            <div style={{ flex: "0 1 140px" }}><label style={lbl}>Cadence</label>
+              <select style={Object.assign({}, inp, { cursor: "pointer" })} value={f.cadence} onChange={(e) => this.setAutoForm({ cadence: e.target.value })}>
+                {['daily', 'weekdays', 'weekly', 'monthly', 'manual'].map((c) => <option key={c} value={c}>{c}</option>)}
+              </select>
+            </div>
+            {f.cadence === 'weekly' ? (
+              <div style={{ flex: "0 1 110px" }}><label style={lbl}>Day</label>
+                <select style={Object.assign({}, inp, { cursor: "pointer" })} value={f.day_of_week} onChange={(e) => this.setAutoForm({ day_of_week: Number(e.target.value) })}>
+                  {DOW.map((d, i) => <option key={d} value={i}>{d}</option>)}
+                </select>
+              </div>
+            ) : null}
+          </div>
+          {f.action === 'log_marker' ? (
+            <div style={{ marginBottom: "12px" }}><label style={lbl}>Note to post</label><input style={inp} value={f.note} placeholder="Scheduler is alive." onChange={(e) => this.setAutoForm({ note: e.target.value })} /></div>
+          ) : null}
+          <div style={{ marginBottom: "14px" }}><label style={lbl}>Description (optional)</label><input style={inp} value={f.description} placeholder="Why this exists" onChange={(e) => this.setAutoForm({ description: e.target.value })} /></div>
+          <div style={{ fontSize: "11px", color: "var(--dim)", lineHeight: 1.6, marginBottom: "14px" }}>{(ACTIONS.find((a) => a.v === f.action) || {}).hint}</div>
+          <button
+            onClick={async () => {
+              if (!f.name.trim()) { this.setState({ autoMsg: 'Give it a name first.' }); return; }
+              const body = { op: 'save', name: f.name, description: f.description || null, action: f.action, cadence: f.cadence, day_of_week: f.cadence === 'weekly' ? f.day_of_week : null, action_config: f.action === 'log_marker' && f.note ? { note: f.note } : {}, enabled: true };
+              const j = await this.autoPost(body, 'AUTOMATION CREATED ✓');
+              if (j.ok) this.setState({ autoForm: null });
+            }}
+            disabled={this.state.autoBusy}
+            style={{ background: "var(--red)", border: "1px solid var(--red)", color: "var(--golddark)", fontFamily: "var(--mono)", fontWeight: 700, fontSize: "11px", letterSpacing: ".12em", padding: "11px 22px", cursor: this.state.autoBusy ? "default" : "pointer", textTransform: "uppercase", opacity: this.state.autoBusy ? .5 : 1 }}
+          >{this.state.autoBusy ? 'Saving…' : 'Create automation →'}</button>
+        </div>
+
+        <div style={{ fontSize: "10px", color: "var(--dim)", marginTop: "12px", lineHeight: 1.55 }}>
+          The OS dispatches due automations once a day (Vercel Hobby allows one cron run per day), so day-level cadences are real and sub-daily timing is not — "Run now" fires anything immediately. Automations are never deleted; pausing is how you stop one.
+        </div>
+      </div>
+    );
+  }
+
   renderRookieTab() {
     const msgs = this.state.rookieMsgs || [];
     const inp = { background: "var(--deep)", border: "1px solid var(--line2)", color: "var(--cream)", fontFamily: "var(--mono)", fontSize: "13px", padding: "11px 13px" };
@@ -3206,6 +3329,7 @@ Signed: {{signer}}      Date: {{date}}`;
   {(this.state.view === 'kpis') ? this.renderKpisTab() : null}
   {(this.state.view === 'expenses') ? this.renderExpensesTab() : null}
   {(this.state.view === 'rookie') ? this.renderRookieTab() : null}
+  {(this.state.view === 'automations') ? this.renderAutomationsTab() : null}
 
   {/* BOTTOMLINE TICKER */}
   {(tickerOn) ? (

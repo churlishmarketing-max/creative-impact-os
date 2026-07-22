@@ -3,6 +3,7 @@ import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { getAdminClient } from "@/lib/supabase/admin";
 import { draftAgentEmail, sendQueuedEmail } from "@/lib/agent";
+import { runAutomation } from "@/lib/automations-engine";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -45,6 +46,10 @@ const TOOLS = [
   { name: "create_invoice", description: "DRAFT an invoice (never sends it). Provide either an amount (DOLLARS) or line items with unit prices; the amount is computed from items when given. Generates the invoice number and a secret pay link. Sending stays with a human — done from the Invoices tab.", input_schema: { type: "object", properties: { client_name: { type: "string", description: "Who it's for (fuzzy match). Optional." }, title: { type: "string" }, amount: { type: "number", description: "Total in DOLLARS; ignored if items are given." }, items: { type: "array", items: { type: "object", properties: { desc: { type: "string" }, qty: { type: "number" }, unit: { type: "number", description: "Unit price in DOLLARS." } }, required: ["desc"] } }, due_date: { type: "string", description: "YYYY-MM-DD, optional." }, notes: { type: "string" } } } },
   { name: "create_proposal", description: "DRAFT a proposal with e-sign link (never sends it). Provide amount (DOLLARS) or line items, optional intro and terms (contract language). Generates the number and a secret accept link. Sending stays with a human — done from the Proposals tab.", input_schema: { type: "object", properties: { client_name: { type: "string", description: "Who it's for (fuzzy match). Optional." }, title: { type: "string" }, intro: { type: "string" }, amount: { type: "number", description: "Total in DOLLARS; ignored if items are given." }, items: { type: "array", items: { type: "object", properties: { desc: { type: "string" }, qty: { type: "number" }, unit: { type: "number", description: "Unit price in DOLLARS." } }, required: ["desc"] } }, terms: { type: "string" } } } },
   { name: "update_booking", description: "Reschedule or cancel an UPCOMING booked call, matched by attendee name/email or client. Reschedule needs a new start time as an ISO timestamp WITH timezone offset (e.g. 2026-08-27T14:00:00-04:00 for 2pm Eastern). Cancel sets the call to cancelled and frees the slot; it does not itself email the client.", input_schema: { type: "object", properties: { who: { type: "string", description: "Attendee name/email or client name (fuzzy match)." }, action: { type: "string", enum: ["reschedule", "cancel"] }, start_at: { type: "string", description: "New start, ISO with tz offset. Required for reschedule." }, end_at: { type: "string", description: "New end, ISO. Optional — defaults to the original call length." } }, required: ["who", "action"] } },
+  { name: "list_automations", description: "List the operator's automations (the AUTOMATIONS tab) with their cadence, action, enabled state, and last run.", input_schema: { type: "object", properties: {} } },
+  { name: "create_automation", description: "Create a recurring automation that the daily cron will run on its own. Actions available: leak_sweep (Black Widow revenue leak sweep off the live board), board_digest (collected/signed/pipeline/coverage snapshot), log_marker (a heartbeat note — useful for testing). Cadence: daily, weekdays, weekly (give day_of_week 0=Sun..6=Sat), monthly (give day_of_month), or manual (only runs when fired by hand). Created enabled unless told otherwise.", input_schema: { type: "object", properties: { name: { type: "string" }, description: { type: "string" }, action: { type: "string", enum: ["leak_sweep", "board_digest", "log_marker"] }, cadence: { type: "string", enum: ["daily", "weekdays", "weekly", "monthly", "manual"] }, day_of_week: { type: "number", description: "0=Sun..6=Sat, for weekly." }, day_of_month: { type: "number" }, note: { type: "string", description: "For log_marker: the text to post." }, enabled: { type: "boolean" } }, required: ["name", "action", "cadence"] } },
+  { name: "toggle_automation", description: "Turn an existing automation on or off, matched by (partial) name. Automations are never deleted — disabling is how you stop one.", input_schema: { type: "object", properties: { name: { type: "string" }, enabled: { type: "boolean" } }, required: ["name", "enabled"] } },
+  { name: "run_automation_now", description: "Fire an existing automation immediately, ignoring its cadence, matched by (partial) name. Use to test one or to get a leak sweep on demand.", input_schema: { type: "object", properties: { name: { type: "string" } }, required: ["name"] } },
 ];
 
 async function boardSummary(admin: NonNullable<ReturnType<typeof getAdminClient>>, uid: string) {
@@ -384,6 +389,66 @@ async function runTool(admin: NonNullable<ReturnType<typeof getAdminClient>>, ui
     return `Rescheduled the call with ${bk.name || bk.email || "guest"} to ${new Date(start).toUTCString()}. The client was not emailed — tell me if you want a note drafted.`;
   }
 
+  // --- Automations (the AUTOMATIONS tab) ---
+  const AUTO_MIGRATION = 'The automations table does not exist yet - run supabase/21_automations.sql in the Supabase SQL editor, then try again.';
+  const missingAutoTable = (m?: string) => !!m && /relation .* does not exist/i.test(m);
+  const cadenceLabel = (a: { cadence: string; day_of_week: number | null; day_of_month: number | null }) => {
+    const DOW = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+    if (a.cadence === "weekly") return `weekly · ${DOW[a.day_of_week ?? 1]}`;
+    if (a.cadence === "monthly") return `monthly · day ${a.day_of_month ?? 1}`;
+    return a.cadence;
+  };
+
+  if (name === "list_automations") {
+    const { data, error } = await admin.from("automations").select("*").eq("user_id", uid).order("created_at", { ascending: true });
+    if (error) return missingAutoTable(error.message) ? AUTO_MIGRATION : "ERROR: " + error.message;
+    if (!data?.length) return "No automations yet.";
+    return data.map((a) => `${a.enabled ? "ON " : "OFF"} · ${a.name} · ${cadenceLabel(a)} · ${a.action}${a.last_run_at ? ` · last run ${String(a.last_run_at).slice(0, 10)} (${a.last_status})` : " · never run"}`).join("\n");
+  }
+
+  if (name === "create_automation") {
+    const action = String(input.action || "");
+    const cadence = String(input.cadence || "daily");
+    const row: Record<string, unknown> = {
+      user_id: uid,
+      name: String(input.name).slice(0, 120),
+      description: input.description ? String(input.description).slice(0, 600) : null,
+      cadence,
+      day_of_week: cadence === "weekly" ? Math.min(6, Math.max(0, Number(input.day_of_week ?? 1))) : null,
+      day_of_month: cadence === "monthly" ? Math.min(31, Math.max(1, Number(input.day_of_month ?? 1))) : null,
+      action,
+      action_config: input.note ? { note: String(input.note) } : {},
+      enabled: input.enabled == null ? true : !!input.enabled,
+      created_by: "jarvis",
+    };
+    const { error } = await admin.from("automations").insert(row);
+    if (error) return missingAutoTable(error.message) ? AUTO_MIGRATION : "ERROR: " + error.message;
+    await log(`automation created · ${row.name} · ${cadence} · ${action}`);
+    return `Automation created: "${row.name}" — ${cadenceLabel(row as never)} running ${action}, ${row.enabled ? "enabled" : "disabled"}. The daily sweep will pick it up; say "run <name> now" to fire it immediately.`;
+  }
+
+  if (name === "toggle_automation") {
+    const { data: matches, error } = await admin.from("automations").select("id,name,enabled").eq("user_id", uid).ilike("name", `%${input.name}%`);
+    if (error) return missingAutoTable(error.message) ? AUTO_MIGRATION : "ERROR: " + error.message;
+    if (!matches?.length) return `No automation matching "${input.name}".`;
+    if (matches.length > 1) return `Ambiguous — matches: ${matches.map((m) => m.name).join(", ")}. Which one?`;
+    const next = !!input.enabled;
+    const { error: e2 } = await admin.from("automations").update({ enabled: next }).eq("id", matches[0].id);
+    if (e2) return "ERROR: " + e2.message;
+    await log(`automation ${next ? "enabled" : "disabled"} · ${matches[0].name}`);
+    return `${matches[0].name} is now ${next ? "ON" : "OFF"}.`;
+  }
+
+  if (name === "run_automation_now") {
+    const { data: matches, error } = await admin.from("automations").select("*").eq("user_id", uid).ilike("name", `%${input.name}%`);
+    if (error) return missingAutoTable(error.message) ? AUTO_MIGRATION : "ERROR: " + error.message;
+    if (!matches?.length) return `No automation matching "${input.name}".`;
+    if (matches.length > 1) return `Ambiguous — matches: ${matches.map((m) => m.name).join(", ")}. Which one?`;
+    const r = await runAutomation(admin, matches[0] as never);
+    if (!r.ok) return `Run failed: ${r.error}`;
+    return `Ran "${matches[0].name}" — ${r.title}\n\n${r.summary}`;
+  }
+
   return "Unknown tool.";
 }
 
@@ -412,7 +477,7 @@ export async function POST(req: Request) {
   let { data: agent } = await admin.from("agents").select("voice_prompt").eq("user_id", user.id).eq("name", "Jarvis").maybeSingle();
   if (!agent) ({ data: agent } = await admin.from("agents").select("voice_prompt").eq("user_id", user.id).eq("name", "Showrunner").maybeSingle());
   const board = await boardSummary(admin, user.id);
-  const system = `${agent?.voice_prompt || "You are Jarvis, the Creative Impact OS operator copilot."}\n\nYou are Jarvis. You are an AI and say so plainly if asked; you never pose as Brandon, Emmanuel, or a client.\n\nLIVE BOARD CONTEXT (as of this message):\n${JSON.stringify(board)}\n\nToday: ${new Date().toDateString()}. Current ISO week: ${weekKey()}.\n\nCAPABILITIES NOTE: You can change mission-level settings (set_sprint: target, dates, THE ONE THING), manage Founder OS goals (add_goal/complete_goal), rewrite the working strategy (set_strategy), set KPIs, and ingest uploaded receipts/statements/CSVs — extract each line item and log via add_expenses_bulk (use the document's dates; ask before logging if any line is unreadable or ambiguous). Changing the sprint target or dates is a big lever — restate the change and act only when the instruction is explicit.\n\nINVOICES & PROPOSALS: create_invoice and create_proposal DRAFT the document and generate its client link — they never email the client. Sending an invoice or proposal is an outbound, money-adjacent action that stays with a human: after drafting, show the operator the number, amount, and link, and tell them to send it from the Invoices/Proposals tab. Do not claim anything was sent.\n\nCALLS: update_booking reschedules or cancels an upcoming booked call. Rescheduling needs an explicit new start time. Cancelling frees the slot on the public booker; restate the call before cancelling.\n\nCLIENT EMAIL: draft_client_email hands the writing to Anchor (the client producer) — client-facing mail is his voice, not yours. Drafts queue for approval by default; pass send_now=true ONLY on an explicit send order. When the operator approves a draft you just showed them ("send it"), use send_pending_email — never redraft. Show the operator the draft body after creating it. Use list_clients to see or disambiguate the roster; client matching covers names, contact names, and emails.\n\nYou can add and update, but you NEVER delete anything, and you never send an invoice, proposal, or client email without the operator's explicit go-ahead.`;
+  const system = `${agent?.voice_prompt || "You are Jarvis, the Creative Impact OS operator copilot."}\n\nYou are Jarvis. You are an AI and say so plainly if asked; you never pose as Brandon, Emmanuel, or a client.\n\nLIVE BOARD CONTEXT (as of this message):\n${JSON.stringify(board)}\n\nToday: ${new Date().toDateString()}. Current ISO week: ${weekKey()}.\n\nCAPABILITIES NOTE: You can change mission-level settings (set_sprint: target, dates, THE ONE THING), manage Founder OS goals (add_goal/complete_goal), rewrite the working strategy (set_strategy), set KPIs, and ingest uploaded receipts/statements/CSVs — extract each line item and log via add_expenses_bulk (use the document's dates; ask before logging if any line is unreadable or ambiguous). Changing the sprint target or dates is a big lever — restate the change and act only when the instruction is explicit.\n\nINVOICES & PROPOSALS: create_invoice and create_proposal DRAFT the document and generate its client link — they never email the client. Sending an invoice or proposal is an outbound, money-adjacent action that stays with a human: after drafting, show the operator the number, amount, and link, and tell them to send it from the Invoices/Proposals tab. Do not claim anything was sent.\n\nAUTOMATIONS: you can set up recurring work yourself. create_automation makes a scheduled job the OS runs on its own (leak_sweep = Black Widow's revenue leak sweep computed off the live board; board_digest = a numbers snapshot; log_marker = a heartbeat for testing). list_automations shows what exists, toggle_automation turns one on/off (they are never deleted), run_automation_now fires one immediately. The OS dispatches due automations once a day, so day-level cadences are real and sub-daily timing is not. When the operator describes recurring work ("every Monday sweep for money we're leaving on the table"), offer to create the automation rather than just doing it once.\n\nCALLS: update_booking reschedules or cancels an upcoming booked call. Rescheduling needs an explicit new start time. Cancelling frees the slot on the public booker; restate the call before cancelling.\n\nCLIENT EMAIL: draft_client_email hands the writing to Anchor (the client producer) — client-facing mail is his voice, not yours. Drafts queue for approval by default; pass send_now=true ONLY on an explicit send order. When the operator approves a draft you just showed them ("send it"), use send_pending_email — never redraft. Show the operator the draft body after creating it. Use list_clients to see or disambiguate the roster; client matching covers names, contact names, and emails.\n\nYou can add and update, but you NEVER delete anything, and you never send an invoice, proposal, or client email without the operator's explicit go-ahead.`;
 
   const convo: { role: string; content: unknown }[] = history.map((m) => ({ role: m.role === "assistant" ? "assistant" : "user", content: m.content }));
 

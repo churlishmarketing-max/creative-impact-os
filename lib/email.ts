@@ -1,6 +1,13 @@
 // Email via Resend (https://resend.com) — direct REST call, no SDK.
 // Server-only. No-ops gracefully if RESEND_API_KEY isn't set.
-// Env: RESEND_API_KEY, EMAIL_FROM (default hello@os.creativeimpactmedia.co), EMAIL_BCC (your copy).
+// Env: RESEND_API_KEY, EMAIL_FROM, EMAIL_BCC (the operator's copy).
+//
+// ⚠️ EMAIL_FROM must be on a domain that is VERIFIED in Resend. Resend rejects
+// (403) any send from an unverified domain, and because sends here are
+// fire-and-forget the rejection is invisible from the UI — the booking still
+// succeeds and no email ever arrives. The verified domain is currently the
+// apex `creativeimpactmedia.co`. If you change the domain in Resend, change
+// EMAIL_FROM in the same sitting or email silently stops.
 
 type SendArgs = {
   to: string | string[];
@@ -15,7 +22,9 @@ type SendArgs = {
 export async function sendEmail(a: SendArgs) {
   const key = process.env.RESEND_API_KEY;
   if (!key) return { ok: false, skipped: true };
-  const from = a.from || process.env.EMAIL_FROM || "Creative Impact <hello@os.creativeimpactmedia.co>";
+  // Fallback matches the domain actually verified in Resend (the apex). Keep
+  // these in sync — a stale fallback is exactly how sending broke before.
+  const from = a.from || process.env.EMAIL_FROM || "Creative Impact <hello@creativeimpactmedia.co>";
   const bcc = a.bcc === undefined ? process.env.EMAIL_BCC || "hello@creativeimpactmedia.co" : a.bcc;
 
   const body: Record<string, unknown> = {

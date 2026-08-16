@@ -1,7 +1,7 @@
 # Creative Impact OS — State of Play
 
 **Read this first. It is auto-loaded into every Claude Code session in this repo.**
-Last updated: 2026-07-19.
+Last updated: 2026-08-16.
 
 ---
 
@@ -51,8 +51,30 @@ The capture days are the wedge, not the number.
   local file is what every Claude Code agent reads to authenticate). All seven
   fleet agents are registered on `/fleet`, and Jessica Jones has completed a
   verified end-to-end run.
-- **Public booking** — `/go/book` captures leads and files them to the roster.
-  (The *notification email* does not send — see Dormant.)
+- **Public booking** — `/go/book` captures leads, files them to the roster, and
+  now **emails both sides**: the booker gets the founders' welcome email with a
+  calendar invite attached, and the operator gets the full lead detail.
+- **EMAIL IS LIVE** (as of 2026-08-16). Resend is set up and verified on the
+  **apex `creativeimpactmedia.co`**. Google Workspace handles *receiving* for
+  `hello@creativeimpactmedia.co`; Resend handles *sending*. They coexist: apex
+  SPF authorizes Google, `send.creativeimpactmedia.co` carries Resend's SPF and
+  bounce MX, and Resend's DKIM signs on the apex.
+
+  > ⚠️ **The gotcha that cost a whole debugging session — read before touching email.**
+  > `EMAIL_FROM` must be on the domain that is **verified in Resend**. They are
+  > two halves of one setting. The build originally sent from the `os.`
+  > subdomain; when the Resend domain was switched to the apex and `EMAIL_FROM`
+  > wasn't, every send was rejected **403 — and nothing showed anywhere.**
+  > Sends are fire-and-forget, so the booking still succeeded, the UI looked
+  > perfectly healthy, and no email ever arrived. **Symptom to remember:
+  > "everything works but no email" = `EMAIL_FROM` disagrees with the verified
+  > domain, or `RESEND_API_KEY` isn't in Production / wasn't redeployed.**
+  > Diagnose at `resend.com/emails` — empty log means the app never called
+  > Resend at all; entries with errors mean it did and was rejected.
+  >
+  > Also: **Resend shows an API key's value once, at creation.** It can never be
+  > read back. If you don't have it, make a new key — that's normal, not a
+  > mistake. Don't forget to **redeploy** after adding it in Vercel.
 - **The board is EMPTY BY DESIGN.** No deals, no weekly numbers, no log lines,
   no shoots. That is correct, not a broken migration. Real data gets entered by
   humans. Demo numbers deliberately never ship to production.
@@ -61,22 +83,18 @@ The capture days are the wedge, not the number.
 
 | Surface | Blocked by | Notes |
 |---|---|---|
-| All outbound email — booking alerts, Anchor drafts, client reply threads | Resend not set up | Needs a **new** Resend account: free tier = one custom domain, Churlish used theirs |
 | Authority Diagnostic checkout ($750) | `STRIPE_SECRET_KEY` | **Deferred on purpose** — no CI bank account yet. Not forgotten |
 | Clarity Engine bridge | `CLARITY_WEBHOOK_SECRET` | Lovable half not built either |
 | Facebook lead import | FB_* vars | Parked |
 | Android APK | assetlinks | Parked. Note `/.well-known/assetlinks.json` currently 404s — the proxy exempts the path but the route needs work. Setting the env var alone won't fix it |
 
-## ⚠️ ONE THING WAITING ON BRANDON (do this first)
+## What changed most recently (through 2026-08-16)
 
-**Run `supabase/21_automations.sql`** in the Supabase SQL editor (project
-`eiotngsqhyqnzmoofuie` → SQL Editor → paste → Run). Until then, tab 17
-**Automations** loads with a "table doesn't exist" hint instead of data, and
-Jarvis will say the same if you ask him to create one. Everything else is live.
-It seeds two example automations **disabled**, so nothing fires until you turn
-it on.
-
-## What changed most recently (2026-07-21/22)
+- **Email went live.** See the LIVE section above for the `EMAIL_FROM` gotcha.
+- **`supabase/21_automations.sql` has been run.** Tab 17 works; both seeded
+  automations exist and are **paused** until deliberately enabled. The leak
+  sweep has been fired manually and correctly returned "clean sweep" against an
+  empty board.
 
 - **Tab 16 is now JARVIS** (was "Console"/Showrunner). `ANTHROPIC_API_KEY` is
   set, and it's online. Beyond the original deals/clients/expenses/KPI powers it
@@ -91,8 +109,8 @@ it on.
   saved as `America/New York` (space, not underscore), which is not a valid IANA
   zone, so `Intl` threw and the whole public page died. It now sanitises any bad
   timezone and the Scheduling field strips spaces. Default timezone is Eastern.
-- **Post-booking welcome email** in the founders' voice now goes to whoever
-  books (still gated on Resend — see Dormant).
+- **Post-booking welcome email** in the founders' voice goes to whoever books,
+  with the confirmed slot and a calendar invite. **Live and sending.**
 - **⚠️ Vercel is on the Hobby plan**, which allows **one cron run per day**.
   That's why automations are day-granularity. Going Pro (~$20/mo) would allow
   real intraday scheduling (e.g. Ironheart's 5:30pm report). Brandon's call —
@@ -104,8 +122,10 @@ it on.
 `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `CRON_SECRET`,
 `REFERRAL_TARGET_URL`.
 
-**Confirmed NOT set:** `STRIPE_SECRET_KEY`, all Resend
-vars, `CLARITY_WEBHOOK_SECRET`. **Now SET:** `FLEET_INGEST_SECRET`, `ANTHROPIC_API_KEY`.
+**Confirmed NOT set:** `STRIPE_SECRET_KEY`, inbound-reply
+vars (`EMAIL_REPLY_TO`, `RESEND_WEBHOOK_SECRET`), `CLARITY_WEBHOOK_SECRET`.
+
+**Now SET:** `FLEET_INGEST_SECRET`, `ANTHROPIC_API_KEY`, `RESEND_API_KEY`, `EMAIL_FROM`, `EMAIL_BCC`.
 
 Full descriptions live in `.env.local.example`. Two cautions:
 - `NEXT_PUBLIC_*` values are **baked at build time** — changing one in Vercel

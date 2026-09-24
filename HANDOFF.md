@@ -43,9 +43,14 @@ The capture days are the wedge, not the number.
   Vercel — do not just hit Redeploy.
 - **Database** — Supabase project `eiotngsqhyqnzmoofuie`, fully built.
   `SETUP_CREATIVE_IMPACT.sql` was run once, successfully.
-- **The cockpit** — 17 tabs render and save: pipeline, clients, invoices,
-  proposals, scheduling, KPIs, expenses, shoots, partner desk, fleet page,
-  **Jarvis (16)** and **Automations (17)**.
+- **The cockpit** — 18 screens in **8 nav groups** (was 18 flat tabs):
+  01 Command · 02 Sales (Pipeline, Audits, Clients, Scheduling) · 03 Spotlight ·
+  04 Production (Shoots, Documents) · 05 Money (Invoices, Proposals, Expenses,
+  KPIs) · 06 Strategy (Strategy, Plans, Partners) · 07 Fleet (Agent Fleet,
+  Automations) · 08 Jarvis. Groups with several screens show a sub-tab row.
+  Screen ids (`state.view`) are unchanged; the grouping lives in `NAV` in
+  `app/cockpit/Cockpit.jsx`. Adding a screen = add it to `NAV` too, or it's
+  unreachable.
 - **The fleet bridge is OPEN.** `FLEET_INGEST_SECRET` is set in Vercel and
   mirrored to `C:\Users\mrkin\.creative-impact\os-secret` on Brandon's PC (that
   local file is what every Claude Code agent reads to authenticate). All seven
@@ -87,6 +92,29 @@ The capture days are the wedge, not the number.
 | Clarity Engine bridge | `CLARITY_WEBHOOK_SECRET` | Lovable half not built either |
 | Facebook lead import | FB_* vars | Parked |
 | Android APK | assetlinks | Parked. Note `/.well-known/assetlinks.json` currently 404s — the proxy exempts the path but the route needs work. Setting the env var alone won't fix it |
+
+## ⚠️ CHARLOTTE SPOTLIGHT — two things waiting on Brandon (2026-09-24)
+
+1. **Run `supabase/22_spotlight.sql`** in the Supabase SQL editor. Until then
+   the Spotlight screen shows a "table doesn't exist" notice. Safe to re-run;
+   touches no other table.
+2. **Decide the offer.** The source docs disagree: the Aug 21 Canonical Kit,
+   Agreement and Invoice templates sell 10 spots in two tiers ($1,750→$750) paid
+   in full, one season locking Oct 10; the Sep 19 Call Script sells a flat
+   **$997 = $250 deposit + $747 at filming**, ten businesses a month. The module
+   defaults to Sep 19. Price/deposit/month/episode date are **Settings**, not
+   code. The agreement template is still the Aug 21 text — agreements stay
+   locked until it's rewritten to match the real offer, gets the NC attorney
+   pass, and "attorney reviewed" is ticked in Spotlight → Settings.
+
+**How it works:** prospect → contacted → call booked → **member** (deposit
+paid; that auto-emails the pre-shoot questions) → filming → filmed → delivered
+→ published, plus Not now / No lanes. `/go/spotlight` is the fit-call booking
+link. Cold emails never auto-send (drafts with a [bracket] send-blocker; for
+volume use a dedicated outreach sender, not hello@). Code: `lib/spotlight.ts`,
+`app/api/spotlight/`, `app/cockpit/Spotlight.jsx`, `app/spotlight/q/[token]`.
+**The script's "October" lines expire Oct 1** — roll the month and episode date
+forward in Settings (script §11 has the swap list).
 
 ## What changed most recently (through 2026-08-16)
 

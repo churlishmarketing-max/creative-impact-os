@@ -14,7 +14,7 @@ export const maxDuration = 60;
 // Not exempted in the proxy: session required.
 
 const MIGRATION_HINT = "The automations table doesn't exist yet — run supabase/21_automations.sql in the Supabase SQL editor.";
-const isMissingTable = (m?: string) => !!m && /relation .* does not exist/i.test(m);
+const isMissingTable = (m?: string) => !!m && /does not exist|schema cache/i.test(m);
 
 async function auth() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;

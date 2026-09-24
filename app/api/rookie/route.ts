@@ -4,6 +4,7 @@ import { cookies } from "next/headers";
 import { getAdminClient } from "@/lib/supabase/admin";
 import { draftAgentEmail, sendQueuedEmail } from "@/lib/agent";
 import { runAutomation } from "@/lib/automations-engine";
+import { STAGES as SPOT_STAGES, STAGE_KEYS as SPOT_KEYS, VERTICALS, makeMember, importWebsite, type Prospect } from "@/lib/spotlight";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -49,6 +50,9 @@ const TOOLS = [
   { name: "list_automations", description: "List the operator's automations (the AUTOMATIONS tab) with their cadence, action, enabled state, and last run.", input_schema: { type: "object", properties: {} } },
   { name: "create_automation", description: "Create a recurring automation that the daily cron will run on its own. Actions available: leak_sweep (Black Widow revenue leak sweep off the live board), board_digest (collected/signed/pipeline/coverage snapshot), log_marker (a heartbeat note — useful for testing). Cadence: daily, weekdays, weekly (give day_of_week 0=Sun..6=Sat), monthly (give day_of_month), or manual (only runs when fired by hand). Created enabled unless told otherwise.", input_schema: { type: "object", properties: { name: { type: "string" }, description: { type: "string" }, action: { type: "string", enum: ["leak_sweep", "board_digest", "log_marker"] }, cadence: { type: "string", enum: ["daily", "weekdays", "weekly", "monthly", "manual"] }, day_of_week: { type: "number", description: "0=Sun..6=Sat, for weekly." }, day_of_month: { type: "number" }, note: { type: "string", description: "For log_marker: the text to post." }, enabled: { type: "boolean" } }, required: ["name", "action", "cadence"] } },
   { name: "toggle_automation", description: "Turn an existing automation on or off, matched by (partial) name. Automations are never deleted — disabling is how you stop one.", input_schema: { type: "object", properties: { name: { type: "string" }, enabled: { type: "boolean" } }, required: ["name", "enabled"] } },
+  { name: "spotlight_list", description: "List the Charlotte Spotlight pipeline: every business with its stage, reviews/years, and whether questions went out or came back. Optionally filter by stage.", input_schema: { type: "object", properties: { stage: { type: "string", enum: SPOT_KEYS } } } },
+  { name: "spotlight_add", description: "Add a business to the Charlotte Spotlight pipeline as a Prospect. If a website is given and import_site is true, the OS reads the site and fills only empty fields (facts from the site only). Reviews and years are what the cold-call opener runs on; ask for them if the operator has them.", input_schema: { type: "object", properties: { business: { type: "string" }, owner_name: { type: "string" }, email: { type: "string" }, phone: { type: "string" }, website: { type: "string" }, vertical: { type: "string", enum: Object.keys(VERTICALS) }, suburb: { type: "string" }, reviews: { type: "number" }, years: { type: "number" }, notes: { type: "string" }, import_site: { type: "boolean" } }, required: ["business"] } },
+  { name: "spotlight_move", description: "Move a Charlotte Spotlight business to a new stage, matched by (partial) business name. Moving to member means their slot is claimed and, if auto-send is on in Spotlight settings, EMAILS them their pre-shoot questions immediately, so restate that before doing it. no is a clean no: they should never be re-added. For not_now pass the month they named.", input_schema: { type: "object", properties: { business: { type: "string" }, stage: { type: "string", enum: SPOT_KEYS }, not_now_month: { type: "string" } }, required: ["business", "stage"] } },
   { name: "run_automation_now", description: "Fire an existing automation immediately, ignoring its cadence, matched by (partial) name. Use to test one or to get a leak sweep on demand.", input_schema: { type: "object", properties: { name: { type: "string" } }, required: ["name"] } },
 ];
 
@@ -398,7 +402,7 @@ async function runTool(admin: NonNullable<ReturnType<typeof getAdminClient>>, ui
 
   // --- Automations (the AUTOMATIONS tab) ---
   const AUTO_MIGRATION = 'The automations table does not exist yet - run supabase/21_automations.sql in the Supabase SQL editor, then try again.';
-  const missingAutoTable = (m?: string) => !!m && /relation .* does not exist/i.test(m);
+  const missingAutoTable = (m?: string) => !!m && /does not exist|schema cache/i.test(m);
   const cadenceLabel = (a: { cadence: string; day_of_week: number | null; day_of_month: number | null }) => {
     const DOW = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
     if (a.cadence === "weekly") return `weekly · ${DOW[a.day_of_week ?? 1]}`;
@@ -456,6 +460,62 @@ async function runTool(admin: NonNullable<ReturnType<typeof getAdminClient>>, ui
     return `Ran "${matches[0].name}" — ${r.title}\n\n${r.summary}`;
   }
 
+  // --- Charlotte Spotlight ---
+  const SPOT_MIGRATION = "The Spotlight table does not exist yet - run supabase/22_spotlight.sql in the Supabase SQL editor.";
+  const spotMissing = (m?: string) => !!m && /does not exist|schema cache/i.test(m);
+  const stageLabel = (k: string) => SPOT_STAGES.find((x) => x.key === k)?.label || k;
+  if (name === "spotlight_list") {
+    let q = admin.from("spotlight_prospects").select("business,owner_name,stage,reviews,years,q_sent_at,q_returned_at,film_date").eq("user_id", uid).order("created_at", { ascending: true });
+    if (input.stage) q = q.eq("stage", String(input.stage));
+    const { data, error } = await q;
+    if (error) return spotMissing(error.message) ? SPOT_MIGRATION : "ERROR: " + error.message;
+    if (!data?.length) return input.stage ? `Nobody at ${stageLabel(String(input.stage))}.` : "The Spotlight pipeline is empty.";
+    return data.map((p) => `${p.business}${p.owner_name ? " (" + p.owner_name + ")" : ""} · ${stageLabel(p.stage)} · ${p.reviews ?? "—"} reviews · ${p.years ?? "—"} yrs${p.film_date ? " · films " + p.film_date : ""}${p.q_returned_at ? " · ★ answers back" : p.q_sent_at ? " · questions sent" : ""}`).join("\n");
+  }
+  if (name === "spotlight_add") {
+    const row: Record<string, unknown> = { user_id: uid, stage: "prospect", source: "jarvis", business: String(input.business).slice(0, 200) };
+    for (const k of ["owner_name", "email", "phone", "website", "suburb", "notes"]) if (input[k]) row[k] = String(input[k]).slice(0, 1000);
+    if (input.vertical && VERTICALS[String(input.vertical)]) row.vertical = String(input.vertical);
+    if (input.reviews != null) row.reviews = Math.max(0, Math.round(Number(input.reviews)) || 0);
+    if (input.years != null) row.years = Math.max(0, Math.round(Number(input.years)) || 0);
+    let filled: string[] = [];
+    if (input.import_site && row.website) {
+      const r = await importWebsite(String(row.website));
+      if (r.ok) {
+        const pr = r.profile as Record<string, unknown>;
+        row.profile = pr;
+        const fillIn = (k: string, v: unknown) => { if (row[k] == null && v != null && v !== "") { row[k] = v; filled.push(k); } };
+        fillIn("owner_name", pr.owner_name); fillIn("phone", pr.phone); fillIn("email", pr.email); fillIn("suburb", pr.city_or_suburb);
+        if (!row.vertical && pr.vertical && VERTICALS[String(pr.vertical)]) { row.vertical = String(pr.vertical); filled.push("vertical"); }
+        if (row.years == null && pr.years_in_business != null && !isNaN(Number(pr.years_in_business))) { row.years = Number(pr.years_in_business); filled.push("years"); }
+      } else filled = ["(site import failed: " + r.error + ")"];
+    }
+    const { error } = await admin.from("spotlight_prospects").insert(row);
+    if (error) return spotMissing(error.message) ? SPOT_MIGRATION : "ERROR: " + error.message;
+    await log(`spotlight · added ${row.business}`);
+    return `Added ${row.business} to the Spotlight pipeline as a Prospect.${filled.length ? " From their site: " + filled.join(", ") + "." : ""}${row.reviews == null || row.years == null ? " Still missing reviews/years — the call opener needs both." : ""}`;
+  }
+  if (name === "spotlight_move") {
+    const stage = String(input.stage || "");
+    if (!SPOT_KEYS.includes(stage)) return "Unknown stage.";
+    const { data: matches, error } = await admin.from("spotlight_prospects").select("*").eq("user_id", uid).ilike("business", `%${String(input.business).replace(/[%,()]/g, " ").trim()}%`);
+    if (error) return spotMissing(error.message) ? SPOT_MIGRATION : "ERROR: " + error.message;
+    if (!matches?.length) return `No Spotlight business matching "${input.business}".`;
+    if (matches.length > 1) return `Ambiguous — matches: ${matches.map((m) => m.business).join(", ")}. Which one?`;
+    const p = matches[0] as Prospect;
+    if (stage === "member") {
+      const r = await makeMember(admin, p);
+      const q = r.questions;
+      return `${p.business} is now a MEMBER.${q ? (q.ok ? " Their pre-shoot questions were emailed." : " Questions NOT sent: " + ("error" in q ? q.error : "")) : " Questions drafted but not sent (auto-send is off, no email on file, or already sent)."}`;
+    }
+    const patch: Record<string, unknown> = { stage, stage_at: new Date().toISOString() };
+    if (stage === "not_now" && input.not_now_month) patch.not_now_month = String(input.not_now_month).slice(0, 60);
+    const { error: e2 } = await admin.from("spotlight_prospects").update(patch).eq("id", p.id);
+    if (e2) return "ERROR: " + e2.message;
+    await log(`spotlight · ${p.business} → ${stageLabel(stage)}`);
+    return `${p.business}: ${stageLabel(p.stage)} → ${stageLabel(stage)}.`;
+  }
+
   return "Unknown tool.";
 }
 
@@ -484,7 +544,7 @@ export async function POST(req: Request) {
   let { data: agent } = await admin.from("agents").select("voice_prompt").eq("user_id", user.id).eq("name", "Jarvis").maybeSingle();
   if (!agent) ({ data: agent } = await admin.from("agents").select("voice_prompt").eq("user_id", user.id).eq("name", "Showrunner").maybeSingle());
   const board = await boardSummary(admin, user.id);
-  const system = `${agent?.voice_prompt || "You are Jarvis, the Creative Impact OS operator copilot."}\n\nYou are Jarvis. You are an AI and say so plainly if asked; you never pose as Brandon, Emmanuel, or a client.\n\nLIVE BOARD CONTEXT (as of this message):\n${JSON.stringify(board)}\n\nToday: ${new Date().toDateString()}. Current ISO week: ${weekKey()}.\n\nCAPABILITIES NOTE: You can change mission-level settings (set_sprint: target, dates, THE ONE THING), manage Founder OS goals (add_goal/complete_goal), rewrite the working strategy (set_strategy), set KPIs, and ingest uploaded receipts/statements/CSVs — extract each line item and log via add_expenses_bulk (use the document's dates; ask before logging if any line is unreadable or ambiguous). Changing the sprint target or dates is a big lever — restate the change and act only when the instruction is explicit.\n\nINVOICES & PROPOSALS: create_invoice and create_proposal DRAFT the document and generate its client link — they never email the client. Sending an invoice or proposal is an outbound, money-adjacent action that stays with a human: after drafting, show the operator the number, amount, and link, and tell them to send it from the Invoices/Proposals tab. Do not claim anything was sent.\n\nAUTOMATIONS: you can set up recurring work yourself. create_automation makes a scheduled job the OS runs on its own (leak_sweep = Black Widow's revenue leak sweep computed off the live board; board_digest = a numbers snapshot; log_marker = a heartbeat for testing). list_automations shows what exists, toggle_automation turns one on/off (they are never deleted), run_automation_now fires one immediately. The OS dispatches due automations once a day, so day-level cadences are real and sub-daily timing is not. When the operator describes recurring work ("every Monday sweep for money we're leaving on the table"), offer to create the automation rather than just doing it once.\n\nCALLS: update_booking reschedules or cancels an upcoming booked call. Rescheduling needs an explicit new start time. Cancelling frees the slot on the public booker; restate the call before cancelling.\n\nCLIENT EMAIL: draft_client_email hands the writing to Anchor (the client producer) — client-facing mail is his voice, not yours. Drafts queue for approval by default; pass send_now=true ONLY on an explicit send order. When the operator approves a draft you just showed them ("send it"), use send_pending_email — never redraft. Show the operator the draft body after creating it. Use list_clients to see or disambiguate the roster; client matching covers names, contact names, and emails.\n\nYou can add and update, but you NEVER delete anything, and you never send an invoice, proposal, or client email without the operator's explicit go-ahead.`;
+  const system = `${agent?.voice_prompt || "You are Jarvis, the Creative Impact OS operator copilot."}\n\nYou are Jarvis. You are an AI and say so plainly if asked; you never pose as Brandon, Emmanuel, or a client.\n\nLIVE BOARD CONTEXT (as of this message):\n${JSON.stringify(board)}\n\nToday: ${new Date().toDateString()}. Current ISO week: ${weekKey()}.\n\nCAPABILITIES NOTE: You can change mission-level settings (set_sprint: target, dates, THE ONE THING), manage Founder OS goals (add_goal/complete_goal), rewrite the working strategy (set_strategy), set KPIs, and ingest uploaded receipts/statements/CSVs — extract each line item and log via add_expenses_bulk (use the document's dates; ask before logging if any line is unreadable or ambiguous). Changing the sprint target or dates is a big lever — restate the change and act only when the instruction is explicit.\n\nINVOICES & PROPOSALS: create_invoice and create_proposal DRAFT the document and generate its client link — they never email the client. Sending an invoice or proposal is an outbound, money-adjacent action that stays with a human: after drafting, show the operator the number, amount, and link, and tell them to send it from the Invoices/Proposals tab. Do not claim anything was sent.\n\nAUTOMATIONS: you can set up recurring work yourself. create_automation makes a scheduled job the OS runs on its own (leak_sweep = Black Widow's revenue leak sweep computed off the live board; board_digest = a numbers snapshot; log_marker = a heartbeat for testing). list_automations shows what exists, toggle_automation turns one on/off (they are never deleted), run_automation_now fires one immediately. The OS dispatches due automations once a day, so day-level cadences are real and sub-daily timing is not. When the operator describes recurring work ("every Monday sweep for money we're leaving on the table"), offer to create the automation rather than just doing it once.\n\nCHARLOTTE SPOTLIGHT: the local video series (ten businesses a month, filmed like Diners, Drive-Ins and Dives). spotlight_list shows the pipeline; spotlight_add adds a prospect (set import_site=true with a website to pull facts off their site); spotlight_move moves a stage. Moving someone to 'member' can email them their pre-shoot questions immediately; say so before you do it. You never send the cold sequence emails; those are drafted and sent from the SPOTLIGHT tab.\n\nCALLS: update_booking reschedules or cancels an upcoming booked call. Rescheduling needs an explicit new start time. Cancelling frees the slot on the public booker; restate the call before cancelling.\n\nCLIENT EMAIL: draft_client_email hands the writing to Anchor (the client producer) — client-facing mail is his voice, not yours. Drafts queue for approval by default; pass send_now=true ONLY on an explicit send order. When the operator approves a draft you just showed them ("send it"), use send_pending_email — never redraft. Show the operator the draft body after creating it. Use list_clients to see or disambiguate the roster; client matching covers names, contact names, and emails.\n\nYou can add and update, but you NEVER delete anything, and you never send an invoice, proposal, or client email without the operator's explicit go-ahead.`;
 
   const convo: { role: string; content: unknown }[] = history.map((m) => ({ role: m.role === "assistant" ? "assistant" : "user", content: m.content }));
 

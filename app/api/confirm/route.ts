@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import Stripe from "stripe";
 import { getAdminClient } from "@/lib/supabase/admin";
+import { onInvoicePaid } from "@/lib/spotlight";
 
 // Called by the pay page after Stripe redirects back. Verifies the session was
 // actually paid (server-side, with the secret key), then marks the invoice paid.
@@ -30,6 +31,9 @@ export async function POST(req: Request) {
       .from("invoices")
       .update({ status: "paid", paid_at: new Date().toISOString(), stripe_session_id: session_id })
       .eq("token", token);
+    // If this was a Charlotte Spotlight deposit, they're now a member — which
+    // sends their pre-shoot questions. Never let it fail the payment confirm.
+    await onInvoicePaid(admin, token).catch((e) => console.error("spotlight onInvoicePaid failed", e));
   }
   return NextResponse.json({ paid: true });
 }

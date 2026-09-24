@@ -39,6 +39,8 @@ export async function proxy(req: NextRequest) {
     path.startsWith("/r/") ||                 // tracked referral links
     path.startsWith("/go/") ||                // stable public redirects (booking, etc.)
     path.startsWith("/status/") ||            // client read-only status pages
+    path.startsWith("/spotlight/q/") ||       // Spotlight member's pre-shoot questions (token page)
+    path === "/api/spotlight/questionnaire" || // ...and its token-guarded API
     path === "/diagnostic" ||                 // Authority Diagnostic offer page
     path.startsWith("/diagnostic/") ||        // intake + report token pages (NOT /diagnostics, the operator board)
     path === "/api/diagnostic/checkout" ||

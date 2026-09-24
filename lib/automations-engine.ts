@@ -224,7 +224,7 @@ export async function dispatchDueAutomations(admin: Admin) {
   const { data, error } = await admin.from("automations").select("*").eq("enabled", true);
   if (error) {
     // Table not created yet (migration 21 not run) — not an error worth failing the cron over.
-    if (/relation .* does not exist/i.test(error.message)) return { skipped: "automations table not created (run supabase/21_automations.sql)" };
+    if (/does not exist|schema cache/i.test(error.message)) return { skipped: "automations table not created (run supabase/21_automations.sql)" };
     return { error: error.message };
   }
   const due = (data as Automation[]).filter((a) => isDue(a));

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { sendEmail, emailShell, esc } from "@/lib/email";
 import { buildIcs } from "@/lib/ics";
+import { getAdminClient } from "@/lib/supabase/admin";
 
 export const runtime = "nodejs";
 
@@ -23,6 +24,35 @@ export async function POST(req: Request) {
     ({ data, error } = await sb.rpc("create_booking", { p_token: token, p_name: name || "", p_email: email || "", p_phone: phone || "", p_notes: notes || "", p_start: start, p_end: end }));
   }
   if (error || !data?.ok) return NextResponse.json(data || { ok: false, error: error?.message }, { status: 200 });
+
+  // Charlotte Spotlight: a Spotlight booking lands in that pipeline as "Call
+  // booked" — updating the prospect if we already have them (matched by email),
+  // never duplicating. Best-effort: the booking itself already succeeded.
+  const isSpotlight = /spotlight/i.test(det.reason || "") || /spotlight/i.test(String(title || ""));
+  if (isSpotlight) {
+    try {
+      const admin = getAdminClient();
+      if (admin) {
+        const { data: owner } = await admin.from("app_state").select("user_id").filter("ops->__booking->>token", "eq", token).limit(1).maybeSingle();
+        const uid = owner?.user_id;
+        if (uid) {
+          const { data: client } = email ? await admin.from("clients").select("id").eq("user_id", uid).ilike("email", email).limit(1).maybeSingle() : { data: null };
+          const { data: existing } = email ? await admin.from("spotlight_prospects").select("id,stage").eq("user_id", uid).ilike("email", email).limit(1).maybeSingle() : { data: null };
+          const note = `Booked a Spotlight call for ${whenText || start}.${notes ? " Notes: " + notes : ""}`;
+          if (existing) {
+            if (["prospect", "contacted", "not_now"].includes(existing.stage)) await admin.from("spotlight_prospects").update({ stage: "call_booked", stage_at: new Date().toISOString() }).eq("id", existing.id);
+          } else {
+            await admin.from("spotlight_prospects").insert({
+              user_id: uid, client_id: client?.id || null, business: det.business || name || "Spotlight booking",
+              owner_name: name || null, email: email || null, phone: phone || null, website: det.website || null,
+              source: "booking", stage: "call_booked", notes: note,
+            });
+          }
+          await admin.from("log_entries").insert({ user_id: uid, tag: "CS", color: "var(--gold)", message: `spotlight · call booked · ${det.business || name || email}` });
+        }
+      }
+    } catch (e) { console.error("spotlight booking hook failed", e); }
+  }
 
   // Fire-and-forget notifications (never block the booking on email).
   // The invite is UTC-anchored, so it saves into each recipient's own local
@@ -76,7 +106,7 @@ export async function POST(req: Request) {
   await sendEmail({
     to: process.env.EMAIL_BCC || "hello@creativeimpactmedia.co",
     bcc: null,
-    subject: `📅 Booked: ${det.business || name || "Guest"} — ${when}${det.reason ? " · " + det.reason : ""}`,
+    subject: `${isSpotlight ? "⭐ SPOTLIGHT · " : ""}📅 Booked: ${det.business || name || "Guest"} — ${when}${det.reason ? " · " + det.reason : ""}`,
     html: emailShell(`<div style="font-size:15px;color:#f4f7fc;margin-bottom:12px">New call on the calendar.</div>
       ${row("When", when)}${row("Reaching out for", det.reason)}${row("Business", det.business)}${row("Name", name)}${row("Email", email)}${row("Phone", phone)}${row("Website", det.website)}${row("Socials", det.socials)}${row("Notes", notes)}
       <div style="color:#5c7096;font-size:11px;margin-top:14px">They're on the Clients tab as a Lead (source: Booking).</div>`),

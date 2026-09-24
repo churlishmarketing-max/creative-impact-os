@@ -9,6 +9,7 @@
  * ========================================================================== */
 import React from 'react';
 import { store } from '@/lib/store';
+import Spotlight from './Spotlight';
 
 // Reproduces DC's style-hover: merge hover styles on pointer enter/leave so they
 // win over the element's inline base styles (a CSS :hover class would not).
@@ -48,24 +49,18 @@ class Cockpit extends React.Component {
   KEY = 'ci.os.broadcast.v1';
   COUNT = ['3', '2', '1'];
 
-  SECTIONS = [
-    { num: '01', label: 'Command', id: 'command' },
-    { num: '02', label: 'Pipeline', id: 'pipeline' },
-    { num: '03', label: 'Audits', id: 'audits' },
-    { num: '04', label: 'Shoots', id: 'shoots' },
-    { num: '05', label: 'Agent Fleet', id: 'agents' },
-    { num: '06', label: 'Partners', id: 'partners' },
-    { num: '07', label: 'Documents', id: 'docs' },
-    { num: '08', label: 'Strategy', id: 'strategy' },
-    { num: '09', label: 'Plans', id: 'plans' },
-    { num: '10', label: 'Clients', id: 'clients' },
-    { num: '11', label: 'Invoices', id: 'invoices' },
-    { num: '12', label: 'Proposals', id: 'proposals' },
-    { num: '13', label: 'Scheduling', id: 'scheduling' },
-    { num: '14', label: 'KPIs', id: 'kpis' },
-    { num: '15', label: 'Expenses', id: 'expenses' },
-    { num: '16', label: 'Jarvis', id: 'rookie' },
-    { num: '17', label: 'Automations', id: 'automations' }
+  // Navigation: 8 groups instead of 18 tabs. Groups with more than one screen
+  // show a sub-tab row. Screen ids (state.view) are unchanged, so every
+  // renderXTab() and every jump elsewhere in this file keeps working.
+  NAV = [
+    { num: '01', label: 'Command', items: [{ id: 'command', label: 'The Big Board' }] },
+    { num: '02', label: 'Sales', items: [{ id: 'pipeline', label: 'Pipeline' }, { id: 'audits', label: 'Audits' }, { id: 'clients', label: 'Clients' }, { id: 'scheduling', label: 'Scheduling' }] },
+    { num: '03', label: 'Spotlight', items: [{ id: 'spotlight', label: 'Charlotte Spotlight' }] },
+    { num: '04', label: 'Production', items: [{ id: 'shoots', label: 'Shoots' }, { id: 'docs', label: 'Documents' }] },
+    { num: '05', label: 'Money', items: [{ id: 'invoices', label: 'Invoices' }, { id: 'proposals', label: 'Proposals' }, { id: 'expenses', label: 'Expenses' }, { id: 'kpis', label: 'KPIs' }] },
+    { num: '06', label: 'Strategy', items: [{ id: 'strategy', label: 'Strategy' }, { id: 'plans', label: 'Plans' }, { id: 'partners', label: 'Partners' }] },
+    { num: '07', label: 'Fleet', items: [{ id: 'agents', label: 'Agent Fleet' }, { id: 'automations', label: 'Automations' }] },
+    { num: '08', label: 'Jarvis', items: [{ id: 'rookie', label: 'Jarvis' }] },
   ];
 
   // Local-dev demo data only. Real (Supabase) mode starts EMPTY — the DB is the
@@ -567,7 +562,7 @@ class Cockpit extends React.Component {
       <div style={{ padding: "28px 26px 96px", maxWidth: "1240px", margin: "0 auto", width: "100%" }}>
         <div style={{ marginBottom: "6px", display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "16px" }}>
           <div>
-            <div style={{ fontSize: "10px", letterSpacing: ".26em", color: "var(--red)" }}>// 10 · THE ROSTER</div>
+            <div style={{ fontSize: "10px", letterSpacing: ".26em", color: "var(--red)" }}>// THE ROSTER</div>
             <h1 style={{ fontFamily: "var(--cond)", fontWeight: 900, fontSize: "48px", lineHeight: ".92", margin: "6px 0 0", letterSpacing: ".005em" }}>CLIENT <span style={{ display: "inline-block", background: "var(--red)", color: "var(--golddark)", padding: "0 12px", transform: "skewX(0deg)" }}>ROSTER</span></h1>
             <div style={{ fontSize: "12px", letterSpacing: ".04em", color: "var(--muted)", marginTop: "9px", maxWidth: "560px", lineHeight: "1.6" }}>Every client, where they sit on the ladder, and when they renew. The day-60 / day-75 play lives here — protect the base.</div>
           </div>
@@ -1118,10 +1113,17 @@ class Cockpit extends React.Component {
     const plansPhases = this.PLANS.map(p => ({ n: p.n, t: p.t, when: p.when, d: p.d, state: p.state, c: phaseC[p.state] || 'var(--dim)' }));
     const planMoves = this.PLANMOVES.map((m, i) => { const on = !!opsState['plan:' + i]; return { text: m, check: on ? '✓' : '', box: on ? 'var(--gold)' : 'var(--line)', boxBg: on ? 'var(--gold)' : 'transparent', tc: on ? 'var(--dim)' : 'var(--white)', onClick: () => this.toggleOp('plan:' + i) }; });
 
-    const sections = this.SECTIONS.map(s => {
-      const active = s.id === v;
-      return { num: s.num, label: s.label, bar: active ? 'var(--gold)' : 'transparent', fg: active ? 'var(--white)' : 'var(--dim)', code: active ? 'var(--gold)' : 'var(--dim)', onSelect: () => this.setState({ view: s.id }) };
+    const activeGroup = this.NAV.find(g => g.items.some(it => it.id === v)) || this.NAV[0];
+    const sections = this.NAV.map(g => {
+      const active = g === activeGroup;
+      // Re-entering a group returns you to the screen you last had open in it.
+      const go = () => { const last = (this.state.navLast || {})[g.num]; this.setState({ view: g.items.some(it => it.id === last) ? last : g.items[0].id }); };
+      return { num: g.num, label: g.label, bar: active ? 'var(--gold)' : 'transparent', fg: active ? 'var(--white)' : 'var(--dim)', code: active ? 'var(--gold)' : 'var(--dim)', onSelect: go };
     });
+    const subTabs = activeGroup.items.length > 1 ? activeGroup.items.map(it => ({
+      label: it.label, active: it.id === v,
+      onSelect: () => this.setState(st => ({ view: it.id, navLast: Object.assign({}, st.navLast, { [activeGroup.num]: it.id }) })),
+    })) : [];
 
     const d = new Date(this.state.now);
     const pad = (n) => String(n).padStart(2, '0');
@@ -1149,7 +1151,7 @@ class Cockpit extends React.Component {
       tickerItems,
       animPulse: an('pulse 1.4s ease-in-out infinite'),
       animTicker: an('marq 32s linear infinite'),
-      sections,
+      sections, subTabs,
       isCommand: v === 'command',
       isPipeline: v === 'pipeline',
       isAudits: v === 'audits',
@@ -1363,7 +1365,7 @@ class Cockpit extends React.Component {
       <div style={{ padding: "28px 26px 96px", maxWidth: "1240px", margin: "0 auto", width: "100%" }}>
         <div style={{ marginBottom: "6px", display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "16px" }}>
           <div>
-            <div style={{ fontSize: "10px", letterSpacing: ".26em", color: "var(--red)" }}>// 11 · GET PAID</div>
+            <div style={{ fontSize: "10px", letterSpacing: ".26em", color: "var(--red)" }}>// GET PAID</div>
             <h1 style={{ fontFamily: "var(--cond)", fontWeight: 900, fontSize: "48px", lineHeight: ".92", margin: "6px 0 0", letterSpacing: ".005em" }}>INV<span style={{ display: "inline-block", background: "var(--red)", color: "var(--golddark)", padding: "0 12px", transform: "skewX(0deg)" }}>OICES</span></h1>
             <div style={{ fontSize: "12px", letterSpacing: ".04em", color: "var(--muted)", marginTop: "9px", maxWidth: "560px", lineHeight: "1.6" }}>Build it, send the link, get paid. PIF or 50% deposit — never discount month one.</div>
           </div>
@@ -1551,7 +1553,7 @@ Signed: {{signer}}      Date: {{date}}`;
       <div style={{ padding: "28px 26px 96px", maxWidth: "1240px", margin: "0 auto", width: "100%" }}>
         <div style={{ marginBottom: "6px", display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "16px" }}>
           <div>
-            <div style={{ fontSize: "10px", letterSpacing: ".26em", color: "var(--red)" }}>// 12 · CLOSE IT</div>
+            <div style={{ fontSize: "10px", letterSpacing: ".26em", color: "var(--red)" }}>// CLOSE IT</div>
             <h1 style={{ fontFamily: "var(--cond)", fontWeight: 900, fontSize: "48px", lineHeight: ".92", margin: "6px 0 0", letterSpacing: ".005em" }}>PRO<span style={{ display: "inline-block", background: "var(--red)", color: "var(--golddark)", padding: "0 12px", transform: "skewX(0deg)" }}>POSALS</span></h1>
             <div style={{ fontSize: "12px", letterSpacing: ".04em", color: "var(--muted)", marginTop: "9px", maxWidth: "560px", lineHeight: "1.6" }}>Send it, they accept &amp; sign, it drops straight into your pipeline as Signed. Build off the ladder — never discount month one.</div>
           </div>
@@ -1844,7 +1846,7 @@ Signed: {{signer}}      Date: {{date}}`;
       <div style={{ padding: "28px 26px 96px", maxWidth: "1240px", margin: "0 auto", width: "100%" }}>
         <div style={{ marginBottom: "6px", display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "16px" }}>
           <div>
-            <div style={{ fontSize: "10px", letterSpacing: ".26em", color: "var(--red)" }}>// 15 · WHERE IT LEAKS</div>
+            <div style={{ fontSize: "10px", letterSpacing: ".26em", color: "var(--red)" }}>// WHERE IT LEAKS</div>
             <h1 style={{ fontFamily: "var(--cond)", fontWeight: 900, fontSize: "48px", lineHeight: ".92", margin: "6px 0 0", letterSpacing: ".005em" }}>EXP<span style={{ display: "inline-block", background: "var(--red)", color: "var(--golddark)", padding: "0 12px", transform: "skewX(0deg)" }}>ENSES</span></h1>
             <div style={{ fontSize: "12px", letterSpacing: ".04em", color: "var(--muted)", marginTop: "9px", maxWidth: "560px", lineHeight: "1.6" }}>Every dollar out, next to the dollars in. Recurring is the silent killer — audit the subscriptions monthly.</div>
           </div>
@@ -1987,7 +1989,7 @@ Signed: {{signer}}      Date: {{date}}`;
       <div style={{ padding: "28px 26px 96px", maxWidth: "1240px", margin: "0 auto", width: "100%" }}>
         <div style={{ marginBottom: "6px", display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "16px" }}>
           <div>
-            <div style={{ fontSize: "10px", letterSpacing: ".26em", color: "var(--red)" }}>// 14 · WHAT GETS MEASURED</div>
+            <div style={{ fontSize: "10px", letterSpacing: ".26em", color: "var(--red)" }}>// WHAT GETS MEASURED</div>
             <h1 style={{ fontFamily: "var(--cond)", fontWeight: 900, fontSize: "48px", lineHeight: ".92", margin: "6px 0 0", letterSpacing: ".005em" }}>THE <span style={{ display: "inline-block", background: "var(--red)", color: "var(--golddark)", padding: "0 12px", transform: "skewX(0deg)" }}>NUMBERS</span></h1>
             <div style={{ fontSize: "12px", letterSpacing: ".04em", color: "var(--muted)", marginTop: "9px", maxWidth: "560px", lineHeight: "1.6" }}>Define the numbers that matter, log them every period, watch the trend. A KPI without a number is an opinion.</div>
           </div>
@@ -2238,7 +2240,7 @@ Signed: {{signer}}      Date: {{date}}`;
     return (
       <div style={{ padding: "28px 26px 96px", maxWidth: "1000px", margin: "0 auto", width: "100%" }}>
         <div style={{ marginBottom: "6px" }}>
-          <div style={{ fontSize: "10px", letterSpacing: ".26em", color: "var(--red)" }}>// 17 · THE AUTOMATIONS DESK</div>
+          <div style={{ fontSize: "10px", letterSpacing: ".26em", color: "var(--red)" }}>// THE AUTOMATIONS DESK</div>
           <h1 style={{ fontFamily: "var(--cond)", fontWeight: 900, fontSize: "48px", lineHeight: ".92", margin: "6px 0 0", letterSpacing: ".005em" }}>AUTO<span style={{ display: "inline-block", background: "var(--red)", color: "var(--golddark)", padding: "0 12px" }}>MATIONS</span></h1>
           <div style={{ fontSize: "12px", letterSpacing: ".04em", color: "var(--muted)", marginTop: "9px", maxWidth: "660px", lineHeight: "1.6" }}>Recurring work the OS runs on its own. Every run posts to the AGENT FLEET feed and the sys.log, so nothing happens invisibly. Jarvis can create these too - just ask him.</div>
         </div>
@@ -2326,7 +2328,7 @@ Signed: {{signer}}      Date: {{date}}`;
     return (
       <div style={{ padding: "28px 26px 96px", maxWidth: "900px", margin: "0 auto", width: "100%" }}>
         <div style={{ marginBottom: "6px" }}>
-          <div style={{ fontSize: "10px", letterSpacing: ".26em", color: "var(--red)" }}>// 16 · THE JARVIS DESK</div>
+          <div style={{ fontSize: "10px", letterSpacing: ".26em", color: "var(--red)" }}>// THE JARVIS DESK</div>
           <h1 style={{ fontFamily: "var(--cond)", fontWeight: 900, fontSize: "48px", lineHeight: ".92", margin: "6px 0 0", letterSpacing: ".005em" }}>JAR<span style={{ display: "inline-block", background: "var(--red)", color: "var(--golddark)", padding: "0 12px", transform: "skewX(0deg)" }}>VIS</span></h1>
           <div style={{ fontSize: "12px", letterSpacing: ".04em", color: "var(--muted)", marginTop: "9px", maxWidth: "620px", lineHeight: "1.6" }}>Give the order; Jarvis executes it against the OS — deals, clients, the box score, expenses, KPIs, invoices, proposals, and calls — and reports back with the numbers. Every action hits the database and the sys.log.</div>
         </div>
@@ -2394,7 +2396,7 @@ Signed: {{signer}}      Date: {{date}}`;
       <div style={{ padding: "28px 26px 96px", maxWidth: "1240px", margin: "0 auto", width: "100%" }}>
         <div style={{ marginBottom: "6px", display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "16px" }}>
           <div>
-            <div style={{ fontSize: "10px", letterSpacing: ".26em", color: "var(--red)" }}>// 13 · BOOK THE AUDITS</div>
+            <div style={{ fontSize: "10px", letterSpacing: ".26em", color: "var(--red)" }}>// BOOK THE AUDITS</div>
             <h1 style={{ fontFamily: "var(--cond)", fontWeight: 900, fontSize: "48px", lineHeight: ".92", margin: "6px 0 0", letterSpacing: ".005em" }}>SCHED<span style={{ display: "inline-block", background: "var(--red)", color: "var(--golddark)", padding: "0 12px", transform: "skewX(0deg)" }}>ULING</span></h1>
             <div style={{ fontSize: "12px", letterSpacing: ".04em", color: "var(--muted)", marginTop: "9px", maxWidth: "560px", lineHeight: "1.6" }}>Set your hours, share one link, clients book the discovery call themselves. The floor is 3 a week — keep it fed.</div>
           </div>
@@ -2516,7 +2518,7 @@ Signed: {{signer}}      Date: {{date}}`;
       isStrategy, ladder, log, loopNodes, newWeek, next, nextMonthLabel, nextMonthName, nextOpacity,
       nextShootsView, nextStep, noteVal, objBtnLabel, objections, onNote, oneThingBody, oneThingTitle,
       opsChecklist, pStats, partnerTabs, pct, pctLabel, pipeCols, planMoves, plansPhases, quarter,
-      runsheet, scoreUs, scriptSteps, sections, sellByLabel, sellDays, shoots, shootsAll, showObj,
+      runsheet, scoreUs, scriptSteps, sections, subTabs, sellByLabel, sellDays, shoots, shootsAll, showObj,
       showScript, skipBoot, sleepScale, stratAnti, stratBets, stratPillars, stratThesis, tickerItems,
       tickerOn, toast, todayLabel, toggleObj, warn, weekStrip, curPartnerName, yardLine
     } = v;
@@ -2638,6 +2640,13 @@ Signed: {{signer}}      Date: {{date}}`;
         </Hover>
       ))}
     </nav>
+    {subTabs.length ? (
+      <div style={{ display: "flex", gap: "4px", padding: "7px 22px 8px", background: "var(--deep)", borderTop: "1px solid var(--line)", overflowX: "auto" }}>
+        {subTabs.map((t, i) => (
+          <button key={i} onClick={t.onSelect} style={{ flexShrink: 0, background: t.active ? "var(--gold)" : "transparent", border: "1px solid " + (t.active ? "var(--gold)" : "var(--line)"), color: t.active ? "var(--golddark)" : "var(--muted)", fontFamily: "var(--sans)", fontWeight: 800, fontSize: "10px", letterSpacing: ".12em", textTransform: "uppercase", padding: "5px 11px", cursor: "pointer", borderRadius: "2px" }}>{t.label}</button>
+        ))}
+      </div>
+    ) : null}
   </header>
 
   {/* ===================== DRIVE METER ===================== */}
@@ -3330,6 +3339,7 @@ Signed: {{signer}}      Date: {{date}}`;
   {(this.state.view === 'expenses') ? this.renderExpensesTab() : null}
   {(this.state.view === 'rookie') ? this.renderRookieTab() : null}
   {(this.state.view === 'automations') ? this.renderAutomationsTab() : null}
+  {(this.state.view === 'spotlight') ? <Spotlight flash={(m, d) => this.flash(m, d)} /> : null}
 
   {/* BOTTOMLINE TICKER */}
   {(tickerOn) ? (

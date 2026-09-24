@@ -12,7 +12,8 @@
 type SendArgs = {
   to: string | string[];
   subject: string;
-  html: string;
+  html?: string; // branded HTML (emailShell). Provide html, text, or both.
+  text?: string; // plain text — for person-to-person mail (the Spotlight sequence)
   bcc?: string | string[] | null;
   replyTo?: string;
   from?: string; // override sender (e.g. an agent persona address on the verified domain)
@@ -31,8 +32,10 @@ export async function sendEmail(a: SendArgs) {
     from,
     to: Array.isArray(a.to) ? a.to : [a.to],
     subject: a.subject,
-    html: a.html,
   };
+  if (a.html) body.html = a.html;
+  if (a.text) body.text = a.text;
+  if (!a.html && !a.text) return { ok: false, error: "empty" };
   if (bcc) body.bcc = Array.isArray(bcc) ? bcc : [bcc];
   if (a.replyTo) body.reply_to = a.replyTo;
   if (a.ics) body.attachments = [{ filename: "invite.ics", content: Buffer.from(a.ics).toString("base64") }];
@@ -43,12 +46,22 @@ export async function sendEmail(a: SendArgs) {
       headers: { Authorization: "Bearer " + key, "Content-Type": "application/json" },
       body: JSON.stringify(body),
     });
-    if (!r.ok) { console.error("resend error", r.status, await r.text()); return { ok: false }; }
+    if (!r.ok) { const t = await r.text(); console.error("resend error", r.status, t); return { ok: false, error: `resend ${r.status}: ${t.slice(0, 200)}` }; }
     return { ok: true };
   } catch (e) {
     console.error("email send failed", e);
     return { ok: false };
   }
+}
+
+// A person's name on the verified sending address, e.g. "Emmanuel · Creative
+// Impact <hello@creativeimpactmedia.co>". Reuses EMAIL_FROM's address so the
+// domain can never drift from the one verified in Resend.
+export function personaFrom(name: string) {
+  const configured = process.env.EMAIL_FROM || "Creative Impact <hello@creativeimpactmedia.co>";
+  const addr = (configured.match(/<([^>]+)>/) || [])[1] || configured.trim();
+  const clean = String(name || "").replace(/[<>"\r\n]/g, "").trim();
+  return clean ? `${clean} · Creative Impact <${addr}>` : configured;
 }
 
 // Escape user-supplied text before interpolating it into email HTML.

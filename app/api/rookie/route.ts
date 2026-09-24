@@ -5,6 +5,7 @@ import { getAdminClient } from "@/lib/supabase/admin";
 import { draftAgentEmail, sendQueuedEmail } from "@/lib/agent";
 import { runAutomation } from "@/lib/automations-engine";
 import { gradeLead as laneGrade, computeWeek as laneComputeWeek, scalingVerdict as laneScaling, fallbackStatus as laneFallbacks, PLAN as LANE_PLAN, FALLBACKS as LANE_FALLBACKS, type Week as LaneWeek } from "@/lib/nationwide";
+import { edithEmit, edithOnBookingChange } from "@/lib/edith/server";
 import { STAGES as SPOT_STAGES, STAGE_KEYS as SPOT_KEYS, VERTICALS, makeMember, importWebsite, type Prospect } from "@/lib/spotlight";
 
 export const runtime = "nodejs";
@@ -390,6 +391,7 @@ async function runTool(admin: NonNullable<ReturnType<typeof getAdminClient>>, ui
       const { error } = await admin.from("bookings").update({ status: "cancelled" }).eq("id", bk.id);
       if (error) return "ERROR: " + error.message;
       await log(`call cancelled · ${bk.name || bk.email || "guest"}`);
+      if (bk.email) await edithOnBookingChange(admin, uid, bk.email, { cancelled: true });
       return `Cancelled the call with ${bk.name || bk.email || "guest"} (was ${new Date(bk.start_at).toUTCString()}). The slot is open again on the booker. The client was not emailed — tell me if you want a note drafted.`;
     }
     const start = String(input.start_at || "");
@@ -401,6 +403,7 @@ async function runTool(admin: NonNullable<ReturnType<typeof getAdminClient>>, ui
     const { error } = await admin.from("bookings").update({ start_at: new Date(start).toISOString(), end_at: endIso }).eq("id", bk.id);
     if (error) return "ERROR: " + error.message;
     await log(`call rescheduled · ${bk.name || bk.email || "guest"} → ${new Date(start).toUTCString()}`);
+    if (bk.email) await edithOnBookingChange(admin, uid, bk.email, { start: new Date(start).toISOString(), end: endIso });
     return `Rescheduled the call with ${bk.name || bk.email || "guest"} to ${new Date(start).toUTCString()}. The client was not emailed — tell me if you want a note drafted.`;
   }
 
@@ -494,9 +497,10 @@ async function runTool(admin: NonNullable<ReturnType<typeof getAdminClient>>, ui
         if (row.years == null && pr.years_in_business != null && !isNaN(Number(pr.years_in_business))) { row.years = Number(pr.years_in_business); filled.push("years"); }
       } else filled = ["(site import failed: " + r.error + ")"];
     }
-    const { error } = await admin.from("spotlight_prospects").insert(row);
+    const { data: added, error } = await admin.from("spotlight_prospects").insert(row).select("id").maybeSingle();
     if (error) return spotMissing(error.message) ? SPOT_MIGRATION : "ERROR: " + error.message;
     await log(`spotlight · added ${row.business}`);
+    if (added?.id) await edithEmit(admin, uid, { prospect_id: added.id, type: "contact.created", source: "jarvis" });
     return `Added ${row.business} to the Spotlight pipeline as a Prospect.${filled.length ? " From their site: " + filled.join(", ") + "." : ""}${row.reviews == null || row.years == null ? " Still missing reviews/years — the call opener needs both." : ""}`;
   }
   if (name === "spotlight_move") {

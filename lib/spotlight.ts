@@ -18,6 +18,7 @@
 //    questionnaire, to someone who has already paid.
 import { getAdminClient } from "@/lib/supabase/admin";
 import { sendEmail, personaFrom } from "@/lib/email";
+import { edithEmit, edithEmitOnce } from "@/lib/edith/server";
 
 type Admin = NonNullable<ReturnType<typeof getAdminClient>>;
 const SITE = process.env.NEXT_PUBLIC_SITE_URL || "https://os.creativeimpactmedia.co";
@@ -555,6 +556,11 @@ export async function makeMember(admin: Admin, p: Prospect) {
   if (!questions || !questions.length) { questions = await draftQuestions(p); patch.questions = questions; }
   await admin.from("spotlight_prospects").update(patch).eq("id", p.id);
   await logLine(admin, p.user_id, `spotlight · ${p.business} is a MEMBER`);
+  // EDITH: the deposit cleared (or a human marked them a member) — SEQ6 starts.
+  if (!p.member_at) {
+    const x = p as Prospect & { spot_number?: number | null; episode_number?: number | null };
+    await edithEmit(admin, p.user_id, { prospect_id: p.id, type: "deposit.paid", payload: { spot_number: x.spot_number ?? null, film_date: p.film_date, episode_number: x.episode_number ?? null }, source: "payment" });
+  }
   const fresh = { ...p, ...patch, questions } as Prospect;
   if (cfg.autoSendQuestions && p.email && !p.q_sent_at) {
     const r = render(fresh, cfg, "questions");
@@ -564,13 +570,16 @@ export async function makeMember(admin: Admin, p: Prospect) {
   return { member: true, questions: null };
 }
 
-// Hook for /api/confirm: a paid Spotlight deposit makes them a member.
+// Hook for /api/confirm: a paid Spotlight deposit makes them a member; a
+// paid balance tells EDITH (6-3 switches to its "you're all set" variant).
 export async function onInvoicePaid(admin: Admin, invoiceToken: string) {
   const { data: inv } = await admin.from("invoices").select("id").eq("token", invoiceToken).maybeSingle();
   if (!inv) return;
   const { data: rows, error } = await admin.from("spotlight_prospects").select("*").eq("deposit_invoice_id", inv.id);
-  if (error || !rows?.length) return; // not a Spotlight deposit, or migration 22 not run
-  for (const p of rows as Prospect[]) if (PRE_MEMBER.includes(p.stage)) await makeMember(admin, p);
+  if (error) return; // migration 22 not run
+  for (const p of (rows || []) as Prospect[]) if (PRE_MEMBER.includes(p.stage)) await makeMember(admin, p);
+  const { data: bal } = await admin.from("spotlight_prospects").select("id,user_id").eq("balance_invoice_id", inv.id);
+  for (const b of bal || []) await edithEmitOnce(admin, b.user_id, { prospect_id: b.id, type: "balance.paid", source: "payment" });
 }
 
 // Belt-and-braces for a missed redirect: promote anyone whose deposit is paid.
@@ -582,4 +591,13 @@ export async function reconcilePaidDeposits(admin: Admin, userId: string, rows: 
   let n = 0;
   for (const p of rows) if (p.deposit_invoice_id && set.has(p.deposit_invoice_id) && PRE_MEMBER.includes(p.stage)) { await makeMember(admin, p); n++; }
   return n;
+}
+
+// Same net for balances marked paid by hand on the Invoices tab.
+export async function reconcilePaidBalances(admin: Admin, userId: string, rows: Prospect[]) {
+  const ids = rows.filter((p) => p.balance_invoice_id).map((p) => p.balance_invoice_id as string);
+  if (!ids.length) return;
+  const { data: paid } = await admin.from("invoices").select("id").in("id", ids).eq("status", "paid");
+  const set = new Set((paid || []).map((x) => x.id));
+  for (const p of rows) if (p.balance_invoice_id && set.has(p.balance_invoice_id)) await edithEmitOnce(admin, userId, { prospect_id: p.id, type: "balance.paid", source: "payment" });
 }

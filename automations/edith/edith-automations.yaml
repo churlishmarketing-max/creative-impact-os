@@ -1,0 +1,168 @@
+# edith-automations.yaml
+# Creative Impact OS — EDITH email automation manifest
+# Prepared 2026-09-24. Templates live in EDITH_Email_Sequences.md (keyed by template_id).
+# Claude Code implements this against the OS's existing contact/event/scheduler models. See CLAUDE_CODE_BUILD_PROMPT.md.
+
+version: 1
+sender:
+  name: "EDITH at Creative Impact"
+  from: edith@creativeimpactmedia.co
+  reply_to: emmanuel@creativeimpactmedia.co   # confirm actual inbox
+  signature_block: |
+    EDITH
+    Creative Impact · Emmanuel's assistant — the AI kind. A human reads every reply.
+    hello@creativeimpactmedia.co
+
+global_rules:
+  timezone: America/New_York
+  send_window: { start: "08:00", end: "18:00", days: [Mon, Tue, Wed, Thu, Fri, Sat] }
+  max_emails_per_contact_per_24h: 1          # sequences 3 and 4 are exempt (time-anchored reminders)
+  stop_on:                                    # any of these ends every active sequence for the contact
+    - event: email.replied
+      route_to: emmanuel_inbox
+    - event: call.booked
+    - event: deposit.paid
+    - event: contact.unsubscribed
+    - tag: do_not_contact
+  merge_field_holds:                          # if any listed field is empty for a template that uses it, HOLD the send and create a task
+    - specific_detail
+    - q5_answer
+    - not_fit_reason
+    - what_would_change
+    - reach_number
+    - reach_screenshot
+  compliance:
+    physical_address_footer_on: [SEQ1]
+    unsubscribe_footer_on: [SEQ1, SEQ7]
+  approval:
+    templates_locked: true                    # edits to template copy require Brandon/Emmanuel approval flag before use
+    live_send_requires_flag: edith_live       # OS-level kill switch; false = log only
+
+events:                                       # the OS emits these; sequences subscribe to them
+  - contact.created
+  - lead.form_submitted                       # payload: q5_answer, years_in_business, owner (bool), business_name, neighborhood, phone
+  - call.booked                               # payload: call_time, call_link, rebook_link
+  - call.no_show
+  - call.completed                            # payload: outcome ∈ {undecided, not_fit, closed}, spot_number, not_fit_reason, what_would_change
+  - deposit.paid                              # payload: spot_number, film_date, episode_number
+  - balance.paid
+  - cut.delivered                             # payload: cut_link
+  - cut.approved                              # emitted by reply-or-silence logic
+  - episode.published                         # payload: episode_number, episode_link, featured_count
+  - promo.started                             # payload: promo_end_date
+  - promo.ended
+  - board.updated                             # payload: spots_remaining, next_board_date
+
+contact_fields:
+  required_for_cold: [first_name, business_name, neighborhood, specific_detail]
+  computed:
+    spots_remaining: "live count from board; 0 triggers SEQ2/2-4 variant"
+  tags: [cold_prospect, cold_closed, inbound, booked, no_show, undecided, not_fit, client, cut_approved, nurture, do_not_contact]
+
+sequences:
+
+  - id: SEQ1
+    name: Cold first touch
+    enroll_on: { event: contact.created, when: { tag: cold_prospect, specific_detail: not_empty } }
+    exit_on: [email.replied, call.booked, do_not_contact]
+    steps:
+      - { step: 1-1, template_id: "1-1", delay: "0d", anchor: enroll }
+      - { step: 1-2, template_id: "1-2", delay: "3d", anchor: enroll }
+      - { step: 1-3, template_id: "1-3", delay: "7d", anchor: enroll }
+    on_complete: { set_tag: cold_closed }
+    reply_routing:
+      later: { set_tag: nurture, enroll: SEQ7 }
+      default: emmanuel_inbox
+
+  - id: SEQ2
+    name: Inbound lead, no call booked
+    enroll_on: { event: lead.form_submitted, unless_within: { event: call.booked, minutes: 10 } }
+    exit_on: [call.booked, email.replied, deposit.paid]
+    side_effects_on_enroll:
+      - create_task: { assignee: emmanuel, title: "Call {{business_name}} — speed to lead", due: "+60m" }
+    steps:
+      - { step: 2-1, template_id: "2-1", delay: "5m", anchor: enroll, ignore_send_window: false }
+      - { step: 2-2, template_id: "2-2", delay: "1d", anchor: enroll }
+      - { step: 2-3, template_id: "2-3", delay: "3d", anchor: enroll }
+      - { step: 2-4, template_id: "2-4", delay: "6d", anchor: enroll,
+          variant: { when: { spots_remaining: 0 }, template_id: "2-4-full" } }
+      - { step: 2-5, template_id: "2-5", delay: "10d", anchor: enroll }
+    on_complete: { set_tag: nurture, enroll: SEQ7 }
+
+  - id: SEQ3
+    name: Booked to show
+    enroll_on: { event: call.booked }
+    exit_on: [call.completed, call.cancelled, call.no_show]
+    steps:
+      - { step: 3-1, template_id: "3-1", delay: "0m", anchor: enroll, attach: ics }
+      - { step: 3-2, template_id: "3-2", at: "call_time - 24h" }
+      - { step: 3-3, template_id: "3-3", at: "call_time - 60m", ignore_send_window: true }
+    on_event:
+      call.no_show: { enroll: SEQ4 }
+      call.completed: { route_by_outcome: { undecided: SEQ5, not_fit: SEQ5B, closed: none } }
+
+  - id: SEQ4
+    name: No-show
+    enroll_on: { event: call.no_show }
+    exit_on: [call.booked, email.replied]
+    steps:
+      - { step: 4-1, template_id: "4-1", delay: "45m", anchor: enroll }
+      - { step: 4-2, template_id: "4-2", delay: "2d", anchor: enroll }
+      - { step: 4-3, template_id: "4-3", delay: "5d", anchor: enroll }
+    on_complete: { set_tag: nurture }
+
+  - id: SEQ5
+    name: Post-call undecided
+    enroll_on: { event: call.completed, when: { outcome: undecided } }
+    exit_on: [deposit.paid, email.replied]
+    steps:
+      - { step: 5-1, template_id: "5-1", delay: "2h", anchor: enroll }
+      - { step: 5-2, template_id: "5-2", delay: "2d", anchor: enroll }
+      - { step: 5-3, template_id: "5-3", delay: "5d", anchor: enroll }
+    on_complete: { set_tag: nurture, release_spot: true }
+
+  - id: SEQ5B
+    name: Not a fit
+    enroll_on: { event: call.completed, when: { outcome: not_fit } }
+    steps:
+      - { step: 5b-1, template_id: "5b-1", delay: "2h", anchor: enroll }
+    on_complete: { set_tag: nurture, enroll: SEQ7 }
+
+  - id: SEQ6
+    name: Client lifecycle
+    enroll_on: { event: deposit.paid }
+    exit_on: []                                 # runs to the debrief; event-anchored
+    side_effects_on_enroll:
+      - set_tag: client
+      - remove_tags: [undecided, inbound, cold_prospect]
+    steps:
+      - { step: 6-1, template_id: "6-1", delay: "0m", anchor: enroll, attach: agreement_pdf }
+      - { step: 6-2, template_id: "6-2", at: "film_date - 3d" }
+      - { step: 6-3, template_id: "6-3", at: "film_date - 1d",
+          variant: { when: { event_seen: balance.paid }, template_id: "6-3-paid" } }
+      - { step: 6-4, template_id: "6-4", on_event: cut.delivered,
+          then: { approval_window: "5d", on_reply: { create_task: { assignee: emmanuel, title: "Revisions — {{business_name}}" } },
+                  on_silence: { emit: cut.approved, set_tag: cut_approved } } }
+      - { step: 6-5, template_id: "6-5", at: "step[6-4].sent_at + 4d", when: { no_reply_since: "6-4" } }
+      - { step: 6-6, template_id: "6-6", on_event: episode.published }
+      - { step: 6-7, template_id: "6-7", at: "promo.started + 15d" }
+      - { step: 6-8, template_id: "6-8", on_event: promo.ended,
+          then: { reminder: { after: "5d", when: { not: debrief.booked }, template_id: "6-8-reminder", once: true } } }
+
+  - id: SEQ7
+    name: Monthly nurture (episode drops)
+    enroll_on: { event: episode.published }
+    audience: { tags_any: [nurture, cold_closed], not_in_active_sequence: true, not_tag: [do_not_contact] }
+    steps:
+      - { step: 7-1, template_id: "7-1", delay: "0m", anchor: enroll }
+
+tasks_for_humans:                             # the OS creates these; EDITH never does them
+  - "Write specific_detail for every cold prospect before SEQ1 can enroll them"
+  - "Speed-to-lead call within 60 minutes of any lead.form_submitted"
+  - "Tag every call.completed with outcome + spot_number (+ reason fields for not_fit)"
+  - "Friday receipt pull: reach_number + reach_screenshot per live campaign (feeds 6-7)"
+  - "Flip edith_live to true only after a full dry-run log review"
+
+reporting:
+  daily_digest_to: emmanuel_inbox
+  fields: [sent, held (with reason), replies_routed, bookings, deposits, no_shows, sequence_exits]

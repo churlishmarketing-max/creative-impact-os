@@ -18,6 +18,8 @@ type SendArgs = {
   replyTo?: string;
   from?: string; // override sender (e.g. an agent persona address on the verified domain)
   ics?: string; // raw .ics text, attached as invite.ics
+  headers?: Record<string, string>; // extra MIME headers (e.g. List-Unsubscribe)
+  idempotencyKey?: string; // Resend dedupes retries carrying the same key
 };
 
 export async function sendEmail(a: SendArgs) {
@@ -39,15 +41,17 @@ export async function sendEmail(a: SendArgs) {
   if (bcc) body.bcc = Array.isArray(bcc) ? bcc : [bcc];
   if (a.replyTo) body.reply_to = a.replyTo;
   if (a.ics) body.attachments = [{ filename: "invite.ics", content: Buffer.from(a.ics).toString("base64") }];
+  if (a.headers && Object.keys(a.headers).length) body.headers = a.headers;
 
   try {
     const r = await fetch("https://api.resend.com/emails", {
       method: "POST",
-      headers: { Authorization: "Bearer " + key, "Content-Type": "application/json" },
+      headers: { Authorization: "Bearer " + key, "Content-Type": "application/json", ...(a.idempotencyKey ? { "Idempotency-Key": a.idempotencyKey } : {}) },
       body: JSON.stringify(body),
     });
     if (!r.ok) { const t = await r.text(); console.error("resend error", r.status, t); return { ok: false, error: `resend ${r.status}: ${t.slice(0, 200)}` }; }
-    return { ok: true };
+    const j = (await r.json().catch(() => ({}))) as { id?: string };
+    return { ok: true, id: j.id };
   } catch (e) {
     console.error("email send failed", e);
     return { ok: false };

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import crypto from "crypto";
 import { getAdminClient } from "@/lib/supabase/admin";
 import { sendEmail, emailShell, esc } from "@/lib/email";
+import { edithEmit } from "@/lib/edith/server";
 
 export const runtime = "nodejs";
 
@@ -123,6 +124,11 @@ export async function POST(req: Request) {
     subject,
     body,
   });
+
+  // EDITH: a reply from a Spotlight contact stops their sequences (per the
+  // manifest) and becomes a task; "stop" / "later" are acted on. Best-effort.
+  const { data: sp } = await admin.from("spotlight_prospects").select("id").eq("user_id", ownerId).ilike("email", from).limit(1).maybeSingle();
+  if (sp) await edithEmit(admin, ownerId, { prospect_id: sp.id, type: "email.replied", payload: { text: body.slice(0, 4000), subject }, source: "inbound" });
 
   // Forward a copy to the operator's real inbox (Gmail) so nothing lives only
   // in the CRM. FYI copy only — reply from the OS thread, not from Gmail

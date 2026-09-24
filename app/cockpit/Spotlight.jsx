@@ -7,6 +7,7 @@
  * Everything talks to /api/spotlight; nothing here writes to the DB directly.
  * ========================================================================== */
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { EdithDesk, EdithPanel } from './Edith';
 
 const api = async (body) => {
   const r = await fetch('/api/spotlight', body ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) } : undefined);
@@ -66,7 +67,7 @@ export default function Spotlight({ flash }) {
   const verticals = d?.verticals || {};
   const open = prospects.find((p) => p.id === openId) || null;
 
-  const VIEWS = [['board', 'The Board'], ['prospects', 'Prospects'], ['sequence', 'The Sequence'], ['contracts', 'Contracts'], ['settings', 'Settings']];
+  const VIEWS = [['board', 'The Board'], ['prospects', 'Prospects'], ['edith', 'EDITH · Email'], ['sequence', 'The Sequence'], ['contracts', 'Contracts'], ['settings', 'Settings']];
 
   return (
     <div style={{ padding: '28px 26px 96px', maxWidth: '1140px', margin: '0 auto', width: '100%' }}>
@@ -92,13 +93,14 @@ export default function Spotlight({ flash }) {
         <>
           {view === 'board' && <Board prospects={prospects} stages={stages} cfg={cfg} onOpen={setOpenId} />}
           {view === 'prospects' && <Prospects prospects={prospects} stages={stages} verticals={verticals} act={act} busy={busy} onOpen={setOpenId} flash={flash} />}
+          {view === 'edith' && <EdithDesk flash={flash} onOpen={setOpenId} />}
           {view === 'sequence' && <Sequence prospects={prospects} templates={d.templates || []} onOpen={setOpenId} />}
           {view === 'contracts' && <Contracts prospects={prospects} cfg={cfg} onOpen={setOpenId} />}
           {view === 'settings' && <Settings cfg={cfg} defaultAgreement={d.defaultAgreement} act={act} busy={busy} />}
         </>
       )}
 
-      {open ? <Detail p={open} d={d} act={act} busy={busy} flash={flash} onClose={() => setOpenId(null)} /> : null}
+      {open ? <Detail p={open} d={d} act={act} busy={busy} flash={flash} reload={load} onClose={() => setOpenId(null)} /> : null}
     </div>
   );
 }
@@ -403,7 +405,7 @@ function Settings({ cfg, defaultAgreement, act, busy }) {
 }
 
 /* ------------------------- ONE BUSINESS (drawer) ------------------------ */
-function Detail({ p, d, act, busy, flash, onClose }) {
+function Detail({ p, d, act, busy, flash, reload, onClose }) {
   const stages = d.stages || [];
   const verticals = d.verticals || {};
   const cfg = d.config || {};
@@ -469,6 +471,9 @@ function Detail({ p, d, act, busy, flash, onClose }) {
             <button style={S.btn(false)} onClick={() => act({ op: 'stage', id: p.id, stage: 'not_now', not_now_month: nnMonth }, 'SAVED ✓')}>Save month</button>
           </div>
         ) : null}
+
+        <div style={S.sec}>EDITH · automated email</div>
+        <EdithPanel p={p} flash={flash} onChanged={reload} />
 
         <div style={S.sec}>Before you dial — the three numbers</div>
         <div style={{ ...S.panel, display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: '10px' }}>

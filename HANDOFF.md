@@ -114,6 +114,51 @@ $500K+. Plan · Leads · Tracker · Math · Ads · The Call · Form & Build.
   Oct 6.
 - The OS sends no SMS: the ladder texts (T1–T3) are merged and copy-ready.
 
+## EDITH — the Spotlight email engine (2026-09-24) · OFF until reviewed
+
+Spotlight → **EDITH · Email**. Implements `automations/edith/edith-automations.yaml`
+(sequences, exits, holds) with the copy in `automations/edith/EDITH_Email_Sequences.md`
+— both verbatim from Downloads, never edited by code. `npm run edith:build`
+compiles them to `lib/edith/content.generated.ts`; `edith:check` fails if stale.
+
+- **`edith_live` is FALSE.** EDITH runs every sequence and writes each email to
+  the log (`edith_steps`, status `logged`) — nothing sends. Turning her on
+  takes a typed "EDITH LIVE" in the cockpit. Do not flip it for Brandon.
+- **Run, in order:** `supabase/22_spotlight.sql` (if not yet), `24_edith.sql`
+  (contact fields on spotlight_prospects + events / enrollments / steps /
+  ops_tasks / edith_runtime), `25_edith_clock.sql` (pg_cron + pg_net: every
+  minute, pings `/api/edith/tick` ONLY if an email is due or it's 7:30 AM ET).
+  Vercel Hobby's one daily cron (`/api/cron/daily`) is only the fallback.
+- Engine: `lib/edith/engine.ts` (pure; no I/O) · `lib/edith/server.ts` (Supabase
+  store, Resend delivery, digest, hooks `edithEmit`/`edithTouch`) ·
+  `app/api/edith/` (operator API; `tick` + `unsubscribe` are public, in proxy) ·
+  `app/cockpit/Edith.jsx` (desk + the drawer panel) · `app/e/unsubscribe/[token]`.
+- Proof: `npm run edith:test` (20 unit tests) and `npm run edith:dry-run`
+  (5 fake contacts × 45 days, fails on any blank merge field).
+- **Emitters:** contact.created (Spotlight add, Jarvis add, booking) ·
+  call.booked (Spotlight bookings; Jarvis reschedule) · call.cancelled (Jarvis) ·
+  deposit.paid (`makeMember`) · balance.paid (payment + reconcile) ·
+  email.replied (Resend inbound webhook, once configured; else logged by hand) ·
+  contact.unsubscribed (link, "stop" reply, Do-not-contact, stage No) ·
+  cut.approved (EDITH, 5 days of silence) · debrief.booked (client books after 6-8).
+  **Logged by a human in the cockpit** (the OS can't observe them):
+  call.completed, call.no_show, cut.delivered, episode.published,
+  promo.started/ended. **TODO:** lead.form_submitted has no public form yet —
+  build the Spotlight interest form (the board page) and emit it there; until
+  then forms are logged by hand (EDITH → Log a form). call.no_show has no
+  auto-detect (manifest says "or auto after 15 min" — no meeting integration).
+- **Before going live, Brandon/Emmanuel must set** (EDITH → Settings): mailing
+  address (CAN-SPAM; cold emails HOLD without it), board link (2-1, 3-1),
+  call link (3-x), debrief link (6-8), and **confirm the reply-to inbox exists**
+  (manifest: "confirm actual inbox"). For replies to stop sequences
+  automatically, reply-to must be a Resend-inbound address + RESEND_WEBHOOK_SECRET.
+- Interpretations (all commented INTERPRETATION in engine.ts): SEQ3/SEQ6 ignore
+  the global reply-stop; SEQ3/SEQ4 neither wait on nor count toward the
+  1-per-24h cap; "enroll: SEQ7" = tag nurture (joins the next episode drop);
+  release_spot is a no-op (spots are claimed at deposit); reminders whose moment
+  passed are skipped, never sent late; SEQ1 runs once per contact, ever, and
+  starts when a tagged cold prospect's specific detail is written.
+
 ## ⚠️ CHARLOTTE SPOTLIGHT — two things waiting on Brandon (2026-09-24)
 
 1. **Run `supabase/22_spotlight.sql`** in the Supabase SQL editor. Until then

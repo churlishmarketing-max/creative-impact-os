@@ -5,8 +5,9 @@ import { getAdminClient } from "@/lib/supabase/admin";
 import {
   STAGES, STAGE_KEYS, VERTICALS, TEMPLATES, getConfig, saveConfig, render, nextTouch, importWebsite,
   draftQuestions, sendTemplate, makeMember, createInvoice, createAgreement, agreementText,
-  reconcilePaidDeposits, DEFAULT_AGREEMENT, type Prospect, type Question, type SpotlightConfig,
+  reconcilePaidDeposits, reconcilePaidBalances, DEFAULT_AGREEMENT, type Prospect, type Question, type SpotlightConfig,
 } from "@/lib/spotlight";
+import { edithEmit, edithTouch } from "@/lib/edith/server";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -56,6 +57,7 @@ export async function GET() {
     return fail(error.message, 500);
   }
   let rows = (data || []) as Prospect[];
+  await reconcilePaidBalances(a.admin, a.user.id, rows).catch((e) => console.error("balance reconcile failed", e));
   if (await reconcilePaidDeposits(a.admin, a.user.id, rows)) {
     const again = await a.admin.from("spotlight_prospects").select("*").eq("user_id", a.user.id).order("created_at", { ascending: true });
     rows = (again.data || rows) as Prospect[];
@@ -125,12 +127,14 @@ export async function POST(req: Request) {
     if (b.id) {
       const { error } = await a.admin.from("spotlight_prospects").update(row).eq("user_id", uid).eq("id", String(b.id));
       if (error) return fail(missingTable(error.message) ? MIGRATION_HINT : error.message);
+      await edithTouch(a.admin, uid, String(b.id));
       return NextResponse.json({ ok: true, id: b.id });
     }
     if (!row.business) return fail("A business name, at least.");
     const { data, error } = await a.admin.from("spotlight_prospects").insert({ user_id: uid, stage: "prospect", ...row }).select("id").maybeSingle();
     if (error) return fail(missingTable(error.message) ? MIGRATION_HINT : error.message);
     await a.admin.from("log_entries").insert({ user_id: uid, tag: "CS", color: "var(--gold)", message: `spotlight · added ${row.business}` });
+    if (data?.id) await edithEmit(a.admin, uid, { prospect_id: data.id, type: "contact.created", source: "cockpit" });
     return NextResponse.json({ ok: true, id: data?.id });
   }
 
@@ -150,6 +154,9 @@ export async function POST(req: Request) {
     const { error } = await a.admin.from("spotlight_prospects").update(patch).eq("id", p.id);
     if (error) return fail(error.message);
     await a.admin.from("log_entries").insert({ user_id: uid, tag: "CS", color: "var(--gold)", message: `spotlight · ${p.business} → ${STAGES.find((s) => s.key === stage)?.label}` });
+    // A clean No is a do-not-contact: EDITH ends every sequence for them.
+    if (stage === "no") await edithEmit(a.admin, uid, { prospect_id: p.id, type: "contact.unsubscribed", payload: { via: "stage no" }, source: "cockpit" });
+    else await edithTouch(a.admin, uid, p.id);
     return NextResponse.json({ ok: true });
   }
 
@@ -167,6 +174,7 @@ export async function POST(req: Request) {
     if (!p.vertical && pr.vertical && VERTICALS[String(pr.vertical)]) patch.vertical = String(pr.vertical);
     if (p.years == null && pr.years_in_business != null && !isNaN(Number(pr.years_in_business))) patch.years = Number(pr.years_in_business);
     await a.admin.from("spotlight_prospects").update(patch).eq("id", p.id);
+    await edithTouch(a.admin, uid, p.id);
     return NextResponse.json({ ok: true, profile: pr, filled: Object.keys(patch).filter((k) => k !== "profile") });
   }
 
@@ -195,7 +203,9 @@ export async function POST(req: Request) {
     const kind = b.kind === "balance" ? "balance" : "deposit";
     if (kind === "deposit" && p.deposit_invoice_id) return fail("A deposit invoice already exists for this prospect.");
     if (kind === "balance" && p.balance_invoice_id) return fail("A balance invoice already exists for this prospect.");
-    return NextResponse.json(await createInvoice(a.admin, p, cfg, kind));
+    const inv = await createInvoice(a.admin, p, cfg, kind);
+    if (inv.ok) await edithTouch(a.admin, uid, p.id); // releases a 5-x / 6-3 held for a missing pay link
+    return NextResponse.json(inv);
   }
 
   if (op === "agreement_preview") {

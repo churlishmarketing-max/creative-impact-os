@@ -3,6 +3,7 @@ import { createClient } from "@supabase/supabase-js";
 import { sendEmail, emailShell, esc } from "@/lib/email";
 import { buildIcs } from "@/lib/ics";
 import { getAdminClient } from "@/lib/supabase/admin";
+import { edithEmit, edithOnBooking, getEdithConfig } from "@/lib/edith/server";
 
 export const runtime = "nodejs";
 
@@ -29,30 +30,39 @@ export async function POST(req: Request) {
   // booked" — updating the prospect if we already have them (matched by email),
   // never duplicating. Best-effort: the booking itself already succeeded.
   const isSpotlight = /spotlight/i.test(det.reason || "") || /spotlight/i.test(String(title || ""));
-  if (isSpotlight) {
-    try {
-      const admin = getAdminClient();
-      if (admin) {
-        const { data: owner } = await admin.from("app_state").select("user_id").filter("ops->__booking->>token", "eq", token).limit(1).maybeSingle();
-        const uid = owner?.user_id;
-        if (uid) {
-          const { data: client } = email ? await admin.from("clients").select("id").eq("user_id", uid).ilike("email", email).limit(1).maybeSingle() : { data: null };
-          const { data: existing } = email ? await admin.from("spotlight_prospects").select("id,stage").eq("user_id", uid).ilike("email", email).limit(1).maybeSingle() : { data: null };
-          const note = `Booked a Spotlight call for ${whenText || start}.${notes ? " Notes: " + notes : ""}`;
-          if (existing) {
-            if (["prospect", "contacted", "not_now"].includes(existing.stage)) await admin.from("spotlight_prospects").update({ stage: "call_booked", stage_at: new Date().toISOString() }).eq("id", existing.id);
-          } else {
-            await admin.from("spotlight_prospects").insert({
-              user_id: uid, client_id: client?.id || null, business: det.business || name || "Spotlight booking",
-              owner_name: name || null, email: email || null, phone: phone || null, website: det.website || null,
-              source: "booking", stage: "call_booked", notes: note,
-            });
+  // When EDITH is live, her 3-1 confirmation (with the invite) replaces the
+  // generic welcome for Spotlight bookings — never both.
+  let edithLive = false;
+  try {
+    const admin = getAdminClient();
+    if (admin) {
+      const { data: owner } = await admin.from("app_state").select("user_id").filter("ops->__booking->>token", "eq", token).limit(1).maybeSingle();
+      const uid = owner?.user_id;
+      if (uid && isSpotlight) {
+        const { data: client } = email ? await admin.from("clients").select("id").eq("user_id", uid).ilike("email", email).limit(1).maybeSingle() : { data: null };
+        const { data: existing } = email ? await admin.from("spotlight_prospects").select("id,stage").eq("user_id", uid).ilike("email", email).limit(1).maybeSingle() : { data: null };
+        const note = `Booked a Spotlight call for ${whenText || start}.${notes ? " Notes: " + notes : ""}`;
+        if (existing) {
+          if (["prospect", "contacted", "not_now"].includes(existing.stage)) await admin.from("spotlight_prospects").update({ stage: "call_booked", stage_at: new Date().toISOString() }).eq("id", existing.id);
+        } else {
+          const { data: created } = await admin.from("spotlight_prospects").insert({
+            user_id: uid, client_id: client?.id || null, business: det.business || name || "Spotlight booking",
+            owner_name: name || null, email: email || null, phone: phone || null, website: det.website || null,
+            source: "booking", stage: "call_booked", notes: note,
+          }).select("id").maybeSingle();
+          if (created) {
+            await admin.from("spotlight_prospects").update({ tags: ["inbound"] }).eq("id", created.id); // no-op until migration 24
+            await edithEmit(admin, uid, { prospect_id: created.id, type: "contact.created", source: "booking" });
           }
-          await admin.from("log_entries").insert({ user_id: uid, tag: "CS", color: "var(--gold)", message: `spotlight · call booked · ${det.business || name || email}` });
         }
+        await admin.from("log_entries").insert({ user_id: uid, tag: "CS", color: "var(--gold)", message: `spotlight · call booked · ${det.business || name || email}` });
+        edithLive = (await getEdithConfig(admin, uid)).edith_live;
       }
-    } catch (e) { console.error("spotlight booking hook failed", e); }
-  }
+      // EDITH: a Spotlight fit call starts SEQ3; a client booking after their
+      // debrief invite counts as the debrief. Everything else: EDITH stays out.
+      if (uid && email) await edithOnBooking(admin, uid, { email, start, end, isSpotlight });
+    }
+  } catch (e) { console.error("spotlight booking hook failed", e); }
 
   // Fire-and-forget notifications (never block the booking on email).
   // The invite is UTC-anchored, so it saves into each recipient's own local
@@ -68,7 +78,7 @@ export async function POST(req: Request) {
     alarmMinutes: 60,
   });
   const when = whenText || new Date(start).toUTCString();
-  if (email) {
+  if (email && !(isSpotlight && edithLive)) {
     // Welcome-and-set-expectations email, in the founders' voice. Copy is
     // Brandon's; the confirmed slot and the invite ride along with it so the
     // booker has the time in writing as well as on their calendar.

@@ -4,6 +4,7 @@ import { sendEmail, emailShell, esc } from "@/lib/email";
 import { runOnboardingNudges, detectStalls, runReferralFollowups, runAdvocacyCatchup, type Stall } from "@/lib/automations";
 import { runDiagnosticJobs } from "@/lib/diagnostic/cron";
 import { dispatchDueAutomations } from "@/lib/automations-engine";
+import { edithTick } from "@/lib/edith/server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -27,6 +28,12 @@ export async function GET(req: Request) {
   const diagnostic = await runDiagnosticJobs(admin).catch((e) => { console.error("diagnostic jobs failed", e); return null; });
   // Operator/Jarvis-defined automations (AUTOMATIONS tab). Never fails the sweep.
   const automations = await dispatchDueAutomations(admin).catch((e) => { console.error("automations failed", e); return { error: String(e) }; });
+  // EDITH: the minute clock lives in the database (25_edith_clock.sql); this is
+  // the once-a-day safety net — sends anything overdue and the digest if the
+  // 7:30 one didn't go.
+  const edith: unknown[] = [];
+  const { data: rt } = await admin.from("edith_runtime").select("user_id");
+  for (const r of rt || []) edith.push(await edithTick(admin, r.user_id, { digest: "any" }).catch((e) => ({ error: String(e) })));
 
   // Stall digest to the operator (one email listing everything newly stalled).
   if (stalls.length) {
@@ -40,5 +47,5 @@ export async function GET(req: Request) {
     }).catch((e) => console.error("stall digest failed", e));
   }
 
-  return NextResponse.json({ ok: true, nudges, stalls: stalls.length, referrals, advocacy, diagnostic, automations });
+  return NextResponse.json({ ok: true, nudges, stalls: stalls.length, referrals, advocacy, diagnostic, automations, edith });
 }

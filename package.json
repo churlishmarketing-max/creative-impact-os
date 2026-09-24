@@ -5,7 +5,11 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start"
+    "start": "next start",
+    "edith:build": "node --disable-warning=ExperimentalWarning --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/edith/build.mjs",
+    "edith:check": "node --disable-warning=ExperimentalWarning --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/edith/build.mjs --check",
+    "edith:test": "node --disable-warning=ExperimentalWarning --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test scripts/edith/engine.test.mjs",
+    "edith:dry-run": "node --disable-warning=ExperimentalWarning --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/edith/dry-run.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.0",
@@ -19,6 +23,7 @@
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
-    "typescript": "^5"
+    "typescript": "^5",
+    "yaml": "^2.9.1"
   }
 }

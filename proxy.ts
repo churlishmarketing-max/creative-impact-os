@@ -41,6 +41,9 @@ export async function proxy(req: NextRequest) {
     path.startsWith("/status/") ||            // client read-only status pages
     path.startsWith("/spotlight/q/") ||       // Spotlight member's pre-shoot questions (token page)
     path === "/api/spotlight/questionnaire" || // ...and its token-guarded API
+    path.startsWith("/e/unsubscribe/") ||     // EDITH unsubscribe page (token)
+    path === "/api/edith/unsubscribe" ||      // ...one-click + page button (token-guarded)
+    path === "/api/edith/tick" ||             // EDITH's clock (pg_cron; key-guarded)
     path === "/diagnostic" ||                 // Authority Diagnostic offer page
     path.startsWith("/diagnostic/") ||        // intake + report token pages (NOT /diagnostics, the operator board)
     path === "/api/diagnostic/checkout" ||

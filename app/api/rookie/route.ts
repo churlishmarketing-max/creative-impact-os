@@ -4,6 +4,7 @@ import { cookies } from "next/headers";
 import { getAdminClient } from "@/lib/supabase/admin";
 import { draftAgentEmail, sendQueuedEmail } from "@/lib/agent";
 import { runAutomation } from "@/lib/automations-engine";
+import { gradeLead as laneGrade, computeWeek as laneComputeWeek, scalingVerdict as laneScaling, fallbackStatus as laneFallbacks, PLAN as LANE_PLAN, FALLBACKS as LANE_FALLBACKS, type Week as LaneWeek } from "@/lib/nationwide";
 import { STAGES as SPOT_STAGES, STAGE_KEYS as SPOT_KEYS, VERTICALS, makeMember, importWebsite, type Prospect } from "@/lib/spotlight";
 
 export const runtime = "nodejs";
@@ -53,6 +54,9 @@ const TOOLS = [
   { name: "spotlight_list", description: "List the Charlotte Spotlight pipeline: every business with its stage, reviews/years, and whether questions went out or came back. Optionally filter by stage.", input_schema: { type: "object", properties: { stage: { type: "string", enum: SPOT_KEYS } } } },
   { name: "spotlight_add", description: "Add a business to the Charlotte Spotlight pipeline as a Prospect. If a website is given and import_site is true, the OS reads the site and fills only empty fields (facts from the site only). Reviews and years are what the cold-call opener runs on; ask for them if the operator has them.", input_schema: { type: "object", properties: { business: { type: "string" }, owner_name: { type: "string" }, email: { type: "string" }, phone: { type: "string" }, website: { type: "string" }, vertical: { type: "string", enum: Object.keys(VERTICALS) }, suburb: { type: "string" }, reviews: { type: "number" }, years: { type: "number" }, notes: { type: "string" }, import_site: { type: "boolean" } }, required: ["business"] } },
   { name: "spotlight_move", description: "Move a Charlotte Spotlight business to a new stage, matched by (partial) business name. Moving to member means their slot is claimed and, if auto-send is on in Spotlight settings, EMAILS them their pre-shoot questions immediately, so restate that before doing it. no is a clean no: they should never be re-added. For not_now pass the month they named.", input_schema: { type: "object", properties: { business: { type: "string" }, stage: { type: "string", enum: SPOT_KEYS }, not_now_month: { type: "string" } }, required: ["business", "stage"] } },
+  { name: "lane_add_lead", description: "Log a lead for the Nationwide Hardscape & Landscape lane (the $3K/mo remote ad engine) from its five qualifier-form answers. The OS grades it A-D deterministically: A = $1M+ owner hardscape/design-build (call in 5 min, Brandon on the close); B = $500K-$1M owner install work (call in 5 min); C = $250K-$500K (no call, one reapply email); D = under $250K, maintenance only, or not the owner (filtered). Never send a calendar link to a C or D.", input_schema: { type: "object", properties: { full_name: { type: "string" }, phone: { type: "string" }, email: { type: "string" }, state: { type: "string" }, company: { type: "string" }, web: { type: "string", description: "website or Instagram" }, ad: { type: "string" }, q_install: { type: "string", enum: ["hardscape", "designbuild", "both", "maintenance"] }, q_revenue: { type: "string", enum: ["under250", "250to500", "500to1m", "1mto3m", "3mplus"] }, q_owner: { type: "string", enum: ["yes", "marketing", "no"] }, q_adspend: { type: "string", enum: ["0", "under1k", "1kto3k", "3kplus"] }, notes: { type: "string" } } } },
+  { name: "lane_status", description: "Status of the Nationwide Hardscape & Landscape lane: plan progress and anything overdue, A/B leads waiting on a first call, this week's constraint from the Friday tracker and its fix, what the scaling rule says about budget, and any pre-committed fallback that has tripped.", input_schema: { type: "object", properties: {} } },
+  { name: "lane_log_week", description: "Log (or update) one Friday row of the Nationwide lane constraint tracker, then report the week's constraint and the scaling-rule verdict. week_of is the Friday (YYYY-MM-DD). Spend, impressions, 3-second views, and frequency come from Ads Manager; leads/qualified($500K+)/booked/held/closed and median minutes to first call come from the lead log. Only provided fields change.", input_schema: { type: "object", properties: { week_of: { type: "string" }, spend: { type: "number" }, impressions: { type: "number" }, views3s: { type: "number" }, frequency: { type: "number" }, leads: { type: "number" }, qualified: { type: "number" }, booked: { type: "number" }, held: { type: "number" }, closed: { type: "number" }, median_call_min: { type: "number" } }, required: ["week_of"] } },
   { name: "run_automation_now", description: "Fire an existing automation immediately, ignoring its cadence, matched by (partial) name. Use to test one or to get a leak sweep on demand.", input_schema: { type: "object", properties: { name: { type: "string" } }, required: ["name"] } },
 ];
 
@@ -516,6 +520,67 @@ async function runTool(admin: NonNullable<ReturnType<typeof getAdminClient>>, ui
     return `${p.business}: ${stageLabel(p.stage)} → ${stageLabel(stage)}.`;
   }
 
+  // --- Nationwide lane (Hardscape & Landscape) ---
+  const LANE_MIGRATION = "The lead table does not exist yet - run supabase/23_nationwide.sql in the Supabase SQL editor.";
+  const laneMissing = (m?: string) => !!m && /does not exist|schema cache/i.test(m);
+  const laneCfg = async () => {
+    const { data } = await admin.from("app_state").select("ops").eq("user_id", uid).maybeSingle();
+    const ops = (data?.ops || {}) as Record<string, unknown>;
+    return { ops, cfg: ((ops.__nationwide as Record<string, unknown>) || {}) as { plan?: Record<string, boolean>; weeks?: LaneWeek[]; [k: string]: unknown } };
+  };
+  if (name === "lane_add_lead") {
+    const row: Record<string, unknown> = { user_id: uid, lane: "hardscape" };
+    for (const k of ["full_name", "phone", "email", "state", "company", "web", "ad", "q_install", "q_revenue", "q_owner", "q_adspend", "notes"]) if (input[k]) row[k] = String(input[k]).slice(0, 400);
+    const grade = laneGrade(row as never);
+    row.grade = grade;
+    row.stage = grade === "C" || grade === "D" ? "filtered" : "new";
+    const { error } = await admin.from("lane_leads").insert(row);
+    if (error) return laneMissing(error.message) ? LANE_MIGRATION : "ERROR: " + error.message;
+    await log(`hardscape lead · ${row.company || row.full_name || "—"} · grade ${grade || "?"}`);
+    const action = grade === "A" ? "Call inside 5 minutes, Brandon on the close, calendar inside 48 hours." : grade === "B" ? "Call inside 5 minutes, calendar inside 48 hours." : grade === "C" ? "No call. One email: reapply at half a million. Never sees a calendar." : grade === "D" ? "Filtered at the form. Nobody calls them." : "Ungraded — the gate questions (install, revenue, owner) aren't all answered.";
+    return `Logged ${row.company || row.full_name} — grade ${grade || "?"}. ${action}${row.q_owner === "marketing" ? " They run marketing for the owner: the owner joins the call or the call does not happen." : ""}`;
+  }
+  if (name === "lane_status") {
+    const { cfg } = await laneCfg();
+    const todayStr = new Date().toISOString().slice(0, 10);
+    const done = (t: { id: string; carried?: boolean }) => (cfg.plan && t.id in cfg.plan ? !!cfg.plan[t.id] : !!t.carried);
+    const open = LANE_PLAN.filter((t) => !done(t));
+    const overdue = open.filter((t) => t.due && t.due < todayStr);
+    const weeks = (cfg.weeks || []) as LaneWeek[];
+    const sorted = [...weeks].sort((a, b) => a.week_of.localeCompare(b.week_of));
+    const last = sorted[sorted.length - 1];
+    const heldBefore = last ? sorted.slice(0, -1).reduce((s, w) => s + (Number(w.held) || 0), 0) : 0;
+    const res = last ? laneComputeWeek(last, heldBefore) : null;
+    const fb = laneFallbacks(sorted, todayStr);
+    const tripped = LANE_FALLBACKS.filter((f) => fb[f.id].state === "TRIPPED");
+    const { data: leads } = await admin.from("lane_leads").select("grade,stage,lead_at").eq("user_id", uid).eq("lane", "hardscape");
+    const waiting = (leads || []).filter((l) => l.stage === "new" && (l.grade === "A" || l.grade === "B")).length;
+    return [
+      `PLAN: ${LANE_PLAN.length - open.length}/${LANE_PLAN.length} done.${overdue.length ? " OVERDUE: " + overdue.map((t) => `${t.title} (${t.dueLabel}, ${t.owner})`).join("; ") + "." : ""} Next open: ${open[0] ? open[0].title + (open[0].dueLabel ? " — " + open[0].dueLabel : "") : "none"}.`,
+      `LEADS: ${leads?.length ?? 0} logged; ${waiting} A/B lead${waiting === 1 ? "" : "s"} waiting on a first call.`,
+      last && res ? `TRACKER (week of ${last.week_of}): constraint = ${res.constraint ? `${res.constraint.label} — fix: ${res.constraint.fix}` : "none, every stage with data is on its line"}.` : "TRACKER: no weeks logged yet (first update due Fri Oct 9).",
+      `SCALING: ${laneScaling(sorted).text}`,
+      tripped.length ? `FALLBACKS TRIPPED: ${tripped.map((f) => `${f.when} → ${f.then}`).join(" | ")}` : "FALLBACKS: none tripped.",
+    ].join("\n");
+  }
+  if (name === "lane_log_week") {
+    const weekOf = String(input.week_of || "");
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(weekOf)) return "Give the week as the Friday date, YYYY-MM-DD.";
+    const num = (x: unknown) => (x == null || x === "" || isNaN(Number(x)) ? undefined : Number(x));
+    const w: LaneWeek = { week_of: weekOf };
+    for (const k of ["spend", "impressions", "views3s", "frequency", "leads", "qualified", "booked", "held", "closed", "median_call_min"] as const) { const v = num(input[k]); if (v != null) (w as Record<string, unknown>)[k] = v; }
+    const { ops, cfg } = await laneCfg();
+    const weeks = ((cfg.weeks || []) as LaneWeek[]).filter((x) => x.week_of !== weekOf);
+    const prev = ((cfg.weeks || []) as LaneWeek[]).find((x) => x.week_of === weekOf) || { week_of: weekOf };
+    const merged = { ...prev, ...w };
+    const next = [...weeks, merged].sort((a, b) => a.week_of.localeCompare(b.week_of));
+    await admin.from("app_state").upsert({ user_id: uid, ops: { ...ops, __nationwide: { ...cfg, weeks: next } } }, { onConflict: "user_id" });
+    const heldBefore = next.filter((x) => x.week_of < weekOf).reduce((s, x) => s + (Number(x.held) || 0), 0);
+    const res = laneComputeWeek(merged, heldBefore);
+    await log(`hardscape tracker · week of ${weekOf} logged`);
+    return `Week of ${weekOf} logged. ${res.constraint ? `Constraint: ${res.constraint.label} (line: ${res.constraint.line}). Fix: ${res.constraint.fix}` : "No stage with data is below its line."} Scaling: ${laneScaling(next).text}`;
+  }
+
   return "Unknown tool.";
 }
 
@@ -544,7 +609,7 @@ export async function POST(req: Request) {
   let { data: agent } = await admin.from("agents").select("voice_prompt").eq("user_id", user.id).eq("name", "Jarvis").maybeSingle();
   if (!agent) ({ data: agent } = await admin.from("agents").select("voice_prompt").eq("user_id", user.id).eq("name", "Showrunner").maybeSingle());
   const board = await boardSummary(admin, user.id);
-  const system = `${agent?.voice_prompt || "You are Jarvis, the Creative Impact OS operator copilot."}\n\nYou are Jarvis. You are an AI and say so plainly if asked; you never pose as Brandon, Emmanuel, or a client.\n\nLIVE BOARD CONTEXT (as of this message):\n${JSON.stringify(board)}\n\nToday: ${new Date().toDateString()}. Current ISO week: ${weekKey()}.\n\nCAPABILITIES NOTE: You can change mission-level settings (set_sprint: target, dates, THE ONE THING), manage Founder OS goals (add_goal/complete_goal), rewrite the working strategy (set_strategy), set KPIs, and ingest uploaded receipts/statements/CSVs — extract each line item and log via add_expenses_bulk (use the document's dates; ask before logging if any line is unreadable or ambiguous). Changing the sprint target or dates is a big lever — restate the change and act only when the instruction is explicit.\n\nINVOICES & PROPOSALS: create_invoice and create_proposal DRAFT the document and generate its client link — they never email the client. Sending an invoice or proposal is an outbound, money-adjacent action that stays with a human: after drafting, show the operator the number, amount, and link, and tell them to send it from the Invoices/Proposals tab. Do not claim anything was sent.\n\nAUTOMATIONS: you can set up recurring work yourself. create_automation makes a scheduled job the OS runs on its own (leak_sweep = Black Widow's revenue leak sweep computed off the live board; board_digest = a numbers snapshot; log_marker = a heartbeat for testing). list_automations shows what exists, toggle_automation turns one on/off (they are never deleted), run_automation_now fires one immediately. The OS dispatches due automations once a day, so day-level cadences are real and sub-daily timing is not. When the operator describes recurring work ("every Monday sweep for money we're leaving on the table"), offer to create the automation rather than just doing it once.\n\nCHARLOTTE SPOTLIGHT: the local video series (ten businesses a month, filmed like Diners, Drive-Ins and Dives). spotlight_list shows the pipeline; spotlight_add adds a prospect (set import_site=true with a website to pull facts off their site); spotlight_move moves a stage. Moving someone to 'member' can email them their pre-shoot questions immediately; say so before you do it. You never send the cold sequence emails; those are drafted and sent from the SPOTLIGHT tab.\n\nCALLS: update_booking reschedules or cancels an upcoming booked call. Rescheduling needs an explicit new start time. Cancelling frees the slot on the public booker; restate the call before cancelling.\n\nCLIENT EMAIL: draft_client_email hands the writing to Anchor (the client producer) — client-facing mail is his voice, not yours. Drafts queue for approval by default; pass send_now=true ONLY on an explicit send order. When the operator approves a draft you just showed them ("send it"), use send_pending_email — never redraft. Show the operator the draft body after creating it. Use list_clients to see or disambiguate the roster; client matching covers names, contact names, and emails.\n\nYou can add and update, but you NEVER delete anything, and you never send an invoice, proposal, or client email without the operator's explicit go-ahead.`;
+  const system = `${agent?.voice_prompt || "You are Jarvis, the Creative Impact OS operator copilot."}\n\nYou are Jarvis. You are an AI and say so plainly if asked; you never pose as Brandon, Emmanuel, or a client.\n\nLIVE BOARD CONTEXT (as of this message):\n${JSON.stringify(board)}\n\nToday: ${new Date().toDateString()}. Current ISO week: ${weekKey()}.\n\nCAPABILITIES NOTE: You can change mission-level settings (set_sprint: target, dates, THE ONE THING), manage Founder OS goals (add_goal/complete_goal), rewrite the working strategy (set_strategy), set KPIs, and ingest uploaded receipts/statements/CSVs — extract each line item and log via add_expenses_bulk (use the document's dates; ask before logging if any line is unreadable or ambiguous). Changing the sprint target or dates is a big lever — restate the change and act only when the instruction is explicit.\n\nINVOICES & PROPOSALS: create_invoice and create_proposal DRAFT the document and generate its client link — they never email the client. Sending an invoice or proposal is an outbound, money-adjacent action that stays with a human: after drafting, show the operator the number, amount, and link, and tell them to send it from the Invoices/Proposals tab. Do not claim anything was sent.\n\nAUTOMATIONS: you can set up recurring work yourself. create_automation makes a scheduled job the OS runs on its own (leak_sweep = Black Widow's revenue leak sweep computed off the live board; board_digest = a numbers snapshot; log_marker = a heartbeat for testing). list_automations shows what exists, toggle_automation turns one on/off (they are never deleted), run_automation_now fires one immediately. The OS dispatches due automations once a day, so day-level cadences are real and sub-daily timing is not. When the operator describes recurring work ("every Monday sweep for money we're leaving on the table"), offer to create the automation rather than just doing it once.\n\nNATIONWIDE LANE (Hardscape & Landscape): a $3,000/mo remote ad engine sold nationwide to hardscape/landscape companies doing $500K+ (Emmanuel fronts every ad; the client films on a phone). lane_add_lead logs and grades a lead from the five form answers; lane_status reads the plan, leads waiting, the week's constraint, the scaling verdict, and tripped fallbacks; lane_log_week records a Friday tracker row. The planning numbers are assumptions, not benchmarks; never present them as results.\n\nCHARLOTTE SPOTLIGHT: the local video series (ten businesses a month, filmed like Diners, Drive-Ins and Dives). spotlight_list shows the pipeline; spotlight_add adds a prospect (set import_site=true with a website to pull facts off their site); spotlight_move moves a stage. Moving someone to 'member' can email them their pre-shoot questions immediately; say so before you do it. You never send the cold sequence emails; those are drafted and sent from the SPOTLIGHT tab.\n\nCALLS: update_booking reschedules or cancels an upcoming booked call. Rescheduling needs an explicit new start time. Cancelling frees the slot on the public booker; restate the call before cancelling.\n\nCLIENT EMAIL: draft_client_email hands the writing to Anchor (the client producer) — client-facing mail is his voice, not yours. Drafts queue for approval by default; pass send_now=true ONLY on an explicit send order. When the operator approves a draft you just showed them ("send it"), use send_pending_email — never redraft. Show the operator the draft body after creating it. Use list_clients to see or disambiguate the roster; client matching covers names, contact names, and emails.\n\nYou can add and update, but you NEVER delete anything, and you never send an invoice, proposal, or client email without the operator's explicit go-ahead.`;
 
   const convo: { role: string; content: unknown }[] = history.map((m) => ({ role: m.role === "assistant" ? "assistant" : "user", content: m.content }));
 

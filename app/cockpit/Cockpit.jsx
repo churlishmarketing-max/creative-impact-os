@@ -10,6 +10,7 @@
 import React from 'react';
 import { store } from '@/lib/store';
 import Spotlight from './Spotlight';
+import Nationwide from './Nationwide';
 
 // Reproduces DC's style-hover: merge hover styles on pointer enter/leave so they
 // win over the element's inline base styles (a CSS :hover class would not).
@@ -55,7 +56,7 @@ class Cockpit extends React.Component {
   NAV = [
     { num: '01', label: 'Command', items: [{ id: 'command', label: 'The Big Board' }] },
     { num: '02', label: 'Sales', items: [{ id: 'pipeline', label: 'Pipeline' }, { id: 'audits', label: 'Audits' }, { id: 'clients', label: 'Clients' }, { id: 'scheduling', label: 'Scheduling' }] },
-    { num: '03', label: 'Spotlight', items: [{ id: 'spotlight', label: 'Charlotte Spotlight' }] },
+    { num: '03', label: 'Acquisition', items: [{ id: 'spotlight', label: 'Charlotte Spotlight' }, { id: 'nationwide', label: 'Nationwide · Hardscape' }] },
     { num: '04', label: 'Production', items: [{ id: 'shoots', label: 'Shoots' }, { id: 'docs', label: 'Documents' }] },
     { num: '05', label: 'Money', items: [{ id: 'invoices', label: 'Invoices' }, { id: 'proposals', label: 'Proposals' }, { id: 'expenses', label: 'Expenses' }, { id: 'kpis', label: 'KPIs' }] },
     { num: '06', label: 'Strategy', items: [{ id: 'strategy', label: 'Strategy' }, { id: 'plans', label: 'Plans' }, { id: 'partners', label: 'Partners' }] },
@@ -3340,6 +3341,7 @@ Signed: {{signer}}      Date: {{date}}`;
   {(this.state.view === 'rookie') ? this.renderRookieTab() : null}
   {(this.state.view === 'automations') ? this.renderAutomationsTab() : null}
   {(this.state.view === 'spotlight') ? <Spotlight flash={(m, d) => this.flash(m, d)} /> : null}
+  {(this.state.view === 'nationwide') ? <Nationwide flash={(m, d) => this.flash(m, d)} /> : null}
 
   {/* BOTTOMLINE TICKER */}
   {(tickerOn) ? (

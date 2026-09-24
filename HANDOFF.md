@@ -93,6 +93,27 @@ The capture days are the wedge, not the number.
 | Facebook lead import | FB_* vars | Parked |
 | Android APK | assetlinks | Parked. Note `/.well-known/assetlinks.json` currently 404s — the proxy exempts the path but the route needs work. Setting the env var alone won't fix it |
 
+## NATIONWIDE LANE — Hardscape & Landscape (2026-09-24)
+
+Nav group 03 is **Acquisition**: Charlotte Spotlight + **Nationwide · Hardscape**.
+The Nationwide screen houses `Downloads/CI_Client_Acquisition_Reworked.docx`
+(Sep 19): the $3K/mo remote ad engine for hardscape/landscape companies doing
+$500K+. Plan · Leads · Tracker · Math · Ads · The Call · Form & Build.
+
+- **Run `supabase/23_nationwide.sql`** for the lead log. Everything else (plan,
+  decisions, tracker, scripts, the close) works without it.
+- Leads arrive in **Meta Lead Center**, not the OS — the 5-minute call happens
+  from the phone notification. The OS grades them (Section 06, deterministic),
+  works the ladder, and fills the Friday tracker from the log. Paste the Lead
+  Center export in; C/D are auto-filtered and never get a calendar link.
+- All math is `lib/nationwide.ts`, verified to reproduce the doc's own tables.
+  Planning rates are assumptions; the "your actual" column replaces them from
+  logged weeks (close rate only after 10 held calls).
+- The doc's four decisions (JV split, minimum term, the 3/month cap, who edits
+  at company four) are recorded on the Plan view — the split was due before
+  Oct 6.
+- The OS sends no SMS: the ladder texts (T1–T3) are merged and copy-ready.
+
 ## ⚠️ CHARLOTTE SPOTLIGHT — two things waiting on Brandon (2026-09-24)
 
 1. **Run `supabase/22_spotlight.sql`** in the Supabase SQL editor. Until then

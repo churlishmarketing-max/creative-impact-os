@@ -7,7 +7,7 @@ version: 1
 sender:
   name: "EDITH at Creative Impact"
   from: edith@creativeimpactmedia.co
-  reply_to: emmanuel@creativeimpactmedia.co   # confirm actual inbox
+  reply_to: hello@creativeimpactmedia.co       # confirmed by Brandon 2026-09-24 (Google Workspace inbox)
   signature_block: |
     EDITH
     Creative Impact · Emmanuel's assistant — the AI kind. A human reads every reply.

@@ -8,7 +8,7 @@ export const CONTENT: EdithContent = {
     "sender": {
       "name": "EDITH at Creative Impact",
       "from": "edith@creativeimpactmedia.co",
-      "reply_to": "emmanuel@creativeimpactmedia.co",
+      "reply_to": "hello@creativeimpactmedia.co",
       "signature_block": "EDITH\nCreative Impact · Emmanuel's assistant — the AI kind. A human reads every reply.\nhello@creativeimpactmedia.co\n"
     },
     "global_rules": {
@@ -962,7 +962,7 @@ export const CONTENT: EdithContent = {
     }
   },
   "signature": "EDITH\nCreative Impact · Emmanuel's assistant — the AI kind. A human reads every reply.\nhello@creativeimpactmedia.co",
-  "source_hash": "b3d612862c11706b",
+  "source_hash": "02e6c63959081fa1",
   "warnings": [
     "2-1: 2 links in the body (gate: one CTA)",
     "2-3: 2 links in the body (gate: one CTA)",

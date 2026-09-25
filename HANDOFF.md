@@ -149,8 +149,8 @@ compiles them to `lib/edith/content.generated.ts`; `edith:check` fails if stale.
   auto-detect (manifest says "or auto after 15 min" — no meeting integration).
 - **Before going live, Brandon/Emmanuel must set** (EDITH → Settings): mailing
   address (CAN-SPAM; cold emails HOLD without it), board link (2-1, 3-1),
-  call link (3-x), debrief link (6-8), and **confirm the reply-to inbox exists**
-  (manifest: "confirm actual inbox"). For replies to stop sequences
+  call link (3-x), debrief link (6-8). Reply-to is hello@creativeimpactmedia.co
+  (confirmed by Brandon 2026-09-24). For replies to stop sequences
   automatically, reply-to must be a Resend-inbound address + RESEND_WEBHOOK_SECRET.
 - Interpretations (all commented INTERPRETATION in engine.ts): SEQ3/SEQ6 ignore
   the global reply-stop; SEQ3/SEQ4 neither wait on nor count toward the

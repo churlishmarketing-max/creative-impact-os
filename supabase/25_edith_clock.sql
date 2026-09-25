@@ -23,7 +23,8 @@ select cron.schedule('edith-tick', '* * * * *', $job$
   select net.http_post(
     url     := 'https://os.creativeimpactmedia.co/api/edith/tick',
     headers := jsonb_build_object('Content-Type', 'application/json', 'x-edith-key', r.tick_key),
-    body    := '{}'::jsonb
+    body    := '{}'::jsonb,
+    timeout_milliseconds := 55000  -- a busy tick can take longer than pg_net's 5s default
   )
   from public.edith_runtime r
   where exists (

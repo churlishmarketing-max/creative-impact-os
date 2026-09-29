@@ -1,14 +1,16 @@
 'use client';
 /* ============================================================================
  * CHARLOTTE SPOTLIGHT — the cockpit screen.
- * Board (what needs doing + the pipeline) · Prospects (add, import from their
- * website) · Sequence (who's due a touch) · Contracts (agreements + deposits)
- * · Settings (the offer, the month, the agreement template).
+ * Board (what needs doing + the pipeline) · Prospects (add, import a
+ * spreadsheet or their website) · Call Script (the cold-call script, filled in
+ * for the business you're dialing) · EDITH · Sequence (who's due a touch) ·
+ * Contracts (agreements + invoices) · Settings (the price board, the agreement).
  * Everything talks to /api/spotlight; nothing here writes to the DB directly.
  * ========================================================================== */
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { EdithDesk, EdithPanel } from './Edith';
 import SheetImport from './SheetImport';
+import CallScript from './CallScript';
 
 const api = async (body) => {
   const r = await fetch('/api/spotlight', body ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) } : undefined);
@@ -39,6 +41,7 @@ export default function Spotlight({ flash }) {
   const [d, setD] = useState(null);
   const [view, setView] = useState('board');
   const [openId, setOpenId] = useState(null);
+  const [scriptFor, setScriptFor] = useState('');
   const [msg, setMsg] = useState('');
   const [busy, setBusy] = useState('');
 
@@ -58,7 +61,7 @@ export default function Spotlight({ flash }) {
     if (!j.ok) { setMsg(j.error || 'That didn’t work.'); return j; }
     setMsg('');
     if (okMsg) flash(okMsg);
-    if (!['preview', 'agreement_preview', 'import'].includes(body.op)) await load();
+    if (!['preview', 'agreement_preview', 'import', 'cold_preview'].includes(body.op)) await load();
     return j;
   };
 
@@ -68,7 +71,7 @@ export default function Spotlight({ flash }) {
   const verticals = d?.verticals || {};
   const open = prospects.find((p) => p.id === openId) || null;
 
-  const VIEWS = [['board', 'The Board'], ['prospects', 'Prospects'], ['edith', 'EDITH · Email'], ['sequence', 'The Sequence'], ['contracts', 'Contracts'], ['settings', 'Settings']];
+  const VIEWS = [['board', 'The Board'], ['prospects', 'Prospects'], ['script', 'Call Script'], ['edith', 'EDITH · Email'], ['sequence', 'The Sequence'], ['contracts', 'Contracts'], ['settings', 'Settings']];
 
   return (
     <div style={{ padding: '28px 26px 96px', maxWidth: '1140px', margin: '0 auto', width: '100%' }}>
@@ -94,6 +97,7 @@ export default function Spotlight({ flash }) {
         <>
           {view === 'board' && <Board prospects={prospects} stages={stages} cfg={cfg} onOpen={setOpenId} />}
           {view === 'prospects' && <Prospects prospects={prospects} stages={stages} verticals={verticals} act={act} busy={busy} onOpen={setOpenId} flash={flash} />}
+          {view === 'script' && <CallScript key={scriptFor || 'none'} prospects={prospects} cfg={cfg} verticals={verticals} initialId={scriptFor} onOpen={setOpenId} />}
           {view === 'edith' && <EdithDesk flash={flash} onOpen={setOpenId} />}
           {view === 'sequence' && <Sequence prospects={prospects} templates={d.templates || []} onOpen={setOpenId} />}
           {view === 'contracts' && <Contracts prospects={prospects} cfg={cfg} onOpen={setOpenId} />}
@@ -101,7 +105,7 @@ export default function Spotlight({ flash }) {
         </>
       )}
 
-      {open ? <Detail p={open} d={d} act={act} busy={busy} flash={flash} reload={load} onClose={() => setOpenId(null)} /> : null}
+      {open ? <Detail p={open} d={d} act={act} busy={busy} flash={flash} reload={load} onClose={() => setOpenId(null)} onScript={(id) => { setScriptFor(id); setView('script'); setOpenId(null); }} /> : null}
     </div>
   );
 }
@@ -316,7 +320,7 @@ function Sequence({ prospects, templates, onOpen }) {
   return (
     <div>
       <div style={S.warn}>
-        Cold touches never send on their own. Each one opens as a draft with their details filled in — anything the OS can’t fill (like their LTV number or the date you release the slot) stays in [brackets] and blocks the send until you fill it. <b>For volume, copy them into a dedicated outreach sender</b> (Smartlead / Instantly on a warmed domain) rather than sending from hello@ — that address now carries every booking confirmation, and cold volume from it risks your deliverability for all of them.
+        <b>EDITH sends the automated cold emails now</b> (EDITH · Email) — to every cold prospect with an email, under the daily cap. The touches below are the call script’s manual emails: they never send on their own, and they’re blocked for anyone EDITH is already writing to. Each opens as a draft with their details filled in — anything the OS can’t fill stays in [brackets] and blocks the send. Use them one at a time, after a real conversation. Everything cold goes out from hello@, which also carries every booking confirmation — keep the daily cap modest so a bad week of bounces can’t hurt those.
       </div>
       <div style={{ ...S.sec, marginTop: 0 }}>Due now ({due.length})</div>
       <div style={{ borderTop: '1px solid var(--line)' }}>{due.map((p) => <Row key={p.id} p={p} />)}{!due.length ? <div style={{ ...S.note, padding: '10px 0' }}>No touches due.</div> : null}</div>
@@ -417,7 +421,7 @@ function Settings({ cfg, defaultAgreement, act, busy }) {
 }
 
 /* ------------------------- ONE BUSINESS (drawer) ------------------------ */
-function Detail({ p, d, act, busy, flash, reload, onClose }) {
+function Detail({ p, d, act, busy, flash, reload, onClose, onScript }) {
   const stages = d.stages || [];
   const verticals = d.verticals || {};
   const cfg = d.config || {};
@@ -487,7 +491,7 @@ function Detail({ p, d, act, busy, flash, reload, onClose }) {
         <div style={S.sec}>EDITH · automated email</div>
         <EdithPanel p={p} flash={flash} onChanged={reload} />
 
-        <div style={S.sec}>Before you dial — the three numbers</div>
+        <div style={{ ...S.sec, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}><span>Before you dial — the three numbers</span>{onScript ? <button style={{ ...S.btn(false), padding: '5px 9px', fontSize: '9.5px' }} onClick={() => onScript(p.id)}>☎ Call script for {p.business}</button> : null}</div>
         <div style={{ ...S.panel, display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: '10px' }}>
           {[['Reviews', p.reviews], ['Years', p.years], ['Video today', p.video_situation]].map(([l, x]) => (
             <div key={l}><div style={{ fontFamily: 'var(--num)', fontSize: '22px', fontWeight: 700, color: x == null || x === '' ? 'var(--red)' : 'var(--cream)' }}>{x == null || x === '' ? '—' : x}</div><div style={S.lbl}>{l}</div></div>

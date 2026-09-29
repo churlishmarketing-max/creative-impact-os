@@ -151,17 +151,56 @@ were changed, at Brandon's instruction). `npm run edith:build` compiles them to
 - **Deliverability guard (not in the manifest):** at most `cold_daily_cap`
   (default 20, EDITH settings) NEW cold first-touches per Eastern day; the rest
   wait for tomorrow. Follow-ups aren't capped.
-- **Spreadsheet import:** Spotlight → Prospects → "Import a spreadsheet" (.xlsx /
-  .csv / .tsv / pasted rows, parsed in the browser — `app/cockpit/SheetImport.jsx`,
-  op `import_rows`). Dedupes by email then business name; existing people only
-  get EMPTY fields filled. "Cold prospects" tick = cold_prospect tag = SEQ1
-  eligible once a specific detail exists.
+- **SEQ1 cold open (rewritten 2026-09-29, Brandon's framing):** "This is EDITH,
+  Creative Impact's AI assistant… Brandon and Emmanuel thought [business] would be
+  a great fit for our new series… production company moving into the Charlotte
+  metro… featured on the show, or your own commercial made as part of it."
+  Needs only a business name + email: enrollment = cold_prospect tag + an email
+  (no specific detail — when one is written, variant 1-1-detail sends). Greeting
+  is `{{first_name|there}}` — the engine now supports `{{field|fallback}}`
+  (optional fields; build.mjs lists them in merge_fields_optional). 1-2 / 1-3 are
+  timed off 1-1's actual send (`step[1-1].sent_at + 3d / + 7d`) so the daily cap
+  can't bunch them. Cold never starts for a contact who already replied, booked,
+  or paid. Skipping 1-1 on the desk skips its follow-ups.
+- **Spreadsheet import** — two doors, one code path (`lib/sheet-map.ts` maps
+  columns; `lib/spotlight-import.ts` writes): Spotlight → Prospects → "Import a
+  spreadsheet" (`SheetImport.jsx`, op `import_rows`, with a preview of EDITH's
+  first email via op `cold_preview`), or attach the sheet to EDITH and say
+  "import these" (tool `spotlight_import_sheet`: preview first; start_emails
+  needs email_count to match the preview). Finds the header row under a title,
+  reads namespaced .xlsx (`<x:row>`), maps Prospect → business, Source URL →
+  "Found at" note (+ website when the host is theirs), Email Status → note,
+  guesses the vertical from the name (marked "?"). Dedupes by email then
+  business; existing people only get EMPTY fields. "Cold" tags only rows with an
+  email that pass: not flagged "verify" in the sheet, and the email's domain
+  has a mail server (DNS check; ENOTFOUND / no MX+A / SERVFAIL = left off,
+  noted). Phone-only rows = the call list. Cold rows are queued (emit
+  run:false) — the minute clock sends them, so the cap is exact.
+- **Brandon's list (2026-09-29):** Charlotte_Spotlight_Prospect_Contacts.xlsx —
+  86 businesses, 66 with an email. Checked here: mecklenburgautorepair.com
+  doesn't exist (NXDOMAIN) and thepeacefuldragon.com's DNS fails (SERVFAIL);
+  Midian Roofing (Rome, GA) and Air Maxx are flagged "verify" in the sheet. Not
+  imported by Claude (no DB credentials locally) — Brandon imports it.
+- **Files EDITH reads** (📎 in the header bar and on the desk,
+  `app/cockpit/files.js`): images and PDFs as-is (3.5MB), Word .docx as text,
+  .xlsx/.csv/.tsv as rows (+ a text copy), text/markdown/JSON. Old .doc/.xls get
+  a "save as" message. The last sheet stays with her (cockpit re-sends it as
+  `body.sheet`) so "yes, import them" works a turn later.
+- **Call Script** — Spotlight → Call Script (`app/cockpit/CallScript.jsx`,
+  content `lib/spotlight-script.ts`; EDITH tool `spotlight_call_script`). The
+  Sep 19 script, filled for the call: caller (Emmanuel / Brandon / anyone —
+  Step 4's story line has a version for each), the business (phone-only call
+  list first; name, reviews, vertical gap line), the spot (tier + board price).
+  Unknowns stay as gold [brackets]. Deliberate changes from the .docx: prices
+  from the board (paid in full), "own forever / own outright" → "yours to run
+  anywhere, forever" (agreement §7 is a license), Brandon's short opener added,
+  §9 points at EDITH. Card drawer has "☎ Call script for …".
 - The hand-sent cold emails (The Sequence tab) refuse to send while EDITH's SEQ1
   is running for that prospect.
 - Engine: `lib/edith/engine.ts` (pure) · `lib/edith/server.ts` (store, Resend,
   digest, hooks) · `app/api/edith/` (operator API; `tick` + `unsubscribe` public)
   · `app/cockpit/Edith.jsx` · `app/e/unsubscribe/[token]`. Proof:
-  `npm run edith:test` (21) and `npm run edith:dry-run` (5 contacts × 45 days).
+  `npm run edith:test` (25) and `npm run edith:dry-run` (5 contacts × 45 days).
 - **Emitters:** contact.created (Spotlight add, import, EDITH console, booking,
   board form) · call.booked (Spotlight bookings; console reschedule) ·
   call.cancelled (console) · lead.form_submitted (board form; "Log a form") ·

@@ -84,19 +84,65 @@ test("a step due outside the window waits; ignore_send_window steps don't", asyn
 
 /* ------------------------------------------------------- enrollment */
 
-test("SEQ1 needs the cold_prospect tag AND a specific detail; a task asks a human for it", async () => {
-  const w = world([{ id: "a", tags: ["cold_prospect"] }, { id: "b" }]);
-  await emit(w.env, { contact_id: "a", type: "contact.created", payload: {} });
-  await emit(w.env, { contact_id: "b", type: "contact.created", payload: {} });
-  assert.equal(w.steps("a").length, 0);
-  assert.equal(w.steps("b").length, 0);
-  assert.ok(w.open().includes("detail:a"));
-  await w.mem.store.updateContact("a", { fields: { specific_detail: "Their sign on Central Ave is hand-painted." } });
-  await contactChanged(w.env, "a");
+test("SEQ1 needs the cold_prospect tag and an email — no specific detail, no first name required", async () => {
+  const w = world([{ id: "a", tags: ["cold_prospect"], fields: { first_name: null } }, { id: "b" }, { id: "c", tags: ["cold_prospect"], email: null }]);
+  for (const id of ["a", "b", "c"]) await emit(w.env, { contact_id: id, type: "contact.created", payload: {} });
   assert.equal(w.status("a", "1-1"), "logged");
-  assert.ok(!w.open().includes("detail:a"), "task closes itself");
+  assert.equal(w.steps("b").length, 0, "not tagged cold");
+  assert.equal(w.steps("c").length, 0, "no email — call list, not a held email");
+  assert.equal(w.open().length, 0, "no 'write the detail' task any more");
+  const s = w.mem.steps.find((x) => x.contact_id === "a" && x.step === "1-1");
+  assert.equal(s.template_id, "1-1");
+  assert.match(s.body, /^Hi there —\n\nThis is EDITH, Creative Impact's AI assistant\./, "no name: the fallback greeting");
+  assert.match(s.body, /Brandon and Emmanuel thought a Co would be a great fit/);
+  assert.doesNotMatch(s.subject + s.body, /\{\{|\|there/);
+  await w.mem.store.updateContact("c", { fields: {} });
+  w.mem.contacts.get("c").email = "c@example.com";
+  await contactChanged(w.env, "c");
+  assert.equal(w.status("c", "1-1"), "logged", "an email added later starts it");
   await contactChanged(w.env, "a");
   assert.equal(w.mem.enrollments.filter((e) => e.contact_id === "a" && e.seq === "SEQ1").length, 1, "SEQ1 runs once per contact, ever");
+});
+
+test("1-1-detail sends when a human wrote the detail; the owner's name greets them", async () => {
+  const w = world([{ id: "a", tags: ["cold_prospect"], fields: { specific_detail: "Their sign on Central Ave is hand-painted." } }]);
+  await emit(w.env, { contact_id: "a", type: "contact.created", payload: {} });
+  const s = w.mem.steps.find((x) => x.step === "1-1");
+  assert.equal(s.template_id, "1-1-detail");
+  assert.match(s.body, /^Hi Sam —/);
+  assert.match(s.body, /great fit for our new series\. Their sign on Central Ave is hand-painted\. That's what put you on their list\./);
+});
+
+test("cold never starts for someone who already booked or replied", async () => {
+  const w = world([{ id: "a" }]);
+  await emit(w.env, { contact_id: "a", type: "call.booked", payload: { call_time: ET(2026, 10, 9, 10).toISOString() } });
+  await w.mem.store.updateContact("a", { tags: ["cold_prospect"] });
+  await contactChanged(w.env, "a");
+  assert.equal(w.mem.enrollments.some((e) => e.seq === "SEQ1"), false);
+});
+
+test("SEQ1 follow-ups count from the day 1-1 went out, not the day of import", async () => {
+  const people = ["a", "b"].map((id) => ({ id, tags: ["cold_prospect"] }));
+  const w = world(people, { cold_daily_cap: 1 });
+  for (const p of people) await emit(w.env, { contact_id: p.id, type: "contact.created", payload: {} }); // Tue 10/6 9:00
+  assert.equal(w.status("b", "1-1"), "scheduled", "b waits for tomorrow's cap");
+  assert.equal(w.status("b", "1-2"), "waiting");
+  await w.run(12);
+  const sent = (id, step) => et(w.mem.steps.find((s) => s.contact_id === id && s.step === step).sent_at);
+  assert.equal(sent("a", "1-1"), "Tue 10/6 09:00");
+  assert.equal(sent("a", "1-2"), "Fri 10/9 09:00");
+  assert.equal(sent("b", "1-1"), "Wed 10/7 08:00");
+  assert.equal(sent("b", "1-2"), "Sat 10/10 08:00", "three days after b's own first email");
+  assert.equal(sent("b", "1-3"), "Wed 10/14 08:00");
+  assert.equal(w.mem.enrollments.find((e) => e.contact_id === "b").status, "completed");
+});
+
+test("a bulk import can queue without sending (run: false); the clock sends", async () => {
+  const w = world([{ id: "a", tags: ["cold_prospect"] }]);
+  await emit(w.env, { contact_id: "a", type: "contact.created", payload: {} }, { run: false });
+  assert.equal(w.status("a", "1-1"), "scheduled");
+  await runDue(w.env);
+  assert.equal(w.status("a", "1-1"), "logged");
 });
 
 test("call.completed routes by outcome: undecided → SEQ5, not_fit → SEQ5B, closed → nothing", async () => {
@@ -295,7 +341,7 @@ test("edith_live=false logs and never delivers; true delivers with sender, reply
   assert.match(cold.text, /Unsubscribe: https:\/\/os\.example\/e\/unsubscribe\/u-a/);
   assert.match(cold.text, /Creative Impact · 100 Example St/);
   assert.match(cold.text, /the AI kind\. A human reads every reply\./, "signature on every email");
-  assert.match(cold.html, /One question, then I'll get out of your way\./, "preview text rides in the HTML part");
+  assert.match(cold.html, /Brandon and Emmanuel thought you'd be a great fit\./, "preview text rides in the HTML part");
   assert.ok(confirm.ics && confirm.ics.start, "3-1 carries the calendar invite");
   assert.deepEqual(confirm.headers, {}, "no unsubscribe header outside SEQ1/SEQ7");
 });

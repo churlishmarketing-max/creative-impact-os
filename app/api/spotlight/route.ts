@@ -7,7 +7,8 @@ import {
   draftQuestions, sendTemplate, makeMember, createInvoice, createAgreement, agreementText,
   reconcilePaidDeposits, reconcilePaidBalances, DEFAULT_AGREEMENT, type Prospect, type Question, type SpotlightConfig,
 } from "@/lib/spotlight";
-import { edithEmit, edithTouch } from "@/lib/edith/server";
+import { edithEmit, edithTouch, previewColdEmail } from "@/lib/edith/server";
+import { importProspects } from "@/lib/spotlight-import";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -121,63 +122,20 @@ export async function POST(req: Request) {
     return NextResponse.json(r);
   }
 
-  // A spreadsheet of leads (parsed in the browser — SheetImport.jsx). New rows
-  // become Prospects; rows that match someone already here (email, else
-  // business name) only fill that prospect's EMPTY fields. "cold" tags them
-  // cold_prospect, which is what lets EDITH's cold sequence (SEQ1) start once
-  // a specific detail exists — subject to the daily cold cap.
+  // A spreadsheet of leads (read in the browser — SheetImport.jsx, or by
+  // EDITH from a sheet attached in her chat). lib/spotlight-import.ts does the
+  // work: dedupe, fill-empty-only, the cold tag, the mail-server check.
   if (op === "import_rows") {
-    const list = (Array.isArray(b.rows) ? b.rows : []).slice(0, 500) as Record<string, unknown>[];
-    const source = String(b.source || "import").slice(0, 40);
-    const cold = !!b.cold;
-    const { data: have, error: hErr } = await a.admin.from("spotlight_prospects").select("*").eq("user_id", uid);
-    if (hErr) return fail(missingTable(hErr.message) ? MIGRATION_HINT : hErr.message);
-    const byEmail = new Map<string, Record<string, unknown>>();
-    const byBiz = new Map<string, Record<string, unknown>>();
-    const key = (s: unknown) => String(s || "").trim().toLowerCase().replace(/\s+/g, " ");
-    for (const p of have || []) { if (p.email) byEmail.set(key(p.email), p); if (p.business) byBiz.set(key(p.business), p); }
-    const inserts: Record<string, unknown>[] = [];
-    const touched: string[] = [];
-    let updated = 0, skipped = 0;
-    for (const raw of list) {
-      const row = clean(raw);
-      const detail = String(raw.specific_detail || "").trim().slice(0, 1000);
-      if (row.vertical && !VERTICALS[String(row.vertical)]) row.vertical = null;
-      if (!row.business) { skipped++; continue; }
-      const email = key(row.email);
-      if (email && !/^[^@\s]+@[^@\s]+\.[a-z]{2,}$/i.test(email)) row.email = null;
-      const match = (email && byEmail.get(email)) || byBiz.get(key(row.business));
-      if (match) {
-        const patch: Record<string, unknown> = {};
-        for (const [k, v] of Object.entries(row)) if (k !== "source" && v != null && v !== "" && (match[k] == null || match[k] === "")) patch[k] = v;
-        if (detail && !match.specific_detail) patch.specific_detail = detail;
-        const tags = (match.tags as string[]) || [];
-        if (cold && !tags.includes("cold_prospect")) patch.tags = [...tags, "cold_prospect"];
-        if (Object.keys(patch).length) {
-          await a.admin.from("spotlight_prospects").update(patch).eq("id", String(match.id));
-          Object.assign(match, patch); updated++; touched.push(String(match.id));
-        } else skipped++;
-        continue;
-      }
-      const ins = { user_id: uid, stage: "prospect", ...row, source, specific_detail: detail || null, tags: cold ? ["cold_prospect"] : [] };
-      inserts.push(ins);
-      if (email) byEmail.set(email, ins); byBiz.set(key(row.business), ins);
-    }
-    const added: { id: string }[] = [];
-    for (let i = 0; i < inserts.length; i += 100) {
-      const { data, error } = await a.admin.from("spotlight_prospects").insert(inserts.slice(i, i + 100)).select("id");
-      if (error) return fail(`Imported ${added.length}, then stopped: ${error.message}`);
-      added.push(...(data || []));
-    }
-    // EDITH: cold rows are contact.created (starts SEQ1 where a detail exists,
-    // or asks a human for one); updated rows get re-checked.
-    const work: Array<() => Promise<unknown>> = [
-      ...(cold ? added.map((r) => () => edithEmit(a.admin, uid, { prospect_id: r.id, type: "contact.created", source: "import" })) : []),
-      ...touched.map((id) => () => edithTouch(a.admin, uid, id)),
-    ];
-    for (let i = 0; i < work.length; i += 5) await Promise.all(work.slice(i, i + 5).map((f) => f()));
-    await a.admin.from("log_entries").insert({ user_id: uid, tag: "CS", color: "var(--gold)", message: `spotlight · imported ${added.length} new, ${updated} updated${cold ? " (cold)" : ""}` });
-    return NextResponse.json({ ok: true, added: added.length, updated, skipped });
+    const r = await importProspects(a.admin, uid, Array.isArray(b.rows) ? (b.rows as Record<string, unknown>[]) : [], { source: String(b.source || "import"), cold: !!b.cold });
+    if (!r.ok) return fail(r.error);
+    return NextResponse.json(r);
+  }
+
+  // The importer's preview: EDITH's first cold email to one of the rows.
+  if (op === "cold_preview") {
+    const r = await previewColdEmail(a.admin, uid, (b.row || {}) as Record<string, unknown>);
+    if (!r.ok) return fail(r.error);
+    return NextResponse.json(r);
   }
 
   // Everything below acts on (or creates) one prospect.

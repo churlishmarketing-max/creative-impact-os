@@ -55,21 +55,26 @@ events:                                       # the OS emits these; sequences su
   - board.updated                             # payload: spots_remaining, next_board_date
 
 contact_fields:
-  required_for_cold: [first_name, business_name, neighborhood, specific_detail]
+  required_for_cold: [business_name, email]     # 2026-09-29; first_name falls back to "there", specific_detail is optional
   computed:
     spots_remaining: "live count from board; 0 triggers SEQ2/2-4 variant"
   tags: [cold_prospect, cold_closed, inbound, booked, no_show, undecided, not_fit, client, cut_approved, nurture, do_not_contact]
 
 sequences:
 
+  # 2026-09-29 (Brandon): cold lists arrive with a business name and an email,
+  # not a researched line — the specific detail is optional (1-1-detail uses it
+  # when written). Follow-ups count from the day 1-1 actually went out, so a
+  # first touch that waited on the daily cap doesn't land a day before 1-2.
   - id: SEQ1
     name: Cold first touch
-    enroll_on: { event: contact.created, when: { tag: cold_prospect, specific_detail: not_empty } }
+    enroll_on: { event: contact.created, when: { tag: cold_prospect, email: not_empty } }
     exit_on: [email.replied, call.booked, do_not_contact]
     steps:
-      - { step: 1-1, template_id: "1-1", delay: "0d", anchor: enroll }
-      - { step: 1-2, template_id: "1-2", delay: "3d", anchor: enroll }
-      - { step: 1-3, template_id: "1-3", delay: "7d", anchor: enroll }
+      - { step: 1-1, template_id: "1-1", delay: "0d", anchor: enroll,
+          variant: { when: { specific_detail: not_empty }, template_id: "1-1-detail" } }
+      - { step: 1-2, template_id: "1-2", at: "step[1-1].sent_at + 3d" }
+      - { step: 1-3, template_id: "1-3", at: "step[1-1].sent_at + 7d" }
     on_complete: { set_tag: cold_closed }
     reply_routing:
       later: { set_tag: nurture, enroll: SEQ7 }
@@ -158,7 +163,7 @@ sequences:
       - { step: 7-1, template_id: "7-1", delay: "0m", anchor: enroll }
 
 tasks_for_humans:                             # the OS creates these; EDITH never does them
-  - "Write specific_detail for every cold prospect before SEQ1 can enroll them"
+  - "Optional: write specific_detail for a cold prospect before 1-1 goes out — it sends the more personal 1-1-detail"
   - "Speed-to-lead call within 60 minutes of any lead.form_submitted"
   - "Tag every call.completed with outcome + spot_number (+ reason fields for not_fit)"
   - "Friday receipt pull: reach_number + reach_screenshot per live campaign (feeds 6-7)"

@@ -77,7 +77,11 @@ export type Template = {
   body: string;
   cta: string;
   internal_note: string;
+  // Fields the email can't go out without. A field written with a fallback —
+  // {{first_name|there}} — is optional: it's listed in merge_fields_optional
+  // and renders the fallback when empty.
   merge_fields_used: string[];
+  merge_fields_optional?: string[];
 };
 
 export type EdithContent = {
@@ -388,7 +392,9 @@ const has = (v: unknown) => v != null && String(v).trim() !== "";
 const seqDef = (env: Env, id: string) => env.content.manifest.sequences.find((s) => s.id === id) || null;
 const addTag = (tags: string[], t: string) => (tags.includes(t) ? tags : [...tags, t]);
 const log = async (env: Env, line: string) => { if (env.log) await env.log(line); };
-const fill = (s: string, v: Record<string, string>) => s.replace(/\{\{\s*(\w+)\s*\}\}/g, (_, k) => (has(v[k]) ? String(v[k]) : `{{${k}}}`));
+// {{field}} or {{field|fallback}} — the fallback renders when the field is empty.
+export const MERGE_RE = /\{\{\s*(\w+)\s*(?:\|([^}]*))?\}\}/g;
+const fill = (s: string, v: Record<string, string>) => s.replace(MERGE_RE, (whole, k, fb) => (has(v[k]) ? String(v[k]) : fb !== undefined ? fb : `{{${k}}}`));
 
 // A step definition, including the synthetic ones `then:` blocks create.
 export function findDef(env: Env, seqId: string, stepId: string): StepDef | null {
@@ -416,6 +422,7 @@ function evalWhen(cond: Cond | undefined, x: { contact: Contact; payload?: Recor
   for (const [k, v] of Object.entries(cond)) {
     let ok: boolean;
     if (k === "tag") ok = x.contact.tags.includes(String(v));
+    else if (k === "email") ok = v === "not_empty" ? has(x.contact.email) : String(x.contact.email ?? "") === String(v);
     else if (k === "outcome") ok = String(x.payload?.outcome ?? x.contact.fields.call_outcome ?? "") === String(v);
     else if (k === "spots_remaining") ok = x.spots === Number(v);
     else if (k === "event_seen") ok = (x.events || []).some((e) => e.type === v);
@@ -530,7 +537,10 @@ function resolveAt(env: Env, expr: string, c: Contact, enr: Enrollment, steps: S
     const id = (/^step\[([\w-]+)\]/.exec(a.base) || [])[1];
     base = ms(steps.find((s) => s.step === id && s.sent_at)?.sent_at || "");
   } else base = ms(String(c.fields[a.base] || enr.context[a.base] || ""));
-  if (isNaN(base)) return { state: "waiting", due: null, reason: `waiting for ${a.base}` };
+  if (isNaN(base)) {
+    const after = /^step\[([\w-]+)\]/.exec(a.base);
+    return { state: "waiting", due: null, reason: after ? `goes out ${a.dur.replace("d", " days")} after ${after[1]} sends` : `waiting for ${a.base}` };
+  }
   const due = shift(base, a.dur, a.sign).getTime();
   const now = env.now().getTime();
   if (a.sign < 0 && due < now) return { state: "past", due: iso(new Date(due)), reason: `${a.base} is too close — this reminder's moment already passed` };
@@ -574,8 +584,14 @@ async function enrollFor(env: Env, c: Contact, ev: EdithEvent, opts: { onceEver?
     if (uw && events.some((e) => e.type === uw.event && Math.abs(ms(e.at) - ms(ev.at)) <= uw.minutes * 60e3)) continue;
     const mine = await env.store.listEnrollments({ contact_id: c.id, seq: seq.id });
     if (mine.some((e) => e.status === "active")) continue;
-    // Sequences that enroll on contact.created run once per contact, ever.
+    // Sequences that enroll on contact.created run once per contact, ever —
+    // and never start for someone who has already replied, booked, or paid
+    // (a cold email to a person already talking to us is worse than none).
     if ((opts.onceEver || seq.enroll_on.event === "contact.created") && mine.length) continue;
+    if (seq.enroll_on.event === "contact.created") {
+      const stops = env.content.manifest.global_rules.stop_on.map((s) => s.event).filter(Boolean);
+      if (events.some((e) => stops.includes(e.type))) continue;
+    }
     await enroll(env, c, seq, ev);
   }
 }
@@ -613,7 +629,9 @@ async function maybeComplete(env: Env, enr: Enrollment) {
 
 /* ---------------------------------------------------------------- events */
 
-export async function emit(env: Env, input: Omit<EdithEvent, "at"> & { at?: string }): Promise<void> {
+// opts.run = false: record and enroll, but leave the sending to the clock
+// (a bulk import queues its first emails instead of sending them inline).
+export async function emit(env: Env, input: Omit<EdithEvent, "at"> & { at?: string }, opts: { run?: boolean } = {}): Promise<void> {
   const ev: EdithEvent = { ...input, at: input.at || iso(env.now()) };
   await env.store.insertEvent(ev);
   if (!ev.contact_id) { await broadcast(env, ev); return; }
@@ -653,7 +671,7 @@ export async function emit(env: Env, input: Omit<EdithEvent, "at"> & { at?: stri
 
   // 6. Human tasks the manifest names.
   await bookkeeping(env, c, ev);
-  await runDue(env, { contactId: c.id });
+  if (opts.run !== false) await runDue(env, { contactId: c.id });
 }
 
 async function broadcast(env: Env, ev: EdithEvent) {
@@ -721,8 +739,11 @@ async function bookkeeping(env: Env, c: Contact, ev: EdithEvent) {
   await coldDetailTask(env, c);
 }
 
+// Only when the manifest makes the detail a condition of SEQ1 (it did until
+// 2026-09-29; now 1-1 sends without one and 1-1-detail uses it when written).
 async function coldDetailTask(env: Env, c: Contact) {
-  if (c.tags.includes("cold_prospect") && !has(c.fields.specific_detail) && !c.do_not_contact) {
+  const needsDetail = !!seqDef(env, "SEQ1")?.enroll_on.when?.specific_detail;
+  if (needsDetail && c.tags.includes("cold_prospect") && !has(c.fields.specific_detail) && !c.do_not_contact) {
     await env.store.openTask({ contact_id: c.id, key: `detail:${c.id}`, title: `Write the specific detail for ${c.fields.business_name || c.email} — SEQ1 can't start without it` });
   } else await env.store.closeTask(`detail:${c.id}`);
 }

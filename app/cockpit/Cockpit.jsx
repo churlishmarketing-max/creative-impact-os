@@ -11,6 +11,7 @@ import React from 'react';
 import { store } from '@/lib/store';
 import Spotlight from './Spotlight';
 import Nationwide from './Nationwide';
+import { readForEdith, EDITH_ACCEPT } from './files';
 
 // Reproduces DC's style-hover: merge hover styles on pointer enter/leave so they
 // win over the element's inline base styles (a CSS :hover class would not).
@@ -302,6 +303,7 @@ class Cockpit extends React.Component {
       rookieInput: '',
       rookieBusy: false,
       rookieFile: null,
+      rookieSheet: null, // the last spreadsheet attached — stays with EDITH for follow-ups ("yes, import them")
       quickInput: '',   // the header EDITH bar
       quickOpen: false,
       quickFrom: 0,     // index in rookieMsgs where the bar's exchange starts
@@ -2163,24 +2165,20 @@ Signed: {{signer}}      Date: {{date}}`;
   }
 
   // --- Rookie (operator copilot: chat in, real OS writes out) ---
-  pickRookieFile(e) {
+  // Anything EDITH can read: images and PDFs go to her as-is; Word docs arrive
+  // as their text; spreadsheets (.xlsx / .csv) as their rows, so she can
+  // import them (app/cockpit/files.js does the reading, in the browser).
+  async pickRookieFile(e) {
     const f = e.target.files && e.target.files[0];
     e.target.value = '';
     if (!f) return;
-    if (f.size > 3.5 * 1024 * 1024) { this.flash('FILE TOO LARGE — 3.5MB MAX'); return; }
-    const isImage = /^image\//.test(f.type);
-    const isPdf = f.type === 'application/pdf';
-    const reader = new FileReader();
-    reader.onload = () => {
-      if (isImage || isPdf) {
-        const data = String(reader.result).split(',')[1]; // strip data: prefix
-        this.setState({ rookieFile: { name: f.name, kind: isPdf ? 'pdf' : 'image', media_type: f.type, data } });
-      } else {
-        this.setState({ rookieFile: { name: f.name, kind: 'text', text: String(reader.result) } });
-      }
-      this.flash('ATTACHED: ' + f.name.toUpperCase());
-    };
-    if (isImage || isPdf) reader.readAsDataURL(f); else reader.readAsText(f);
+    try {
+      const file = await readForEdith(f);
+      this.setState({ rookieFile: file });
+      this.flash('ATTACHED: ' + f.name.toUpperCase() + (file.kind === 'sheet' ? ' · ' + file.rows.length + ' ROWS' : ''));
+    } catch (err) {
+      this.flash(String((err && err.message) || err).toUpperCase());
+    }
   }
   // Center the bar's dropdown under the bar, but never off screen.
   quickBarX() {
@@ -2199,11 +2197,12 @@ Signed: {{signer}}      Date: {{date}}`;
     if ((!text && !file) || this.state.rookieBusy) return;
     const shown = text || 'Process this file.';
     const msgs = [...this.state.rookieMsgs, { role: 'user', content: shown, fileName: file ? file.name : null }];
+    const sheet = file && file.kind === 'sheet' ? { name: file.name, rows: file.rows } : this.state.rookieSheet;
     this.setState(fromBar
-      ? { rookieMsgs: msgs, quickInput: '', quickOpen: true, quickX: this.quickBarX(), quickFrom: this.state.quickOpen ? this.state.quickFrom : this.state.rookieMsgs.length, rookieBusy: true, rookieFile: null }
-      : { rookieMsgs: msgs, rookieInput: '', rookieBusy: true, rookieFile: null });
+      ? { rookieMsgs: msgs, quickInput: '', quickOpen: true, quickX: this.quickBarX(), quickFrom: this.state.quickOpen ? this.state.quickFrom : this.state.rookieMsgs.length, rookieBusy: true, rookieFile: null, rookieSheet: sheet }
+      : { rookieMsgs: msgs, rookieInput: '', rookieBusy: true, rookieFile: null, rookieSheet: sheet });
     try {
-      const res = await fetch('/api/rookie', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ messages: msgs.map(m => ({ role: m.role, content: m.content })), file: file || undefined }) });
+      const res = await fetch('/api/rookie', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ messages: msgs.map(m => ({ role: m.role, content: m.content })), file: file || undefined, sheet: !file && sheet ? sheet : undefined }) });
       const j = await res.json();
       if (j.ok) {
         this.setState(s => ({ rookieMsgs: [...s.rookieMsgs, { role: 'assistant', content: j.reply, actions: j.actions || [] }], rookieBusy: false }));
@@ -2380,12 +2379,17 @@ Signed: {{signer}}      Date: {{date}}`;
             <div style={{ borderTop: "1px solid var(--line)", padding: "8px 14px", display: "flex", alignItems: "center", gap: "10px", fontSize: "11px", color: "var(--muted)" }}>
               📎 {this.state.rookieFile.name}
               <button onClick={() => this.setState({ rookieFile: null })} style={{ background: "none", border: "none", color: "var(--dim)", cursor: "pointer", fontSize: "12px" }}>✕</button>
-              <span style={{ color: "var(--dim)", fontSize: "10px" }}>— tell EDITH what to do with it (e.g. "log these as expenses")</span>
+              <span style={{ color: "var(--dim)", fontSize: "10px" }}>— tell EDITH what to do with it (e.g. "import these into Spotlight", "log these as expenses")</span>
+            </div>
+          ) : this.state.rookieSheet ? (
+            <div style={{ borderTop: "1px solid var(--line)", padding: "6px 14px", display: "flex", alignItems: "center", gap: "10px", fontSize: "10.5px", color: "var(--dim)" }}>
+              📊 EDITH still has {this.state.rookieSheet.name} ({this.state.rookieSheet.rows.length} rows)
+              <button onClick={() => this.setState({ rookieSheet: null })} title="Take it back" style={{ background: "none", border: "none", color: "var(--dim)", cursor: "pointer", fontSize: "12px" }}>✕</button>
             </div>
           ) : null}
           <div style={{ borderTop: "1px solid var(--line)", padding: "12px 14px", display: "flex", gap: "10px" }}>
-            <label title="Attach a receipt, statement, PDF, or CSV (3.5MB max)" style={{ border: "1px solid var(--line2)", color: "var(--muted)", padding: "10px 13px", cursor: "pointer", fontSize: "14px", lineHeight: 1 }}>
-              📎<input type="file" accept="image/*,application/pdf,.csv,.txt" onChange={(e) => this.pickRookieFile(e)} style={{ display: "none" }} />
+            <label title="Attach a PDF, Word doc, spreadsheet, image, or text file" style={{ border: "1px solid var(--line2)", color: "var(--muted)", padding: "10px 13px", cursor: "pointer", fontSize: "14px", lineHeight: 1 }}>
+              📎<input type="file" accept={EDITH_ACCEPT} onChange={(e) => this.pickRookieFile(e)} style={{ display: "none" }} />
             </label>
             <input
               style={Object.assign({}, inp, { flex: 1 })}
@@ -2397,7 +2401,7 @@ Signed: {{signer}}      Date: {{date}}`;
             <button onClick={() => this.sendRookie(false)} disabled={this.state.rookieBusy} style={{ background: "var(--red)", border: "1px solid var(--red)", color: "var(--golddark)", fontFamily: "var(--mono)", fontWeight: 700, fontSize: "11px", letterSpacing: ".12em", padding: "11px 20px", cursor: this.state.rookieBusy ? "default" : "pointer", textTransform: "uppercase", opacity: this.state.rookieBusy ? .5 : 1 }}>Execute →</button>
           </div>
         </div>
-        <div style={{ fontSize: "10px", color: "var(--dim)", marginTop: "10px", lineHeight: 1.5 }}>Write-safe: EDITH can add and update — deals, clients, box score, expenses, KPIs, invoices, proposals, calls, the sprint target, THE ONE THING, goals, and strategy — but cannot delete anything, and never sends an invoice, proposal, or client email without your explicit approval. 📎 attach a receipt, statement, PDF, or CSV and it'll extract + log the expenses. Conversation resets on refresh (persistence later).</div>
+        <div style={{ fontSize: "10px", color: "var(--dim)", marginTop: "10px", lineHeight: 1.5 }}>Write-safe: EDITH can add and update — deals, clients, box score, expenses, KPIs, invoices, proposals, calls, the sprint target, THE ONE THING, goals, and strategy — but cannot delete anything, and never sends an invoice, proposal, or client email without your explicit approval. 📎 attach a PDF, Word doc, spreadsheet (.xlsx / .csv), image, or text file and tell her what to do with it — log the expenses on a receipt, import a list of businesses into Spotlight, summarize a contract. Conversation resets on refresh (persistence later).</div>
       </div>
     );
   }
@@ -2639,8 +2643,8 @@ Signed: {{signer}}      Date: {{date}}`;
       <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", padding: "0 18px", minWidth: 0, position: "relative" }}>
         <div id="edith-bar" style={{ display: "flex", alignItems: "center", width: "100%", maxWidth: "580px", height: "36px", border: "1px solid " + (this.state.quickOpen ? "var(--gold)" : "var(--line2)"), background: "var(--panel)" }}>
           <span onClick={() => this.setState((st) => ({ quickOpen: !st.quickOpen, quickX: this.quickBarX(), quickFrom: st.quickOpen ? st.quickFrom : Math.max(0, (st.rookieMsgs || []).length - 2) }))} title="Show EDITH's latest answers" style={{ cursor: "pointer", fontSize: "10px", fontWeight: 800, letterSpacing: ".16em", color: "var(--gold)", padding: "0 11px", height: "100%", display: "flex", alignItems: "center", borderRight: "1px solid var(--line)" }}>EDITH</span>
-          <label title={this.state.rookieFile ? "Attached: " + this.state.rookieFile.name : "Attach a file — image, PDF, CSV, or text"} style={{ cursor: "pointer", padding: "0 8px", height: "100%", display: "flex", alignItems: "center", fontSize: "14px", color: this.state.rookieFile ? "var(--gold)" : "var(--dim)" }}>
-            📎<input type="file" accept="image/*,application/pdf,.csv,.txt" onChange={(e) => this.pickRookieFile(e)} style={{ display: "none" }} />
+          <label title={this.state.rookieFile ? "Attached: " + this.state.rookieFile.name : "Attach a file — PDF, Word, Excel/CSV, image, or text"} style={{ cursor: "pointer", padding: "0 8px", height: "100%", display: "flex", alignItems: "center", fontSize: "14px", color: this.state.rookieFile ? "var(--gold)" : "var(--dim)" }}>
+            📎<input type="file" accept={EDITH_ACCEPT} onChange={(e) => this.pickRookieFile(e)} style={{ display: "none" }} />
           </label>
           {this.state.rookieFile ? <button onClick={() => this.setState({ rookieFile: null })} title="Remove the file" style={{ background: "none", border: "none", color: "var(--gold)", fontSize: "10px", cursor: "pointer", padding: "0 4px 0 0", whiteSpace: "nowrap", maxWidth: "140px", overflow: "hidden", textOverflow: "ellipsis", fontFamily: "var(--mono)" }}>{this.state.rookieFile.name} ✕</button> : null}
           <input
@@ -2655,7 +2659,7 @@ Signed: {{signer}}      Date: {{date}}`;
         {this.state.quickOpen ? (
           <div style={{ position: "fixed", top: "62px", left: (this.state.quickX || 0) ? this.state.quickX + "px" : "50%", transform: "translateX(-50%)", width: "min(620px, 94vw)", maxHeight: "70vh", overflowY: "auto", background: "#0b1526", border: "1px solid var(--gold)", boxShadow: "0 18px 40px rgba(0,0,0,.45)", zIndex: 60, padding: "12px 14px" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
-              <span style={{ fontSize: "9px", letterSpacing: ".18em", color: "var(--dim)" }}>EDITH · SAME THREAD AS THE DESK</span>
+              <span style={{ fontSize: "9px", letterSpacing: ".18em", color: "var(--dim)" }}>EDITH · SAME THREAD AS THE DESK{this.state.rookieSheet ? <span style={{ marginLeft: "10px", letterSpacing: ".04em" }}>📊 {this.state.rookieSheet.name} <span onClick={() => this.setState({ rookieSheet: null })} title="Take the sheet back" style={{ cursor: "pointer" }}>✕</span></span> : null}</span>
               <span style={{ display: "flex", gap: "6px" }}>
                 <button onClick={() => this.setState({ view: 'rookie', quickOpen: false })} style={{ background: "transparent", border: "1px solid var(--line2)", color: "var(--muted)", fontSize: "9.5px", letterSpacing: ".1em", padding: "4px 8px", cursor: "pointer", fontFamily: "var(--mono)" }}>OPEN DESK</button>
                 <button onClick={() => this.setState({ quickOpen: false })} style={{ background: "transparent", border: "1px solid var(--line2)", color: "var(--muted)", fontSize: "10px", padding: "4px 8px", cursor: "pointer" }}>✕</button>

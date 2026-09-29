@@ -124,6 +124,9 @@ export async function POST(req: Request) {
       if (!["scheduled", "waiting", "held"].includes(s.status)) return fail("Only a pending email can be skipped.");
       await admin.from("edith_steps").update({ status: "skipped", hold_reason: "skipped by a human" }).eq("id", s.id);
       await admin.from("ops_tasks").update({ status: "done", done_at: new Date().toISOString() }).eq("user_id", uid).eq("key", `hold:${s.id}`).eq("status", "open");
+      // Emails timed off this one (1-2 and 1-3 follow 1-1; 6-5 follows 6-4)
+      // can't follow an email that never went out.
+      await admin.from("edith_steps").update({ status: "skipped", hold_reason: `the email it follows (${s.step}) was skipped` }).eq("enrollment_id", s.enrollment_id).eq("status", "waiting").like("anchor", `step[${s.step}]%`);
       await edithSettle(admin, uid, s.enrollment_id);
       return NextResponse.json({ ok: true });
     }

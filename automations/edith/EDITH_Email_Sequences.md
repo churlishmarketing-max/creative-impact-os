@@ -9,7 +9,7 @@ EDITH is the Creative Impact assistant who signs every automated email that leav
 
 **Who she is.** Warm, direct, brief. She sounds like the sharpest assistant in a small shop — never a marketing department. She labels what the reader is probably feeling, asks one calibrated question, and asks for one thing. She never pushes, never discounts, never holds a spot, never projects a number.
 
-**Sender:** `EDITH at Creative Impact <edith@creativeimpactmedia.co>` · Reply-to: Emmanuel's inbox. Every reply is read by a human within the same business day.
+**Sender:** `EDITH at Creative Impact <hello@creativeimpactmedia.co>` · Reply-to: hello@creativeimpactmedia.co (Brandon, 2026-09-29). Every reply is read by a human within the same business day.
 
 **Signature (every email, verbatim):**
 ```
@@ -31,45 +31,66 @@ The disclosure line is not optional. It reads as honest and it pre-empts the "is
 
 **Merge fields used:** `{{first_name}}` `{{business_name}}` `{{neighborhood}}` `{{years_in_business}}` `{{specific_detail}}` `{{q5_answer}}` `{{booking_link}}` `{{board_link}}` `{{call_time}}` `{{call_link}}` `{{spot_number}}` `{{deposit_link}}` `{{balance_link}}` `{{film_date}}` `{{cut_link}}` `{{episode_number}}` `{{episode_link}}` `{{reach_screenshot}}` `{{reach_number}}` `{{debrief_link}}` `{{spots_remaining}}` `{{rebook_link}}`
 
-A cold email with an empty `{{specific_detail}}` does not send. It holds for a human.
+A merge field written with a fallback — `{{first_name|there}}` — is optional: when it's empty the fallback prints ("Hi there —"). Every other field is required, and an email missing one HOLDS for a human instead of sending with a blank.
+
+Since 2026-09-29 the cold open doesn't need a `{{specific_detail}}` (Brandon: lists arrive with a business name and an email, not a researched line). When a human has written one, 1-1-detail sends instead of 1-1.
 
 ---
 
 ## SEQUENCE 1 — COLD FIRST TOUCH (the templated outreach)
-**Trigger:** Contact added with tag `cold_prospect` and `specific_detail` filled.
+**Trigger:** Contact tagged `cold_prospect` with an email address (a specific detail is optional since 2026-09-29).
 **Exit:** reply · booking · tag `do_not_contact` · after 1-3.
-**Cadence:** Day 0 → Day 3 → Day 7 → stop. Three touches, then the file closes.
+**Cadence:** first email → 3 days after it → 7 days after it → stop. Three touches, then the file closes. The follow-ups count from the day the first email actually went out, so a first touch that waited on the daily cap doesn't bunch up with its follow-up.
 
 ### EMAIL 1-1 — Cold open
 ```
-Trigger:      Day 0, within the send window
-Subject line: {{business_name}} and the Charlotte Spotlight
-Preview text: One question, then I'll get out of your way.
+Trigger:      Day 0, within the send window (up to the daily cold cap)
+Subject line: {{business_name}} and a new Charlotte series
+Preview text: Brandon and Emmanuel thought you'd be a great fit.
 ```
-Hi {{first_name}} — quick one, and then I'll get out of your way.
+Hi {{first_name|there}} —
 
-{{specific_detail}} That's how {{business_name}} ended up on our list.
+This is EDITH, Creative Impact's AI assistant. I'm reaching out because Brandon and Emmanuel thought {{business_name}} would be a great fit for our new series.
 
-Emmanuel Bibbs — ten years shooting Charlotte — is filming the Charlotte Spotlight this fall: a monthly series of short films about the people behind up to ten local businesses. Every business keeps a produced commercial to run anywhere, forever, and we put the episode in front of the city.
+Creative Impact is a production company moving into the Charlotte metro, and we're starting the Charlotte Spotlight — a show about the local businesses that make this city work. We'd love to know if you'd be interested in being featured on the show, or in having your own commercial made as part of it. Everyone featured keeps their video to run anywhere.
 
-One question: when someone in {{neighborhood}} finds out about you for the first time, what do they usually say?
-
-If it's some version of "I didn't know you were here," fifteen minutes with Emmanuel is worth it. He walks the board with you and tells you straight whether there's a spot that fits — or that there isn't.
+Would that be worth fifteen minutes? Emmanuel will walk you through how it works and tell you straight whether there's a spot that fits.
 
 {{booking_link}}
 
 ```
 CTA:           Book the 15-minute fit call
-Internal note: {{specific_detail}} is one sentence a human wrote after looking at the business (a review, a detail from their page, their location). Empty = hold, don't send.
+Internal note: Brandon's framing (2026-09-29): EDITH says who she is, names Brandon and Emmanuel, and asks one question. Needs only the business name and an email. "An episode dedicated to you" became "your own commercial made as part of it" — the show gives each business a segment, and Feature spots a commercial of their own; no business gets a whole episode.
+```
+
+### EMAIL 1-1-detail — Variant: cold open with a specific detail
+```
+Trigger:      Day 0, when a human has written the specific detail
+Subject line: {{business_name}} and a new Charlotte series
+Preview text: Brandon and Emmanuel thought you'd be a great fit.
+```
+Hi {{first_name|there}} —
+
+This is EDITH, Creative Impact's AI assistant. I'm reaching out because Brandon and Emmanuel thought {{business_name}} would be a great fit for our new series. {{specific_detail}} That's what put you on their list.
+
+Creative Impact is a production company moving into the Charlotte metro, and we're starting the Charlotte Spotlight — a show about the local businesses that make this city work. We'd love to know if you'd be interested in being featured on the show, or in having your own commercial made as part of it. Everyone featured keeps their video to run anywhere.
+
+Would that be worth fifteen minutes? Emmanuel will walk you through how it works and tell you straight whether there's a spot that fits.
+
+{{booking_link}}
+
+```
+CTA:           Book the 15-minute fit call
+Internal note: {{specific_detail}} is one sentence a human wrote after looking at the business (a review, a detail from their page, their location) — it's the only difference from 1-1.
 ```
 
 ### EMAIL 1-2 — The receipt
 ```
-Trigger:      Day 3
+Trigger:      3 days after 1-1
 Subject line: 22,000 people for $77
 Preview text: Not a projection. A screenshot.
 ```
-{{first_name}} — it seems like the first note landed in a busy week, which is fair.
+Hi {{first_name|there}} — it seems like my first note landed in a busy week, which is fair.
 
 Here's the one number worth your thirty seconds: the Omaha Spotlight reached more than 22,000 locals on its first $77 of promotion. Charlotte is the second city.
 
@@ -86,11 +107,11 @@ Internal note: The "would it be a bad idea" question is Voss — a "no" is a yes
 
 ### EMAIL 1-3 — Close the file
 ```
-Trigger:      Day 7
-Subject line: Should I close the file, {{first_name}}?
+Trigger:      7 days after 1-1
+Subject line: Should I close your file?
 Preview text: No hard feelings either way.
 ```
-{{first_name}} — I don't want to keep landing in your inbox if this isn't the season for {{business_name}}.
+Hi {{first_name|there}} — I don't want to keep landing in your inbox if this isn't the season for {{business_name}}.
 
 Should I close your file? A one-word reply is fine either way, and if the timing's just off, say "later" and I'll check back when the next board opens.
 
@@ -614,7 +635,7 @@ Internal note: Unsubscribe footer required on this one; it's list mail.
 - [ ] No prices in Sequences 1–4. A price appears only in 5-1, from the board ({{spot_price}})
 - [ ] The Omaha line reads as a receipt everywhere; no Charlotte reach projections anywhere
 - [ ] No hard number of days for filming speed anywhere
-- [ ] Merge-field holds: `specific_detail`, `q5_answer`, `not_fit_reason`, `reach_number` — empty means hold, never send blank
+- [ ] Merge-field holds: `q5_answer`, `not_fit_reason`, `reach_number` (and `specific_detail` in 1-1-detail, which only sends when it's written) — empty means hold, never send blank. `{{first_name|there}}` is the one field with a fallback.
 - [ ] Reply/booking/deposit/stop exits wired on every sequence
 - [ ] Sequence 7 carries an unsubscribe footer; Sequence 1 carries a physical address line (CAN-SPAM)
 - [ ] Banned words scan: clean

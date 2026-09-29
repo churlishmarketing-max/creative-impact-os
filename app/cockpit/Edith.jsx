@@ -187,7 +187,7 @@ export function EdithDesk({ flash, onOpen }) {
               {s.kind === 'email' ? <button style={S.btn(false)} onClick={() => preview(s.id)}>Preview</button> : null}
               {['scheduled', 'waiting', 'held'].includes(s.status) && s.kind === 'email' ? <button style={S.btn(false)} disabled={!!busy} onClick={() => window.confirm(`Skip ${s.template_id} for ${names[s.prospect_id] || 'this contact'}?`) && act({ op: 'step_skip', id: s.id }, 'SKIPPED')}>Skip</button> : null}
             </div>
-          )) : <div style={S.note}>The queue is empty. Contacts enter a sequence when something happens: a booking, a logged call, a deposit, or a cold prospect with a specific detail written.</div>}
+          )) : <div style={S.note}>The queue is empty. Contacts enter a sequence when something happens: a booking, a logged call, a deposit, or a cold prospect with an email address (Prospects → Import a spreadsheet, tick cold).</div>}
         </div>
       )}
 
@@ -439,9 +439,9 @@ export function EdithPanel({ p, flash, onChanged }) {
 
       <label style={{ ...S.note, display: 'flex', gap: '8px', alignItems: 'center', marginBottom: '8px', color: cold ? 'var(--cream)' : 'var(--dim)' }}>
         <input type="checkbox" checked={cold} disabled={!!busy || p.do_not_contact} onChange={(e) => act({ op: 'contact', cold_prospect: e.target.checked }, e.target.checked ? 'TAGGED COLD PROSPECT' : 'UNTAGGED')} />
-        Cold prospect — EDITH may send the cold sequence (SEQ1) once the specific detail is written. Only tag people it’s okay to cold-email.
+        Cold prospect — EDITH sends her cold sequence (SEQ1) to them if they have an email, under the daily cap. Only tag people it’s okay to cold-email.
       </label>
-      <Field label="Specific detail — one sentence a human writes after looking at them (1-1 opens with it; SEQ1 won’t start without it)"><textarea style={{ ...S.inp, minHeight: '52px' }} value={f.specific_detail || ''} placeholder="Three hundred Google reviews and half of them mention the Saturday cupping." onChange={(e) => setF((x) => ({ ...x, specific_detail: e.target.value }))} /></Field>
+      <Field label="Specific detail — optional: one sentence a human writes after looking at them (with it, 1-1 opens with that line)"><textarea style={{ ...S.inp, minHeight: '52px' }} value={f.specific_detail || ''} placeholder="Three hundred Google reviews and half of them mention the Saturday cupping." onChange={(e) => setF((x) => ({ ...x, specific_detail: e.target.value }))} /></Field>
       <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', margin: '10px 0' }}>
         <Field label="Form answer (Q5)"><input style={S.inp} value={f.q5_answer || ''} onChange={(e) => setF((x) => ({ ...x, q5_answer: e.target.value }))} /></Field>
         <Field label="First name (if not the owner’s)" grow="0 1 160px"><input style={S.inp} value={f.first_name || ''} placeholder={(p.owner_name || '').split(' ')[0]} onChange={(e) => setF((x) => ({ ...x, first_name: e.target.value }))} /></Field>

@@ -5,8 +5,11 @@ import { getAdminClient } from "@/lib/supabase/admin";
 import { draftAgentEmail, sendQueuedEmail } from "@/lib/agent";
 import { runAutomation } from "@/lib/automations-engine";
 import { gradeLead as laneGrade, computeWeek as laneComputeWeek, scalingVerdict as laneScaling, fallbackStatus as laneFallbacks, PLAN as LANE_PLAN, FALLBACKS as LANE_FALLBACKS, type Week as LaneWeek } from "@/lib/nationwide";
-import { edithEmit, edithOnBookingChange, getEdithConfig } from "@/lib/edith/server";
-import { STAGES as SPOT_STAGES, STAGE_KEYS as SPOT_KEYS, VERTICALS, makeMember, importWebsite, type Prospect } from "@/lib/spotlight";
+import { edithEmit, edithOnBookingChange, getEdithConfig, previewColdEmail } from "@/lib/edith/server";
+import { STAGES as SPOT_STAGES, STAGE_KEYS as SPOT_KEYS, VERTICALS, makeMember, importWebsite, getConfig as getSpotConfig, type Prospect } from "@/lib/spotlight";
+import { readGrid, FIELDS as SHEET_FIELDS } from "@/lib/sheet-map";
+import { importProspects } from "@/lib/spotlight-import";
+import { scriptFields, scriptAsText, SECTIONS as SCRIPT_SECTIONS } from "@/lib/spotlight-script";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -60,6 +63,8 @@ const TOOLS = [
   { name: "lane_log_week", description: "Log (or update) one Friday row of the Nationwide lane constraint tracker, then report the week's constraint and the scaling-rule verdict. week_of is the Friday (YYYY-MM-DD). Spend, impressions, 3-second views, and frequency come from Ads Manager; leads/qualified($500K+)/booked/held/closed and median minutes to first call come from the lead log. Only provided fields change.", input_schema: { type: "object", properties: { week_of: { type: "string" }, spend: { type: "number" }, impressions: { type: "number" }, views3s: { type: "number" }, frequency: { type: "number" }, leads: { type: "number" }, qualified: { type: "number" }, booked: { type: "number" }, held: { type: "number" }, closed: { type: "number" }, median_call_min: { type: "number" } }, required: ["week_of"] } },
   { name: "edith_status", description: "Status of EDITH's Spotlight email engine (the automated sequences you send): whether sending is live, what went out in the last 24 hours, what's HELD and why (a missing field a human must fill), what's scheduled in the next 48 hours, and the open tasks waiting on a human.", input_schema: { type: "object", properties: {} } },
   { name: "edith_log", description: "Record something that happened that the OS can't see, for a Charlotte Spotlight business matched by (partial) name. It drives EDITH's emails, and when EDITH is live the next one can go out right away, so restate what you're logging first. Events: call_completed (needs outcome: undecided | not_fit | closed; spot_number unless not_fit; for not_fit also not_fit_reason and what_would_change — both are quoted word for word in the email), no_show, call_cancelled, replied (keyword: later | yes | stop | other — stop unsubscribes them for good), cut_delivered (cut_link, an https link), debrief_booked.", input_schema: { type: "object", properties: { business: { type: "string" }, event: { type: "string", enum: ["call_completed", "no_show", "call_cancelled", "replied", "cut_delivered", "debrief_booked"] }, outcome: { type: "string", enum: ["undecided", "not_fit", "closed"] }, spot_number: { type: "number" }, not_fit_reason: { type: "string" }, what_would_change: { type: "string" }, keyword: { type: "string", enum: ["later", "yes", "stop", "other"] }, text: { type: "string" }, cut_link: { type: "string" } }, required: ["business", "event"] } },
+  { name: "spotlight_import_sheet", description: "Import the spreadsheet the operator attached (xlsx / csv) into the Charlotte Spotlight pipeline. The OS finds the header row, maps the columns, dedupes against the pipeline (fills empty fields only — never overwrites), and checks that each email's domain can receive mail. ALWAYS run mode='preview' first and show the operator: how many businesses, how many have an email (EDITH can write to them), how many are phone-only (the call list), any rows the sheet itself says to check first, and the subject + opening of the first cold email. mode='import' writes the rows. start_emails=true ALSO tags the ones with an email as cold prospects, which starts your cold emails to them (three over about a week, under the daily cap) — only when the operator has explicitly said to email them, after seeing the preview; pass email_count = the 'have an email' number from the preview.", input_schema: { type: "object", properties: { mode: { type: "string", enum: ["preview", "import"] }, start_emails: { type: "boolean" }, email_count: { type: "number", description: "Required with start_emails: the number of businesses with an email, from the preview." }, source: { type: "string", description: "Where the list came from, e.g. 'cold list' (default), 'referral', 'event'." }, columns: { type: "object", description: "Optional: override a column guess, as {\"Column header\": \"field\"}. Fields: " + SHEET_FIELDS.map(([k]) => k).filter(Boolean).join(", ") + ", or \"\" to skip." } }, required: ["mode"] } },
+  { name: "spotlight_call_script", description: "The Charlotte Spotlight cold-call script (Spotlight → Call Script): the opener, engagement questions, the close, the pivot, the second call, the gap line by vertical, every objection answer, reply lanes and voicemails — with the prices from the board. Pass a topic (e.g. 'send me an email', 'how much', 'partner', 'opener', 'voicemail', 'second call') to get just that part; pass business to fill it in for someone in the pipeline; caller = who's dialing (Emmanuel, Brandon, or a name). Quote the script; never improvise a price.", input_schema: { type: "object", properties: { topic: { type: "string" }, business: { type: "string" }, caller: { type: "string" } } } },
   { name: "run_automation_now", description: "Fire an existing automation immediately, ignoring its cadence, matched by (partial) name. Use to test one or to get a leak sweep on demand.", input_schema: { type: "object", properties: { name: { type: "string" } }, required: ["name"] } },
 ];
 
@@ -110,7 +115,8 @@ async function matchClients(admin: NonNullable<ReturnType<typeof getAdminClient>
 }
 const clientLabel = (c: { name: string; contact_name?: string | null }) => c.name + (c.contact_name ? ` (${c.contact_name})` : "");
 
-async function runTool(admin: NonNullable<ReturnType<typeof getAdminClient>>, uid: string, name: string, input: Record<string, unknown>): Promise<string> {
+type Sheet = { name: string; rows: string[][] } | null;
+async function runTool(admin: NonNullable<ReturnType<typeof getAdminClient>>, uid: string, name: string, input: Record<string, unknown>, ctx: { sheet: Sheet } = { sheet: null }): Promise<string> {
   const log = async (msg: string) => { await admin.from("log_entries").insert({ user_id: uid, tag: "RK", color: "var(--cream)", message: msg }); };
   const num = (v: unknown) => (v == null || v === "" ? null : Number(v));
 
@@ -587,6 +593,59 @@ async function runTool(admin: NonNullable<ReturnType<typeof getAdminClient>>, ui
     return `Week of ${weekOf} logged. ${res.constraint ? `Constraint: ${res.constraint.label} (line: ${res.constraint.line}). Fix: ${res.constraint.fix}` : "No stage with data is below its line."} Scaling: ${laneScaling(next).text}`;
   }
 
+  // --- A spreadsheet the operator attached: into the Spotlight pipeline ---
+  if (name === "spotlight_import_sheet") {
+    const sheet = ctx.sheet;
+    if (!sheet || !sheet.rows?.length) return "There's no spreadsheet attached to this conversation. Ask the operator to attach it with the 📎 (xlsx or csv).";
+    const g0 = readGrid(sheet.rows, VERTICALS);
+    let map = g0.map;
+    if (input.columns && typeof input.columns === "object") {
+      const known = new Set(SHEET_FIELDS.map(([k]) => k));
+      map = g0.headers.map((h, i) => { const o = (input.columns as Record<string, unknown>)[h]; return typeof o === "string" && known.has(o) ? o : g0.map[i]; });
+    }
+    const g = readGrid(sheet.rows, VERTICALS, map);
+    const rows = g.rows.filter((r) => r.business);
+    const withEmail = rows.filter((r) => r.email && !r.hold);
+    const phoneOnly = rows.filter((r) => !r.email && r.phone);
+    const flagged = rows.filter((r) => r.hold);
+    if (input.mode !== "import") {
+      const pv = withEmail[0] ? await previewColdEmail(admin, uid, withEmail[0] as unknown as Record<string, unknown>) : null;
+      return [
+        `PREVIEW of ${sheet.name} — nothing written yet.`,
+        `Column names on row ${g.headerRow + 1}: ${g.headers.map((h, i) => `${h || "(blank)"} → ${g.map[i] || "skip"}`).join("; ")}.`,
+        `${rows.length} businesses: ${withEmail.length} have an email (EDITH can write to them), ${phoneOnly.length} are phone-only (the call list), ${flagged.length} the sheet says to check first${flagged.length ? " (" + flagged.map((r) => r.business).join(", ") + ")" : ""}${g.rows.length - rows.length ? `, ${g.rows.length - rows.length} rows with no business name (skipped)` : ""}.`,
+        `First rows: ${rows.slice(0, 4).map((r) => [r.business, r.email || "no email", r.phone || "no phone", r.vertical ? r.vertical + (r.vertical_guessed ? "?" : "") : ""].filter(Boolean).join(" · ")).join(" | ")}`,
+        pv && pv.ok ? `EDITH's first email to ${withEmail[0].business}: subject "${pv.subject}" — opens: "${pv.text.split("\n").filter(Boolean).slice(0, 3).join(" ").slice(0, 400)}"${pv.missing.length ? ` — it would HOLD until: ${pv.missing.join("; ")}` : ""}. Sending is ${pv.live ? "LIVE" : "OFF (logging only)"}, cap ${pv.cap || "none"} new a day.` : "",
+        "Before EDITH writes to anyone, the import also checks each email's domain can receive mail; ones that can't are imported but left off her list.",
+      ].filter(Boolean).join("\n");
+    }
+    const start = !!input.start_emails;
+    if (start && Number(input.email_count) !== withEmail.length) return `Not imported: start_emails needs email_count = ${withEmail.length} (the number with an email). Show the operator the preview and get their go-ahead first.`;
+    const r = await importProspects(admin, uid, rows as unknown as Record<string, unknown>[], { source: String(input.source || "cold list").slice(0, 40), cold: start, by: "EDITH" });
+    if (!r.ok) return "ERROR: " + r.error;
+    await log(`spotlight · EDITH imported ${sheet.name} · ${r.added} new`);
+    return [
+      `Imported ${sheet.name}: ${r.added} added, ${r.updated} updated, ${r.skipped} skipped. ${r.callList} on the call list (phone only).`,
+      start ? `${r.queued} queued for your cold emails${r.edith.cap ? `, ${r.edith.cap} new a day` : ""}.${!r.edith.address ? " They are HOLDING until the mailing address is set in EDITH settings (required in every cold email) — tell the operator." : ""}${!r.edith.live ? " Sending is OFF — they'll be logged, not sent." : ""}` : "Nobody was tagged cold — no emails will go out from this import.",
+      r.held.length ? `Not emailed (the sheet says check first): ${r.held.map((h) => h.business).join(", ")}.` : "",
+      r.badEmail.length ? `Not emailed (address can't receive mail): ${r.badEmail.map((h) => `${h.business} — ${h.reason}`).join("; ")}.` : "",
+    ].filter(Boolean).join("\n");
+  }
+  if (name === "spotlight_call_script") {
+    const scfg = await getSpotConfig(admin, uid);
+    let prospect: Record<string, unknown> | null = null;
+    const term = String(input.business || "").replace(/[%,()]/g, " ").trim();
+    if (term) {
+      const { data } = await admin.from("spotlight_prospects").select("business,owner_name,first_name,email,phone,vertical,suburb,reviews,years,spot_number").eq("user_id", uid).ilike("business", `%${term}%`).limit(2);
+      if (data?.length === 1) prospect = data[0];
+    }
+    const caller = String(input.caller || scfg.caller || "Emmanuel");
+    const offer = { prices: scfg.prices, featureSpots: scfg.featureSpots, floorDate: scfg.floorDate, episodeDate: scfg.episodeDate, crewReelUrl: scfg.crewReelUrl, callerPhone: scfg.callerPhone };
+    const fields = scriptFields({ prospect: prospect as never, caller, offer, verticals: VERTICALS });
+    if (!input.topic) return "The call script's sections: " + SCRIPT_SECTIONS.map((x) => x.title).join(" · ") + ". Ask for one (or an objection like 'send me an email') and I'll pull it." + (term && !prospect ? ` (No single Spotlight business matched "${term}".)` : "");
+    return (term && !prospect ? `(No single Spotlight business matched "${term}" — [brackets] left in.)\n` : "") + scriptAsText({ topic: String(input.topic), fields, caller, offer, verticals: VERTICALS }).slice(0, 9000);
+  }
+
   // --- EDITH's own email engine (Charlotte Spotlight) ---
   if (name === "edith_status") {
     const cfg = await getEdithConfig(admin, uid);
@@ -675,13 +734,23 @@ export async function POST(req: Request) {
   // the Spotlight emails.)
   const { data: agent } = await admin.from("agents").select("voice_prompt").eq("user_id", user.id).eq("name", "EDITH").maybeSingle();
   const board = await boardSummary(admin, user.id);
-  const system = `${agent?.voice_prompt || "You are EDITH, Creative Impact's assistant — the AI kind. You run the Creative Impact OS alongside Brandon and Emmanuel: warm, direct, brief — the sharpest assistant in a small shop, never a marketing department."}\n\nYou are EDITH. You are an AI and say so plainly if asked; you never pose as Brandon, Emmanuel, or a client. The same EDITH signs the Charlotte Spotlight emails, so the operator may ask you about those too.\n\nLIVE BOARD CONTEXT (as of this message):\n${JSON.stringify(board)}\n\nToday: ${new Date().toDateString()}. Current ISO week: ${weekKey()}.\n\nCAPABILITIES NOTE: You can change mission-level settings (set_sprint: target, dates, THE ONE THING), manage Founder OS goals (add_goal/complete_goal), rewrite the working strategy (set_strategy), set KPIs, and ingest uploaded receipts/statements/CSVs — extract each line item and log via add_expenses_bulk (use the document's dates; ask before logging if any line is unreadable or ambiguous). Changing the sprint target or dates is a big lever — restate the change and act only when the instruction is explicit.\n\nINVOICES & PROPOSALS: create_invoice and create_proposal DRAFT the document and generate its client link — they never email the client. Sending an invoice or proposal is an outbound, money-adjacent action that stays with a human: after drafting, show the operator the number, amount, and link, and tell them to send it from the Invoices/Proposals tab. Do not claim anything was sent.\n\nAUTOMATIONS: you can set up recurring work yourself. create_automation makes a scheduled job the OS runs on its own (leak_sweep = Black Widow's revenue leak sweep computed off the live board; board_digest = a numbers snapshot; log_marker = a heartbeat for testing). list_automations shows what exists, toggle_automation turns one on/off (they are never deleted), run_automation_now fires one immediately. The OS dispatches due automations once a day, so day-level cadences are real and sub-daily timing is not. When the operator describes recurring work ("every Monday sweep for money we're leaving on the table"), offer to create the automation rather than just doing it once.\n\nNATIONWIDE LANE (Hardscape & Landscape): a $3,000/mo remote ad engine sold nationwide to hardscape/landscape companies doing $500K+ (Emmanuel fronts every ad; the client films on a phone). lane_add_lead logs and grades a lead from the five form answers; lane_status reads the plan, leads waiting, the week's constraint, the scaling verdict, and tripped fallbacks; lane_log_week records a Friday tracker row. The planning numbers are assumptions, not benchmarks; never present them as results.\n\nCHARLOTTE SPOTLIGHT: the local video series (ten businesses a month, filmed like Diners, Drive-Ins and Dives). spotlight_list shows the pipeline; spotlight_add adds a prospect (set import_site=true with a website to pull facts off their site); spotlight_move moves a stage. Moving someone to 'member' can email them their pre-shoot questions immediately, and starts your client emails (SEQ6); say so before you do it.\n\nYOUR SPOTLIGHT EMAILS: you also run the Spotlight's automated sequences (cold, inbound, booked-to-show, no-show, post-call, client lifecycle, monthly episode). edith_status reports what's live, sent, HELD (and the field a human must fill), queued, and waiting on a human. edith_log records what the OS can't see — a call outcome with the spot number, a no-show, a cancellation, a reply that landed in the inbox, a delivered cut, a booked debrief — and can send the next email right away, so restate it first. You never turn sending on or off, never edit the email copy (it's locked in the repo), and never hand-send cold email: cold goes out only through the sequence, to tagged cold prospects with a specific detail, under the daily cap.\n\nCALLS: update_booking reschedules or cancels an upcoming booked call. Rescheduling needs an explicit new start time. Cancelling frees the slot on the public booker; restate the call before cancelling.\n\nCLIENT EMAIL: draft_client_email hands the writing to Anchor (the client producer) — client-facing mail is his voice, not yours. Drafts queue for approval by default; pass send_now=true ONLY on an explicit send order. When the operator approves a draft you just showed them ("send it"), use send_pending_email — never redraft. Show the operator the draft body after creating it. Use list_clients to see or disambiguate the roster; client matching covers names, contact names, and emails.\n\nYou can add and update, but you NEVER delete anything, and you never send an invoice, proposal, or client email without the operator's explicit go-ahead.`;
+  const system = `${agent?.voice_prompt || "You are EDITH, Creative Impact's assistant — the AI kind. You run the Creative Impact OS alongside Brandon and Emmanuel: warm, direct, brief — the sharpest assistant in a small shop, never a marketing department."}\n\nYou are EDITH. You are an AI and say so plainly if asked; you never pose as Brandon, Emmanuel, or a client. The same EDITH signs the Charlotte Spotlight emails, so the operator may ask you about those too.\n\nLIVE BOARD CONTEXT (as of this message):\n${JSON.stringify(board)}\n\nToday: ${new Date().toDateString()}. Current ISO week: ${weekKey()}.\n\nCAPABILITIES NOTE: You can change mission-level settings (set_sprint: target, dates, THE ONE THING), manage Founder OS goals (add_goal/complete_goal), rewrite the working strategy (set_strategy), set KPIs, and ingest uploaded receipts/statements/CSVs — extract each line item and log via add_expenses_bulk (use the document's dates; ask before logging if any line is unreadable or ambiguous). Changing the sprint target or dates is a big lever — restate the change and act only when the instruction is explicit.\n\nINVOICES & PROPOSALS: create_invoice and create_proposal DRAFT the document and generate its client link — they never email the client. Sending an invoice or proposal is an outbound, money-adjacent action that stays with a human: after drafting, show the operator the number, amount, and link, and tell them to send it from the Invoices/Proposals tab. Do not claim anything was sent.\n\nAUTOMATIONS: you can set up recurring work yourself. create_automation makes a scheduled job the OS runs on its own (leak_sweep = Black Widow's revenue leak sweep computed off the live board; board_digest = a numbers snapshot; log_marker = a heartbeat for testing). list_automations shows what exists, toggle_automation turns one on/off (they are never deleted), run_automation_now fires one immediately. The OS dispatches due automations once a day, so day-level cadences are real and sub-daily timing is not. When the operator describes recurring work ("every Monday sweep for money we're leaving on the table"), offer to create the automation rather than just doing it once.\n\nNATIONWIDE LANE (Hardscape & Landscape): a $3,000/mo remote ad engine sold nationwide to hardscape/landscape companies doing $500K+ (Emmanuel fronts every ad; the client films on a phone). lane_add_lead logs and grades a lead from the five form answers; lane_status reads the plan, leads waiting, the week's constraint, the scaling verdict, and tripped fallbacks; lane_log_week records a Friday tracker row. The planning numbers are assumptions, not benchmarks; never present them as results.\n\nCHARLOTTE SPOTLIGHT: the local video series (ten businesses a month, filmed like Diners, Drive-Ins and Dives). spotlight_list shows the pipeline; spotlight_add adds a prospect (set import_site=true with a website to pull facts off their site); spotlight_move moves a stage. Moving someone to 'member' can email them their pre-shoot questions immediately, and starts your client emails (SEQ6); say so before you do it.\n\nYOUR SPOTLIGHT EMAILS: you also run the Spotlight's automated sequences (cold, inbound, booked-to-show, no-show, post-call, client lifecycle, monthly episode). edith_status reports what's live, sent, HELD (and the field a human must fill), queued, and waiting on a human. edith_log records what the OS can't see — a call outcome with the spot number, a no-show, a cancellation, a reply that landed in the inbox, a delivered cut, a booked debrief — and can send the next email right away, so restate it first. You never turn sending on or off, never edit the email copy (it's locked in the repo), and never hand-send cold email: cold goes out only through the sequence, to tagged cold prospects with an email address, under the daily cap. Your cold emails introduce you honestly — "This is EDITH, Creative Impact's AI assistant… Brandon and Emmanuel thought you'd be a great fit for our new series."\n\nFILES: the operator can attach PDFs, Word documents (you get the text), spreadsheets (you get the rows), images, and text files. Read what's there before acting; ask if something is unreadable. A spreadsheet of businesses goes into the Spotlight pipeline with spotlight_import_sheet — preview first, show the counts, and start your emails only on an explicit go-ahead.\n\nTHE CALL SCRIPT: spotlight_call_script pulls the Spotlight cold-call script — a section, one objection's answer, the voicemails — filled in for a business when you name one. When the operator asks what to say on a call, quote it rather than improvising, and never quote a price that isn't on the board.\n\nCALLS: update_booking reschedules or cancels an upcoming booked call. Rescheduling needs an explicit new start time. Cancelling frees the slot on the public booker; restate the call before cancelling.\n\nCLIENT EMAIL: draft_client_email hands the writing to Anchor (the client producer) — client-facing mail is his voice, not yours. Drafts queue for approval by default; pass send_now=true ONLY on an explicit send order. When the operator approves a draft you just showed them ("send it"), use send_pending_email — never redraft. Show the operator the draft body after creating it. Use list_clients to see or disambiguate the roster; client matching covers names, contact names, and emails.\n\nYou can add and update, but you NEVER delete anything, and you never send an invoice, proposal, or client email without the operator's explicit go-ahead.`;
 
   const convo: { role: string; content: unknown }[] = history.map((m) => ({ role: m.role === "assistant" ? "assistant" : "user", content: m.content }));
 
-  // Optional attachment (receipt/statement image, PDF, or CSV/text) — merged
-  // into the latest user message so Rookie can read it and extract expenses.
-  const file = body.file as { name?: string; kind?: string; media_type?: string; data?: string; text?: string } | undefined;
+  // Optional attachment, read in the browser (app/cockpit/files.js): an image
+  // or PDF as-is, a Word doc as its text, a spreadsheet as its rows. It's
+  // merged into the latest user message so EDITH can read it. A spreadsheet
+  // stays in the conversation (the cockpit re-sends it as body.sheet) so a
+  // follow-up "yes, import them" still has the rows.
+  const file = body.file as { name?: string; kind?: string; media_type?: string; data?: string; text?: string; rows?: unknown } | undefined;
+  const asSheet = (x: unknown): Sheet => {
+    const o = x as { name?: unknown; rows?: unknown } | null;
+    if (!o || !Array.isArray(o.rows)) return null;
+    const rows = (o.rows as unknown[]).slice(0, 2000).map((r) => (Array.isArray(r) ? r.slice(0, 40).map((c) => String(c ?? "").slice(0, 500)) : []));
+    return rows.length ? { name: String(o.name || "spreadsheet").slice(0, 120), rows } : null;
+  };
+  const sheet: Sheet = file?.kind === "sheet" ? asSheet(file) : asSheet(body.sheet);
   if (file && convo.length) {
     const last = convo[convo.length - 1];
     if (last.role === "user" && typeof last.content === "string") {
@@ -694,6 +763,9 @@ export async function POST(req: Request) {
         last.content = [caption, { type: "document", source: { type: "base64", media_type: "application/pdf", data: file.data } }];
       } else if (file.kind === "text" && file.text) {
         last.content = [{ type: "text", text: caption.text + "\n\n```\n" + file.text.slice(0, 60000) + "\n```" }];
+      } else if (file.kind === "sheet" && sheet) {
+        const tsv = String(file.text || sheet.rows.slice(0, 400).map((r) => r.join("\t")).join("\n")).slice(0, 40000);
+        last.content = [{ type: "text", text: caption.text + `\n\n[Spreadsheet: ${sheet.rows.length} rows. The rows as the file has them (title/total rows included); spotlight_import_sheet reads the whole sheet.]\n\n\`\`\`tsv\n` + tsv + "\n```" }];
       }
     }
   }
@@ -704,7 +776,7 @@ export async function POST(req: Request) {
     const r = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: { "x-api-key": apiKey, "anthropic-version": "2023-06-01", "content-type": "application/json" },
-      body: JSON.stringify({ model: MODEL, max_tokens: 1200, system, tools: TOOLS, messages: convo }),
+      body: JSON.stringify({ model: MODEL, max_tokens: 1600, system: sheet ? system + `\n\nATTACHED SPREADSHEET in this conversation: "${sheet.name}" (${sheet.rows.length} rows) — spotlight_import_sheet can preview or import it.` : system, tools: TOOLS, messages: convo }),
     });
     const j = await r.json();
     if (j.error) return NextResponse.json({ ok: false, error: j.error.message || "api_error" }, { status: 502 });
@@ -718,7 +790,7 @@ export async function POST(req: Request) {
     convo.push({ role: "assistant", content: blocks });
     const results = [];
     for (const t of toolUses) {
-      const out = await runTool(admin, user.id, t.name!, t.input || {});
+      const out = await runTool(admin, user.id, t.name!, t.input || {}, { sheet });
       if (!out.startsWith("ERROR") && t.name !== "get_board") actions.push(`${t.name}: ${out}`);
       results.push({ type: "tool_result", tool_use_id: t.id, content: out });
     }

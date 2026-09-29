@@ -83,10 +83,8 @@ export const CONTENT: EdithContent = {
     ],
     "contact_fields": {
       "required_for_cold": [
-        "first_name",
         "business_name",
-        "neighborhood",
-        "specific_detail"
+        "email"
       ],
       "computed": {
         "spots_remaining": "live count from board; 0 triggers SEQ2/2-4 variant"
@@ -113,7 +111,7 @@ export const CONTENT: EdithContent = {
           "event": "contact.created",
           "when": {
             "tag": "cold_prospect",
-            "specific_detail": "not_empty"
+            "email": "not_empty"
           }
         },
         "exit_on": [
@@ -126,19 +124,23 @@ export const CONTENT: EdithContent = {
             "step": "1-1",
             "template_id": "1-1",
             "delay": "0d",
-            "anchor": "enroll"
+            "anchor": "enroll",
+            "variant": {
+              "when": {
+                "specific_detail": "not_empty"
+              },
+              "template_id": "1-1-detail"
+            }
           },
           {
             "step": "1-2",
             "template_id": "1-2",
-            "delay": "3d",
-            "anchor": "enroll"
+            "at": "step[1-1].sent_at + 3d"
           },
           {
             "step": "1-3",
             "template_id": "1-3",
-            "delay": "7d",
-            "anchor": "enroll"
+            "at": "step[1-1].sent_at + 7d"
           }
         ],
         "on_complete": {
@@ -481,7 +483,7 @@ export const CONTENT: EdithContent = {
       }
     ],
     "tasks_for_humans": [
-      "Write specific_detail for every cold prospect before SEQ1 can enroll them",
+      "Optional: write specific_detail for a cold prospect before 1-1 goes out — it sends the more personal 1-1-detail",
       "Speed-to-lead call within 60 minutes of any lead.form_submitted",
       "Tag every call.completed with outcome + spot_number (+ reason fields for not_fit)",
       "Friday receipt pull: reach_number + reach_screenshot per live campaign (feeds 6-7)",
@@ -504,48 +506,70 @@ export const CONTENT: EdithContent = {
     "1-1": {
       "template_id": "1-1",
       "title": "Cold open",
-      "trigger": "Day 0, within the send window",
-      "subject": "{{business_name}} and the Charlotte Spotlight",
-      "preview_text": "One question, then I'll get out of your way.",
-      "body": "Hi {{first_name}} — quick one, and then I'll get out of your way.\n\n{{specific_detail}} That's how {{business_name}} ended up on our list.\n\nEmmanuel Bibbs — ten years shooting Charlotte — is filming the Charlotte Spotlight this fall: a monthly series of short films about the people behind up to ten local businesses. Every business keeps a produced commercial to run anywhere, forever, and we put the episode in front of the city.\n\nOne question: when someone in {{neighborhood}} finds out about you for the first time, what do they usually say?\n\nIf it's some version of \"I didn't know you were here,\" fifteen minutes with Emmanuel is worth it. He walks the board with you and tells you straight whether there's a spot that fits — or that there isn't.\n\n{{booking_link}}",
+      "trigger": "Day 0, within the send window (up to the daily cold cap)",
+      "subject": "{{business_name}} and a new Charlotte series",
+      "preview_text": "Brandon and Emmanuel thought you'd be a great fit.",
+      "body": "Hi {{first_name|there}} —\n\nThis is EDITH, Creative Impact's AI assistant. I'm reaching out because Brandon and Emmanuel thought {{business_name}} would be a great fit for our new series.\n\nCreative Impact is a production company moving into the Charlotte metro, and we're starting the Charlotte Spotlight — a show about the local businesses that make this city work. We'd love to know if you'd be interested in being featured on the show, or in having your own commercial made as part of it. Everyone featured keeps their video to run anywhere.\n\nWould that be worth fifteen minutes? Emmanuel will walk you through how it works and tell you straight whether there's a spot that fits.\n\n{{booking_link}}",
       "cta": "Book the 15-minute fit call",
-      "internal_note": "{{specific_detail}} is one sentence a human wrote after looking at the business (a review, a detail from their page, their location). Empty = hold, don't send.",
+      "internal_note": "Brandon's framing (2026-09-29): EDITH says who she is, names Brandon and Emmanuel, and asks one question. Needs only the business name and an email. \"An episode dedicated to you\" became \"your own commercial made as part of it\" — the show gives each business a segment, and Feature spots a commercial of their own; no business gets a whole episode.",
       "merge_fields_used": [
         "business_name",
-        "first_name",
-        "specific_detail",
-        "neighborhood",
         "booking_link"
+      ],
+      "merge_fields_optional": [
+        "first_name"
+      ]
+    },
+    "1-1-detail": {
+      "template_id": "1-1-detail",
+      "title": "Variant: cold open with a specific detail",
+      "trigger": "Day 0, when a human has written the specific detail",
+      "subject": "{{business_name}} and a new Charlotte series",
+      "preview_text": "Brandon and Emmanuel thought you'd be a great fit.",
+      "body": "Hi {{first_name|there}} —\n\nThis is EDITH, Creative Impact's AI assistant. I'm reaching out because Brandon and Emmanuel thought {{business_name}} would be a great fit for our new series. {{specific_detail}} That's what put you on their list.\n\nCreative Impact is a production company moving into the Charlotte metro, and we're starting the Charlotte Spotlight — a show about the local businesses that make this city work. We'd love to know if you'd be interested in being featured on the show, or in having your own commercial made as part of it. Everyone featured keeps their video to run anywhere.\n\nWould that be worth fifteen minutes? Emmanuel will walk you through how it works and tell you straight whether there's a spot that fits.\n\n{{booking_link}}",
+      "cta": "Book the 15-minute fit call",
+      "internal_note": "{{specific_detail}} is one sentence a human wrote after looking at the business (a review, a detail from their page, their location) — it's the only difference from 1-1.",
+      "merge_fields_used": [
+        "business_name",
+        "specific_detail",
+        "booking_link"
+      ],
+      "merge_fields_optional": [
+        "first_name"
       ]
     },
     "1-2": {
       "template_id": "1-2",
       "title": "The receipt",
-      "trigger": "Day 3",
+      "trigger": "3 days after 1-1",
       "subject": "22,000 people for $77",
       "preview_text": "Not a projection. A screenshot.",
-      "body": "{{first_name}} — it seems like the first note landed in a busy week, which is fair.\n\nHere's the one number worth your thirty seconds: the Omaha Spotlight reached more than 22,000 locals on its first $77 of promotion. Charlotte is the second city.\n\nTen spots per episode. Each business gets its own film, a commercial cut, and the episode promoted across the metro — and Emmanuel tells you which spot fits {{business_name}} in fifteen minutes.\n\nWould it be a bad idea to grab that call before the board fills?\n\n{{booking_link}}",
+      "body": "Hi {{first_name|there}} — it seems like my first note landed in a busy week, which is fair.\n\nHere's the one number worth your thirty seconds: the Omaha Spotlight reached more than 22,000 locals on its first $77 of promotion. Charlotte is the second city.\n\nTen spots per episode. Each business gets its own film, a commercial cut, and the episode promoted across the metro — and Emmanuel tells you which spot fits {{business_name}} in fifteen minutes.\n\nWould it be a bad idea to grab that call before the board fills?\n\n{{booking_link}}",
       "cta": "Book the fit call",
       "internal_note": "The \"would it be a bad idea\" question is Voss — a \"no\" is a yes. Keep it.",
       "merge_fields_used": [
-        "first_name",
         "business_name",
         "booking_link"
+      ],
+      "merge_fields_optional": [
+        "first_name"
       ]
     },
     "1-3": {
       "template_id": "1-3",
       "title": "Close the file",
-      "trigger": "Day 7",
-      "subject": "Should I close the file, {{first_name}}?",
+      "trigger": "7 days after 1-1",
+      "subject": "Should I close your file?",
       "preview_text": "No hard feelings either way.",
-      "body": "{{first_name}} — I don't want to keep landing in your inbox if this isn't the season for {{business_name}}.\n\nShould I close your file? A one-word reply is fine either way, and if the timing's just off, say \"later\" and I'll check back when the next board opens.\n\n{{booking_link}}",
+      "body": "Hi {{first_name|there}} — I don't want to keep landing in your inbox if this isn't the season for {{business_name}}.\n\nShould I close your file? A one-word reply is fine either way, and if the timing's just off, say \"later\" and I'll check back when the next board opens.\n\n{{booking_link}}",
       "cta": "Reply (or book)",
       "internal_note": "Any reply routes to Emmanuel. \"Later\" = tag `nurture`, enroll in Sequence 7. No reply = tag `cold_closed`, no further sends.",
       "merge_fields_used": [
-        "first_name",
         "business_name",
         "booking_link"
+      ],
+      "merge_fields_optional": [
+        "first_name"
       ]
     },
     "2-1": {
@@ -964,7 +988,7 @@ export const CONTENT: EdithContent = {
     }
   },
   "signature": "EDITH\nCreative Impact · Emmanuel's assistant — the AI kind. A human reads every reply.\nhello@creativeimpactmedia.co",
-  "source_hash": "6024d7453e95b16c",
+  "source_hash": "2974f479919aabf5",
   "warnings": [
     "2-1: 2 links in the body (gate: one CTA)",
     "2-3: 2 links in the body (gate: one CTA)",

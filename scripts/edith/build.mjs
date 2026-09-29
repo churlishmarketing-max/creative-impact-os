@@ -43,7 +43,7 @@ export function compile() {
 
   // Every merge field must be one the engine knows how to fill.
   for (const t of Object.values(templates)) {
-    for (const f of t.merge_fields_used) if (!KNOWN_FIELDS.includes(f)) errors.push(`template ${t.template_id} uses {{${f}}}, which the engine can't fill`);
+    for (const f of [...t.merge_fields_used, ...(t.merge_fields_optional || [])]) if (!KNOWN_FIELDS.includes(f)) errors.push(`template ${t.template_id} uses {{${f}}}, which the engine can't fill`);
     if (!t.subject) errors.push(`template ${t.template_id} has no Subject line`);
     if (!t.body) errors.push(`template ${t.template_id} has no body`);
   }
@@ -96,8 +96,12 @@ function parseTemplates(md) {
     const body = block.slice(fences[1] + 1, fences[2]).join("\n").replace(/^\n+|\n+$/g, "");
     const subject = head["Subject line"] || "";
     const preview = head["Preview text"] || "";
+    // {{field}} is required (the email HOLDs without it); {{field|fallback}}
+    // is optional. A field used both ways anywhere in the email is required.
     const fields = new Set();
-    for (const m of (subject + "\n" + preview + "\n" + body).matchAll(/\{\{\s*(\w+)\s*\}\}/g)) fields.add(m[1]);
+    const optional = new Set();
+    for (const m of (subject + "\n" + preview + "\n" + body).matchAll(/\{\{\s*(\w+)\s*(\|[^}]*)?\}\}/g)) (m[2] === undefined ? fields : optional).add(m[1]);
+    for (const f of fields) optional.delete(f);
     out[id] = {
       template_id: id,
       title: title.trim(),
@@ -108,6 +112,7 @@ function parseTemplates(md) {
       cta: foot["CTA"] || "",
       internal_note: foot["Internal note"] || "",
       merge_fields_used: [...fields],
+      ...(optional.size ? { merge_fields_optional: [...optional] } : {}),
     };
   }
   return out;

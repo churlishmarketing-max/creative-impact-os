@@ -10,7 +10,7 @@ import { buildIcs } from "@/lib/ics";
 import { CONTENT } from "./content.generated";
 import { DEFAULT_PRICES, DEFAULT_FEATURE_SPOTS, DEFAULT_FLOOR_DATE, money, spotPrice, spotTier, floorLine } from "@/lib/spotlight-offer";
 import {
-  emit, runDue, contactChanged, retryHeld, settle, etParts,
+  emit, runDue, contactChanged, retryHeld, settle, etParts, renderEmail, FIELD_LABELS,
   type Config, type Contact, type Env, type Store, type StepRow, type Enrollment,
 } from "./engine";
 
@@ -258,13 +258,15 @@ export async function edithEnv(admin: Admin, uid: string): Promise<Env> {
 
 type Emit = { prospect_id: string | null; type: string; payload?: Record<string, unknown>; source?: string };
 
-export async function edithEmit(admin: Admin, uid: string, ev: Emit): Promise<{ ok: boolean; error?: string }> {
+// opts.run = false queues whatever the event starts for the minute clock
+// instead of sending it inside this request (bulk imports).
+export async function edithEmit(admin: Admin, uid: string, ev: Emit, opts: { run?: boolean } = {}): Promise<{ ok: boolean; error?: string }> {
   try {
     const env = await edithEnv(admin, uid);
     const payload = { ...(ev.payload || {}) };
     // A deposit with no episode named joins the current episode (settings).
     if (ev.type === "deposit.paid" && (payload.episode_number == null || payload.episode_number === "")) payload.episode_number = env.cfg.current_episode;
-    await emit(env, { contact_id: ev.prospect_id, type: ev.type, payload, source: ev.source });
+    await emit(env, { contact_id: ev.prospect_id, type: ev.type, payload, source: ev.source }, opts);
     return { ok: true };
   } catch (e) {
     const m = String((e as Error)?.message || e);
@@ -286,6 +288,23 @@ export async function edithEmitOnce(admin: Admin, uid: string, ev: Emit) {
 export async function edithTouch(admin: Admin, uid: string, prospectId: string) {
   try { await contactChanged(await edithEnv(admin, uid), prospectId); }
   catch (e) { const m = String((e as Error)?.message || e); if (!missingTable(m)) console.error("EDITH touch failed", m); }
+}
+
+// What EDITH's first cold email (SEQ1's first step) would say to this
+// business right now — for the importer's preview. Nothing is saved.
+export async function previewColdEmail(admin: Admin, uid: string, row: Row) {
+  const env = await edithEnv(admin, uid);
+  const c = toContact({ id: "preview", business: row.business, owner_name: row.owner_name, first_name: row.first_name, specific_detail: row.specific_detail, email: row.email || "them@example.com", tags: ["cold_prospect"], u_token: "preview" });
+  const step = CONTENT.manifest.sequences.find((s) => s.id === "SEQ1")?.steps[0];
+  if (!step) return { ok: false as const, error: "SEQ1 isn't in the manifest" };
+  const tpl = step.variant && c.fields.specific_detail ? step.variant.template_id : step.template_id;
+  const r = renderEmail(env, tpl, "SEQ1", c, {}, await env.spotsRemaining());
+  return {
+    ok: true as const, template: tpl, from: env.cfg.from, subject: r.subject, text: r.text,
+    // What would make it HOLD (the mailing address, usually) — in plain words.
+    missing: r.missing.map((k) => FIELD_LABELS[k] || k),
+    live: !!env.cfg.edith_live, cap: Number(env.cfg.cold_daily_cap) || 0,
+  };
 }
 
 export async function edithRetryAll(admin: Admin, uid: string) {

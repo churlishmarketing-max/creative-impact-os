@@ -3,7 +3,8 @@
  * CHARLOTTE SPOTLIGHT — the cockpit screen.
  * Board (what needs doing + the pipeline) · Prospects (add, import a
  * spreadsheet or their website) · Call Script (the cold-call script, filled in
- * for the business you're dialing) · EDITH · Sequence (who's due a touch) ·
+ * for the business you're dialing) · Close a Spot (after a yes: spot, details,
+ * the invoice + Stripe) · EDITH · Sequence (who's due a touch) ·
  * Contracts (agreements + invoices) · Settings (the price board, the agreement).
  * Everything talks to /api/spotlight; nothing here writes to the DB directly.
  * ========================================================================== */
@@ -11,6 +12,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { EdithDesk, EdithPanel } from './Edith';
 import SheetImport from './SheetImport';
 import CallScript from './CallScript';
+import CloseSpot from './CloseSpot';
 
 const api = async (body) => {
   const r = await fetch('/api/spotlight', body ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) } : undefined);
@@ -42,6 +44,7 @@ export default function Spotlight({ flash }) {
   const [view, setView] = useState('board');
   const [openId, setOpenId] = useState(null);
   const [scriptFor, setScriptFor] = useState('');
+  const [closeFor, setCloseFor] = useState('');
   const [msg, setMsg] = useState('');
   const [busy, setBusy] = useState('');
 
@@ -61,7 +64,7 @@ export default function Spotlight({ flash }) {
     if (!j.ok) { setMsg(j.error || 'That didn’t work.'); return j; }
     setMsg('');
     if (okMsg) flash(okMsg);
-    if (!['preview', 'agreement_preview', 'import', 'cold_preview'].includes(body.op)) await load();
+    if (!['preview', 'agreement_preview', 'import', 'cold_preview', 'close_preview', 'releases'].includes(body.op)) await load();
     return j;
   };
 
@@ -71,7 +74,7 @@ export default function Spotlight({ flash }) {
   const verticals = d?.verticals || {};
   const open = prospects.find((p) => p.id === openId) || null;
 
-  const VIEWS = [['board', 'The Board'], ['prospects', 'Prospects'], ['script', 'Call Script'], ['edith', 'EDITH · Email'], ['sequence', 'The Sequence'], ['contracts', 'Contracts'], ['settings', 'Settings']];
+  const VIEWS = [['board', 'The Board'], ['prospects', 'Prospects'], ['script', 'Call Script'], ['close', 'Close a Spot'], ['edith', 'EDITH · Email'], ['sequence', 'The Sequence'], ['contracts', 'Contracts'], ['settings', 'Settings']];
 
   return (
     <div style={{ padding: '28px 26px 96px', maxWidth: '1140px', margin: '0 auto', width: '100%' }}>
@@ -98,14 +101,15 @@ export default function Spotlight({ flash }) {
           {view === 'board' && <Board prospects={prospects} stages={stages} cfg={cfg} onOpen={setOpenId} />}
           {view === 'prospects' && <Prospects prospects={prospects} stages={stages} verticals={verticals} act={act} busy={busy} onOpen={setOpenId} flash={flash} />}
           {view === 'script' && <CallScript key={scriptFor || 'none'} prospects={prospects} cfg={cfg} verticals={verticals} initialId={scriptFor} onOpen={setOpenId} />}
+          {view === 'close' && <CloseSpot key={closeFor || 'new'} prospects={prospects} cfg={cfg} stripe={!!d.stripe} act={act} busy={busy} flash={flash} initialId={closeFor} onOpen={setOpenId} />}
           {view === 'edith' && <EdithDesk flash={flash} onOpen={setOpenId} />}
           {view === 'sequence' && <Sequence prospects={prospects} templates={d.templates || []} onOpen={setOpenId} />}
           {view === 'contracts' && <Contracts prospects={prospects} cfg={cfg} onOpen={setOpenId} />}
-          {view === 'settings' && <Settings cfg={cfg} defaultAgreement={d.defaultAgreement} act={act} busy={busy} />}
+          {view === 'settings' && <Settings cfg={cfg} defaultAgreement={d.defaultAgreement} defaultRelease={d.defaultRelease} act={act} busy={busy} />}
         </>
       )}
 
-      {open ? <Detail p={open} d={d} act={act} busy={busy} flash={flash} reload={load} onClose={() => setOpenId(null)} onScript={(id) => { setScriptFor(id); setView('script'); setOpenId(null); }} /> : null}
+      {open ? <Detail p={open} d={d} act={act} busy={busy} flash={flash} reload={load} onClose={() => setOpenId(null)} onScript={(id) => { setScriptFor(id); setView('script'); setOpenId(null); }} onCloseSpot={(id) => { setCloseFor(id); setView('close'); setOpenId(null); }} /> : null}
     </div>
   );
 }
@@ -365,7 +369,7 @@ function Contracts({ prospects, cfg, onOpen }) {
 }
 
 /* ------------------------------ SETTINGS -------------------------------- */
-function Settings({ cfg, defaultAgreement, act, busy }) {
+function Settings({ cfg, defaultAgreement, defaultRelease, act, busy }) {
   const [c, setC] = useState(cfg);
   useEffect(() => setC(cfg), [cfg]);
   const set = (patch) => setC((x) => ({ ...x, ...patch }));
@@ -410,9 +414,14 @@ function Settings({ cfg, defaultAgreement, act, busy }) {
           <textarea style={{ ...S.inp, minHeight: '320px', lineHeight: 1.55, fontFamily: 'var(--mono)', fontSize: '11.5px' }} value={c.agreementTemplate || ''} onChange={(e) => set({ agreementTemplate: e.target.value, attorneyReviewed: false })} />
         </Field>
         <div style={{ ...S.note, marginTop: '6px' }}>Editing the text un-ticks attorney review — changed terms need a fresh look. Any {'{{token}}'} not listed above stays blank and blocks the agreement until you remove or replace it. {'{{spot}}'}, {'{{tier}}'} and {'{{fee}}'} fill from the spot number logged on the call (price from the board above).</div>
+        <div style={{ marginTop: '16px' }}><Field label="Appearance release — what everyone on camera signs ({{business}} fills in)">
+          <textarea style={{ ...S.inp, minHeight: '220px', lineHeight: 1.55, fontFamily: 'var(--mono)', fontSize: '11.5px' }} value={c.releaseTemplate || ''} onChange={(e) => set({ releaseTemplate: e.target.value })} />
+        </Field></div>
+        <div style={{ ...S.note, marginTop: '6px' }}>A plain-English draft — have the attorney review it along with the agreement. Each signature keeps a copy of the exact text that person agreed to, so editing this only changes what new signers see.</div>
         <div style={{ display: 'flex', gap: '10px', marginTop: '14px' }}>
           <button style={S.btn(true)} disabled={!dirty || !!busy} onClick={() => act({ op: 'save_config', patch: c }, 'SPOTLIGHT SETTINGS SAVED ✓')}>Save settings</button>
           <button style={S.btn(false)} onClick={() => { if (window.confirm('Reset the agreement text to the Aug 21 template?')) set({ agreementTemplate: defaultAgreement, attorneyReviewed: false }); }}>Reset agreement text</button>
+          <button style={S.btn(false)} onClick={() => { if (window.confirm('Reset the release text to the draft?')) set({ releaseTemplate: defaultRelease }); }}>Reset release text</button>
           {dirty ? <span style={{ ...S.note, color: 'var(--gold)', alignSelf: 'center' }}>Unsaved changes</span> : null}
         </div>
       </div>
@@ -421,7 +430,7 @@ function Settings({ cfg, defaultAgreement, act, busy }) {
 }
 
 /* ------------------------- ONE BUSINESS (drawer) ------------------------ */
-function Detail({ p, d, act, busy, flash, reload, onClose, onScript }) {
+function Detail({ p, d, act, busy, flash, reload, onClose, onScript, onCloseSpot }) {
   const stages = d.stages || [];
   const verticals = d.verticals || {};
   const cfg = d.config || {};
@@ -549,7 +558,8 @@ function Detail({ p, d, act, busy, flash, reload, onClose, onScript }) {
               ) : n ? <button style={S.btn(false)} disabled={!!busy} onClick={() => act({ op: 'invoice', id: p.id }, 'INVOICE CREATED ✓')}>Create the {tier} Spot {n} invoice</button>
                 : <div style={S.note}>Set their spot number first — in the EDITH section above, or by logging the call outcome. The price comes from the board.</div>}
               {p.balance ? <div style={{ ...S.note, marginTop: '6px' }}>An older balance invoice is on file ({p.balance.number} · {p.balance.status}) from the retired deposit model.</div> : null}
-              <div style={{ ...S.note, marginTop: '8px' }}>Send the pay link while they’re on the call. When it’s paid they become a member automatically — EDITH’s welcome and the pre-shoot questions follow. Pay links take cards once Stripe is connected.</div>
+              {!MEMBER_STAGES.includes(p.stage) && onCloseSpot ? <button style={{ ...S.btn(true), marginTop: '8px' }} onClick={() => onCloseSpot(p.id)}>Close this spot → (pick the spot, send the invoice)</button> : null}
+              <div style={{ ...S.note, marginTop: '8px' }}>When it’s paid they become a member automatically — EDITH’s welcome follows with the pre-production call link, the prep questions, and the release form. Pay links take cards once Stripe is connected.</div>
             </div>
           );
         })()}
@@ -577,6 +587,9 @@ function Detail({ p, d, act, busy, flash, reload, onClose, onScript }) {
             </div>
           )}
         </div>
+
+        <div style={S.sec}>Release forms {p.releases ? `· ${p.releases} signed` : ''}</div>
+        <Releases p={p} flash={flash} />
 
         <div style={S.sec}>Pre-shoot questions {p.q_sent_at ? `· sent ${String(p.q_sent_at).slice(0, 10)}` : ''} {p.q_returned_at ? `· answered ${String(p.q_returned_at).slice(0, 10)}` : ''}</div>
         {p.q_returned_at ? (
@@ -630,6 +643,43 @@ function Detail({ p, d, act, busy, flash, reload, onClose, onScript }) {
             </div>
           </div>
         ) : null}
+      </div>
+    </div>
+  );
+}
+
+/* ------------------------- RELEASE FORMS (drawer) ------------------------- */
+// Everyone on camera signs the business's release: send them the link ahead of
+// film day, or hand over a phone on the day (the in-person link clears for the
+// next person). Every signature lands here.
+function Releases({ p, flash }) {
+  const [list, setList] = useState(null);
+  const [err, setErr] = useState('');
+  useEffect(() => {
+    let live = true;
+    api({ op: 'releases', id: p.id }).then((j) => { if (!live) return; if (j.ok) { setList(j.releases || []); setErr(''); } else { setList([]); setErr(j.error || ''); } });
+    return () => { live = false; };
+  }, [p.id, p.releases]);
+  if (!p.release_link) return <div style={{ ...S.note, color: 'var(--gold)' }}>Release forms need one database update — run supabase/26_close_release_finder.sql in the Supabase SQL editor.</div>;
+  return (
+    <div style={S.panel}>
+      <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
+        <button style={S.btn(false)} onClick={() => copy(p.release_link, flash)}>Copy the release link</button>
+        <button style={S.btn(false)} onClick={() => window.open(p.release_link + '?in=person', '_blank')}>Open for in-person signing</button>
+        <span style={S.note}>Anyone who’ll be on camera — owner, team, customers. EDITH’s welcome sends them the link too.</span>
+      </div>
+      {err ? <div style={{ ...S.note, color: 'var(--gold)', marginTop: '8px' }}>{err}</div> : null}
+      <div style={{ marginTop: '10px', borderTop: '1px solid var(--line)' }}>
+        {(list || []).map((r) => (
+          <div key={r.id} style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', padding: '7px 2px', borderBottom: '1px solid var(--line)', fontSize: '12px' }}>
+            <span style={{ color: 'var(--good)' }}>✓</span>
+            <span style={{ color: 'var(--cream)', minWidth: '160px' }}>{r.first_name} {r.last_name}</span>
+            <span style={{ color: 'var(--muted)' }}>{r.email}</span>
+            <span style={{ color: 'var(--dim)', marginLeft: 'auto' }}>{String(r.signed_at).slice(0, 10)} · {r.source}</span>
+          </div>
+        ))}
+        {list && !list.length && !err ? <div style={{ ...S.note, padding: '8px 0' }}>No one has signed yet.</div> : null}
+        {!list ? <div style={{ ...S.note, padding: '8px 0' }}>Loading…</div> : null}
       </div>
     </div>
   );

@@ -174,6 +174,7 @@ export type Config = {
   board_link: string;
   call_link: string;
   debrief_link: string;
+  preprod_link?: string;  // where a new member books the pre-production call (/go/preprod)
   episode_link: string;
   next_board_date: string;
   current_episode: number;
@@ -287,6 +288,9 @@ export const FIELD_LABELS: Record<string, string> = {
   reach_number: "the reach number (Friday receipt pull)",
   reach_screenshot: "the reach screenshot link (Friday receipt pull)",
   debrief_link: "the debrief booking link (EDITH settings)",
+  preprod_link: "the pre-production call booking link (EDITH settings)",
+  questions_link: "their prep-questions link",
+  release_line: "the release-form line",
   spots_remaining: "spots remaining",
   next_board_date: "the next board date (EDITH settings)",
   not_fit_reason: "the not-a-fit reason (from the call outcome)",
@@ -471,6 +475,9 @@ export function mergeValues(env: Env, tplId: string, c: Contact, ctx: Record<str
     reach_number: s(ep.reach_number || f.reach_number),
     reach_screenshot: s(ep.reach_screenshot || f.reach_screenshot),
     debrief_link: s(cfg.debrief_link),
+    preprod_link: s(cfg.preprod_link),
+    questions_link: s(f.questions_link),
+    release_line: s(f.release_line),
     spots_remaining: String(spots),
     next_board_date: s(cfg.next_board_date),
     not_fit_reason: s(f.not_fit_reason),
@@ -589,7 +596,7 @@ async function enrollFor(env: Env, c: Contact, ev: EdithEvent, opts: { onceEver?
     // (a cold email to a person already talking to us is worse than none).
     if ((opts.onceEver || seq.enroll_on.event === "contact.created") && mine.length) continue;
     if (seq.enroll_on.event === "contact.created") {
-      const stops = env.content.manifest.global_rules.stop_on.map((s) => s.event).filter(Boolean);
+      const stops = [...env.content.manifest.global_rules.stop_on.map((s) => s.event).filter(Boolean), ...(seq.exit_on || [])];
       if (events.some((e) => stops.includes(e.type))) continue;
     }
     await enroll(env, c, seq, ev);

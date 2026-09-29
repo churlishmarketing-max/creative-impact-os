@@ -46,6 +46,10 @@ export async function proxy(req: NextRequest) {
     path.startsWith("/e/unsubscribe/") ||     // EDITH unsubscribe page (token)
     path === "/api/edith/unsubscribe" ||      // ...one-click + page button (token-guarded)
     path === "/api/edith/tick" ||             // EDITH's clock (pg_cron; key-guarded)
+    path === "/api/finder/tick" ||            // the finder's clock (pg_cron; same key)
+    path === "/api/discord/interactions" ||   // Discord → EDITH (Ed25519-signed; unsigned = 401)
+    path.startsWith("/spotlight/release/") || // a business's release form (token page)
+    path === "/api/spotlight/release" ||      // ...its token-guarded, rate-limited API
     path === "/diagnostic" ||                 // Authority Diagnostic offer page
     path.startsWith("/diagnostic/") ||        // intake + report token pages (NOT /diagnostics, the operator board)
     path === "/api/diagnostic/checkout" ||

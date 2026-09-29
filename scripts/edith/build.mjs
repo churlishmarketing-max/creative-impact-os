@@ -55,7 +55,7 @@ export function compile() {
     // $77 is the Omaha receipt (allowed); the offer prices are not.
     if (/^[1-4]-/.test(t.template_id) && /\$\s?(997|250|747)\b/.test(t.body + t.subject)) warnings.push(`${t.template_id}: an offer price appears in Sequences 1-4`);
     const links = (t.body.match(/\{\{\s*\w+_link\s*\}\}/g) || []).length;
-    if (links > 1 && t.template_id !== "7-1") warnings.push(`${t.template_id}: ${links} links in the body (gate: one CTA)`);
+    if (links > 1 && !["7-1", "6-1"].includes(t.template_id)) warnings.push(`${t.template_id}: ${links} links in the body (gate: one CTA)`);
   }
 
   if (errors.length) throw new Error("EDITH build failed:\n  - " + errors.join("\n  - "));

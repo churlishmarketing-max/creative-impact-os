@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getAdminClient } from "@/lib/supabase/admin";
+import { discordNotify } from "@/lib/discord";
 
 export const runtime = "nodejs";
 
@@ -36,5 +37,7 @@ export async function POST(req: Request) {
     user_id: st.user_id, tag, color: "var(--cream)",
     message: `${agent} · ${(title || summary).slice(0, 120)}`,
   });
+  // Every agent reports back through EDITH: she posts it to the team's Discord.
+  await discordNotify(admin, st.user_id, `🕵️ ${agent}: ${title || "report"}`, summary.slice(0, 1800) || undefined);
   return NextResponse.json({ ok: true });
 }

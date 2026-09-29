@@ -291,7 +291,7 @@ function InboundForm({ act, busy }) {
 }
 
 function Settings({ cfg, sequences, act, busy }) {
-  const KEYS = ['from', 'reply_to', 'digest_to', 'physical_address', 'booking_link', 'board_link', 'call_link', 'debrief_link', 'episode_link', 'next_board_date', 'current_episode', 'cold_daily_cap', 'deposit_pay_link', 'balance_pay_link'];
+  const KEYS = ['from', 'reply_to', 'digest_to', 'physical_address', 'booking_link', 'board_link', 'call_link', 'debrief_link', 'preprod_link', 'episode_link', 'next_board_date', 'current_episode', 'cold_daily_cap', 'deposit_pay_link', 'balance_pay_link'];
   const [f, setF] = useState({});
   const [paused, setPaused] = useState({});
   const [digest, setDigest] = useState(true);
@@ -318,6 +318,7 @@ function Settings({ cfg, sequences, act, busy }) {
         {inp('call_link', 'Call link (standing Zoom / Meet)')}
       </div>
       <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', marginBottom: '10px' }}>
+        {inp('preprod_link', 'Pre-production call link (in the welcome, 6-1)')}
         {inp('debrief_link', 'Debrief booking link')}
         {inp('episode_link', 'Showcase episode (2-3) — Omaha until Charlotte Ep 1')}
         {inp('next_board_date', 'Next board opens', 'November 2', '0 1 160px')}
@@ -339,6 +340,55 @@ function Settings({ cfg, sequences, act, busy }) {
         ))}
       </div>
       <button style={{ ...S.btn(true), marginTop: '14px' }} disabled={!dirty || !!busy} onClick={() => act({ op: 'save_config', patch: { ...f, paused, digest } }, 'EDITH SETTINGS SAVED ✓')}>Save settings</button>
+      <DiscordPanel />
+    </div>
+  );
+}
+
+/* --------------------------------------------------------------- DISCORD */
+// EDITH's Discord: where she reports (finder cards, agent reports, payments,
+// bookings, form leads, releases) and where the team talks back (/find,
+// /edith, /edith-here). The secrets live in Vercel; this shows what's there.
+function DiscordPanel() {
+  const [d, setD] = useState(null);
+  const [msg, setMsg] = useState('');
+  const [busy, setBusy] = useState('');
+  const [allow, setAllow] = useState('');
+  const load = useCallback(async () => {
+    try { const r = await fetch('/api/discord'); const j = await r.json(); setD(j.ok ? j : { error: j.error || 'Couldn’t load' }); if (j.ok) setAllow((j.allowed_user_ids || []).join(', ')); } catch { setD({ error: 'Couldn’t reach /api/discord' }); }
+  }, []);
+  useEffect(() => { load(); }, [load]);
+  const post = async (body, ok) => {
+    setBusy(body.op); setMsg('');
+    try { const r = await fetch('/api/discord', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }); const j = await r.json(); setMsg(j.ok ? ok + (j.count ? ` (${j.count} commands)` : '') : '⚠ ' + (j.error || 'failed')); } catch { setMsg('⚠ failed'); }
+    setBusy(''); load();
+  };
+  const tick = (on) => <span style={{ color: on ? 'var(--good)' : 'var(--red)' }}>{on ? '✓' : '✗'}</span>;
+  const env = (d && d.env) || {};
+  const ready = env.application_id && env.public_key && env.bot_token;
+  return (
+    <div>
+      <div style={S.sec}>Discord — EDITH reports here, and you answer her here</div>
+      <div style={S.panel}>
+        {!d ? <div style={S.note}>Loading…</div> : d.error ? <div style={{ ...S.note, color: 'var(--gold)' }}>{d.error}</div> : (
+          <div style={{ fontSize: '12px', color: 'var(--muted)', lineHeight: 1.8 }}>
+            <div>{tick(env.application_id)} DISCORD_APPLICATION_ID · {tick(env.public_key)} DISCORD_PUBLIC_KEY · {tick(env.bot_token)} DISCORD_BOT_TOKEN <span style={{ color: 'var(--dim)' }}>(in Vercel — never pasted here)</span></div>
+            <div>{tick(!!d.channel_id)} Her channel: {d.channel_id ? <b style={{ color: 'var(--cream)' }}>#{d.channel_name || d.channel_id}</b> : 'not set — type /edith-here in the channel you want'}</div>
+            <div style={{ color: 'var(--dim)' }}>Interactions endpoint URL (Discord Developer Portal → General Information): <span style={{ color: 'var(--cream)' }}>{d.interactions_url}</span></div>
+            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginTop: '8px' }}>
+              {d.invite_url ? <a href={d.invite_url} target="_blank" rel="noreferrer" style={{ ...S.btn(false), textDecoration: 'none' }}>1 · Invite EDITH to your server</a> : null}
+              <button style={S.btn(false)} disabled={!ready || !!busy} onClick={() => post({ op: 'register' }, 'Commands set up ✓ — /find, /edith, /edith-here')}>2 · Set up the commands</button>
+              <button style={S.btn(false)} disabled={!ready || !d.channel_id || !!busy} onClick={() => post({ op: 'test' }, 'Test posted ✓ — check Discord')}>3 · Send a test message</button>
+            </div>
+            <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-end', marginTop: '10px', flexWrap: 'wrap' }}>
+              <Field label="Also allow these Discord user IDs (anyone with Manage Server already can)"><input style={S.inp} value={allow} placeholder="123456789012345678, …" onChange={(e) => setAllow(e.target.value)} /></Field>
+              <button style={S.btn(false)} disabled={!!busy} onClick={() => post({ op: 'save', allowed_user_ids: allow }, 'Saved ✓')}>Save</button>
+            </div>
+            {msg ? <div style={{ marginTop: '8px', color: msg.startsWith('⚠') ? 'var(--gold)' : 'var(--good)' }}>{msg}</div> : null}
+            <div style={{ ...S.note, marginTop: '8px' }}>In Discord: <b>/find</b> vertical area count — EDITH searches, checks each business’s own website, and posts each one with Approve (her cold emails start) · Call list · Skip. <b>/edith</b> anything — same EDITH as here. At most 6 hunts a day (each search costs money).</div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

@@ -19,8 +19,10 @@
 //    questionnaire, to someone who has already paid.
 import { getAdminClient } from "@/lib/supabase/admin";
 import { sendEmail, personaFrom } from "@/lib/email";
-import { edithEmit, edithEmitOnce } from "@/lib/edith/server";
-import { DEFAULT_PRICES, DEFAULT_FEATURE_SPOTS, DEFAULT_FLOOR_DATE, SCOPE, paymentTerms, spotPrice, spotTier, spotTitle } from "@/lib/spotlight-offer";
+import { edithEmit, edithEmitOnce, getEdithConfig, stripeConnected } from "@/lib/edith/server";
+import { DEFAULT_PRICES, DEFAULT_FEATURE_SPOTS, DEFAULT_FLOOR_DATE, SCOPE, paymentTerms, spotPrice, spotTier, spotTitle, floorLine } from "@/lib/spotlight-offer";
+import { DEFAULT_RELEASE } from "@/lib/spotlight-release";
+import { discordNotify, GREEN } from "@/lib/discord";
 
 type Admin = NonNullable<ReturnType<typeof getAdminClient>>;
 const SITE = process.env.NEXT_PUBLIC_SITE_URL || "https://os.creativeimpactmedia.co";
@@ -145,6 +147,7 @@ export type SpotlightConfig = {
   autoSendQuestions: boolean;
   attorneyReviewed: boolean;
   agreementTemplate: string;
+  releaseTemplate: string; // the appearance release everyone on camera signs (lib/spotlight-release.ts)
 };
 export const DEFAULT_CONFIG: SpotlightConfig = {
   prices: DEFAULT_PRICES, featureSpots: DEFAULT_FEATURE_SPOTS, floorDate: DEFAULT_FLOOR_DATE, perMonth: DEFAULT_PRICES.length,
@@ -152,6 +155,7 @@ export const DEFAULT_CONFIG: SpotlightConfig = {
   caller: "Emmanuel", callerPhone: "",
   autoSendQuestions: true, attorneyReviewed: false,
   agreementTemplate: DEFAULT_AGREEMENT,
+  releaseTemplate: DEFAULT_RELEASE,
 };
 
 export async function getConfig(admin: Admin, userId: string) {
@@ -578,7 +582,7 @@ export async function sendTemplate(admin: Admin, p: Prospect, cfg: SpotlightConf
 
 // Becoming a member: stamp it, draft the questions if there aren't any, and —
 // if the toggle is on — send them. Safe to call more than once.
-export async function makeMember(admin: Admin, p: Prospect) {
+export async function makeMember(admin: Admin, p: Prospect, why: "paid" | "manual" = "manual") {
   const cfg = await getConfig(admin, p.user_id);
   const now = new Date().toISOString();
   const patch: Record<string, unknown> = { stage: "member", stage_at: now };
@@ -594,6 +598,20 @@ export async function makeMember(admin: Admin, p: Prospect) {
     await edithEmitOnce(admin, p.user_id, { prospect_id: p.id, type: "balance.paid", payload: { paid_in_full: true }, source: "payment" });
   }
   const fresh = { ...p, ...patch, questions } as Prospect;
+  const ecfg = await getEdithConfig(admin, p.user_id);
+  if (!p.member_at) {
+    const n = spotN(p);
+    const price = n ? spotPrice(cfg.prices, n) : null;
+    await discordNotify(admin, p.user_id, `${why === "paid" ? "💰" : "⭐"} ${p.business} ${why === "paid" ? "paid" : "is a member"}${n ? ` — ${spotTier(n, cfg.featureSpots)} Spot ${n}${price ? ` · ${money(price)}` : ""}` : ""}`,
+      ecfg.edith_live ? "EDITH's welcome is going out: the pre-production call link, the prep questions, and the release form. Next: lock their film date on the pre-production call." : "EDITH is off — send their questions from their card.", GREEN);
+  }
+  // With EDITH live, her welcome (6-1) carries the questions link — along with
+  // the pre-production call and the release form — so the OS doesn't send a
+  // second, separate questions email.
+  if (cfg.autoSendQuestions && p.email && !p.q_sent_at && ecfg.edith_live) {
+    await admin.from("spotlight_prospects").update({ q_sent_at: new Date().toISOString() }).eq("id", p.id);
+    return { member: true, questions: { ok: true as const, via: "EDITH's welcome (6-1)" } };
+  }
   if (cfg.autoSendQuestions && p.email && !p.q_sent_at) {
     const r = render(fresh, cfg, "questions");
     if (r && !r.unresolved.length) return { member: true, questions: await sendTemplate(admin, fresh, cfg, "questions", r.subject, r.body) };
@@ -609,7 +627,7 @@ export async function onInvoicePaid(admin: Admin, invoiceToken: string) {
   if (!inv) return;
   const { data: rows, error } = await admin.from("spotlight_prospects").select("*").eq("deposit_invoice_id", inv.id);
   if (error) return; // migration 22 not run
-  for (const p of (rows || []) as Prospect[]) if (PRE_MEMBER.includes(p.stage)) await makeMember(admin, p);
+  for (const p of (rows || []) as Prospect[]) if (PRE_MEMBER.includes(p.stage)) await makeMember(admin, p, "paid");
   const { data: bal } = await admin.from("spotlight_prospects").select("id,user_id").eq("balance_invoice_id", inv.id);
   for (const b of bal || []) await edithEmitOnce(admin, b.user_id, { prospect_id: b.id, type: "balance.paid", source: "payment" });
 }
@@ -621,7 +639,7 @@ export async function reconcilePaidDeposits(admin: Admin, userId: string, rows: 
   const { data: paid } = await admin.from("invoices").select("id").in("id", ids).eq("status", "paid");
   const set = new Set((paid || []).map((x) => x.id));
   let n = 0;
-  for (const p of rows) if (p.deposit_invoice_id && set.has(p.deposit_invoice_id) && PRE_MEMBER.includes(p.stage)) { await makeMember(admin, p); n++; }
+  for (const p of rows) if (p.deposit_invoice_id && set.has(p.deposit_invoice_id) && PRE_MEMBER.includes(p.stage)) { await makeMember(admin, p, "paid"); n++; }
   return n;
 }
 
@@ -632,4 +650,148 @@ export async function reconcilePaidBalances(admin: Admin, userId: string, rows: 
   const { data: paid } = await admin.from("invoices").select("id").in("id", ids).eq("status", "paid");
   const set = new Set((paid || []).map((x) => x.id));
   for (const p of rows) if (p.balance_invoice_id && set.has(p.balance_invoice_id)) await edithEmitOnce(admin, userId, { prospect_id: p.id, type: "balance.paid", source: "payment" });
+}
+
+// --- Closing a spot (Spotlight → Close a Spot) -----------------------------------
+// After a yes: the spot (price from the board), their details, one invoice, and
+// an email that explains it with a Stripe pay button. Paying makes them a
+// member (webhook → onInvoicePaid → makeMember), and EDITH's welcome (6-1)
+// follows with the next steps.
+
+export type CloseInput = { id?: string | null; business: string; first_name: string; last_name?: string; email: string; phone?: string; spot: number; film_date?: string; send?: boolean; by?: string };
+
+// The invoice email: what's included, the total, the pay link, the floor, and
+// what happens after they pay. From the caller (Spotlight settings).
+export function invoiceEmail(p: Pick<Prospect, "business" | "owner_name"> & { first_name?: string | null }, cfg: SpotlightConfig, spot: number, o: { link: string; agreementLink?: string | null }) {
+  const tier = spotTier(spot, cfg.featureSpots);
+  const price = spotPrice(cfg.prices, spot) || 0;
+  const first = String(p.first_name || firstName(p as Prospect) || "").trim();
+  const subject = `${p.business} — your Charlotte Spotlight invoice`;
+  const body = `${first || "Hi there"} — thanks for saying yes. Here's everything for your spot, in one place.
+
+${spotTitle(spot, cfg.featureSpots)} · Founding Season
+
+What's included:
+${SCOPE[tier].map((x) => "– " + x.replace(/ — included$/, "")).join("\n")}
+
+Total: ${money(price)}, paid once, in full, at booking. The spot is yours the moment payment clears — until then it's still open on the board.
+
+Pay securely by card (Stripe): ${o.link}
+${o.agreementLink ? `\nYour agreement, to read and sign: ${o.agreementLink}\n` : ""}
+The season floor: ${floorLine(tier, cfg.floorDate)}
+
+What happens after you pay: you'll get an email right away with your next steps — a link to book your 15-minute pre-production call (that's where we lock your film date), a few prep questions to look over, and a release form for anyone who'll be on camera.
+
+Questions? Just reply to this email.
+
+— ${cfg.caller || "Emmanuel"}
+Creative Impact · Charlotte`;
+  return { subject, body };
+}
+
+const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[a-z]{2,}$/i;
+
+export async function closeSpot(admin: Admin, uid: string, x: CloseInput) {
+  const cfg = await getConfig(admin, uid);
+  const business = String(x.business || "").trim().slice(0, 200);
+  const first = String(x.first_name || "").trim().slice(0, 80), last = String(x.last_name || "").trim().slice(0, 80);
+  const email = String(x.email || "").trim().toLowerCase().slice(0, 200);
+  const spot = Math.round(Number(x.spot) || 0);
+  const price = spotPrice(cfg.prices, spot);
+  if (!business) return { ok: false as const, error: "The business name, at least." };
+  if (!first) return { ok: false as const, error: "Their first name — the invoice email greets them by it." };
+  if (!EMAIL_RE.test(email)) return { ok: false as const, error: "A valid email — that's where the invoice goes." };
+  if (!price) return { ok: false as const, error: "Pick a spot on the board." };
+
+  // Is the spot free? Taken = a member holds it; pending = an unpaid invoice is out to someone else.
+  const { data: all, error: aErr } = await admin.from("spotlight_prospects").select("id,business,email,spot_number,member_at,stage,deposit_invoice_id").eq("user_id", uid);
+  if (aErr) return { ok: false as const, error: aErr.message };
+  const others = (all || []).filter((r) => r.id !== x.id && Number(r.spot_number) === spot && r.stage !== "no");
+  const holder = others.find((r) => r.member_at);
+  if (holder) return { ok: false as const, error: `Spot ${spot} is taken — ${holder.business} holds it.` };
+  const invIds = others.map((r) => r.deposit_invoice_id).filter(Boolean) as string[];
+  if (invIds.length) {
+    const { data: out } = await admin.from("invoices").select("id,number,status").in("id", invIds).in("status", ["draft", "sent"]);
+    const pend = (out || [])[0];
+    if (pend) { const who = others.find((r) => r.deposit_invoice_id === pend.id); return { ok: false as const, error: `Spot ${spot} has an unpaid invoice out to ${who?.business || "someone else"} (${pend.number}). Cancel that one first (Invoices out → Cancel), or pick another spot.` }; }
+  }
+
+  // The business: the one picked, or the one with this email, or a new one.
+  const film = /^\d{4}-\d{2}-\d{2}$/.test(String(x.film_date || "")) ? String(x.film_date) : null;
+  const patch: Record<string, unknown> = { business, owner_name: [first, last].filter(Boolean).join(" "), first_name: first, email, spot_number: spot, ...(x.phone ? { phone: String(x.phone).slice(0, 40) } : {}), ...(film ? { film_date: film } : {}) };
+  let id = x.id || null;
+  if (!id) { const m = (all || []).find((r) => String(r.email || "").toLowerCase() === email); id = m?.id || null; }
+  let p: Prospect | null = null;
+  if (id) {
+    const { data, error } = await admin.from("spotlight_prospects").update(patch).eq("user_id", uid).eq("id", id).select("*").maybeSingle();
+    if (error) return { ok: false as const, error: error.message };
+    p = data as Prospect | null;
+  } else {
+    const { data, error } = await admin.from("spotlight_prospects").insert({ user_id: uid, stage: "prospect", source: "close", ...patch }).select("*").maybeSingle();
+    if (error) return { ok: false as const, error: error.message };
+    p = data as Prospect | null;
+  }
+  if (!p) return { ok: false as const, error: "Couldn't save the business." };
+  if (p.member_at) return { ok: false as const, error: `${p.business} has already paid — they're a member.` };
+
+  // One invoice per spot sale: reuse an unpaid one for the same spot and price, void anything else.
+  let link = "", number = "";
+  if (p.deposit_invoice_id) {
+    const { data: inv } = await admin.from("invoices").select("id,number,status,token,amount_cents,title").eq("id", p.deposit_invoice_id).maybeSingle();
+    if (inv?.status === "paid") return { ok: false as const, error: `${p.business}'s invoice ${inv.number} is already paid.` };
+    if (inv && inv.status !== "void" && inv.amount_cents === Math.round(price * 100) && String(inv.title || "").includes(`Spot ${spot}`)) { link = `${SITE}/pay/${inv.token}`; number = inv.number; }
+    else if (inv && inv.status !== "void") await admin.from("invoices").update({ status: "void" }).eq("id", inv.id);
+  }
+  if (!link) {
+    const r = await createInvoice(admin, p, cfg);
+    if (!r.ok) return { ok: false as const, error: r.error };
+    link = r.link; number = r.number;
+  }
+  // The agreement goes with it once it's attorney-reviewed (and the film date is set).
+  let agreementLink: string | null = null;
+  if (cfg.attorneyReviewed && !p.agreement_id && p.film_date) {
+    const a = await createAgreement(admin, p, cfg);
+    if (a.ok) agreementLink = a.link;
+  }
+  // EDITH: the call closed — ends the booked-call reminders and any cold or inbound follow-ups.
+  await edithEmit(admin, uid, { prospect_id: p.id, type: "call.completed", payload: { outcome: "closed", spot_number: spot }, source: "close" }, { run: false });
+  await logLine(admin, uid, `spotlight · closed ${p.business} · Spot ${spot} · ${money(price)} (${number})`);
+
+  const mail = invoiceEmail({ ...p, first_name: first }, cfg, spot, { link, agreementLink });
+  if (!x.send) return { ok: true as const, id: p.id, number, link, sent: false, email: mail };
+  if (!stripeConnected()) return { ok: true as const, id: p.id, number, link, sent: false, email: mail, warning: "Not sent: Stripe isn't connected, so the Pay button wouldn't work. Put STRIPE_SECRET_KEY (and STRIPE_WEBHOOK_SECRET) in Vercel, redeploy, then press Send again — the invoice is saved." };
+  const r = await sendEmail({ to: email, from: personaFrom(cfg.caller), subject: mail.subject, text: mail.body });
+  if (!r.ok) return { ok: false as const, error: ("error" in r && r.error) || ("skipped" in r ? "Email isn't configured (RESEND_API_KEY)." : "Send failed.") };
+  await admin.from("invoices").update({ status: "sent" }).eq("user_id", uid).eq("number", number);
+  await logLine(admin, uid, `spotlight · invoice ${number} emailed to ${p.business}`);
+  await discordNotify(admin, uid, `🧾 Invoice out: ${p.business} — ${spotTier(spot, cfg.featureSpots)} Spot ${spot}, ${money(price)}`, `Sent to ${email}${x.by ? ` by ${x.by}` : ""}. When it's paid I'll post here and send their welcome.`);
+  return { ok: true as const, id: p.id, number, link, sent: true, email: mail };
+}
+
+// Invoices out: resend the email, or cancel (void) it — which frees the spot.
+export async function resendInvoice(admin: Admin, uid: string, id: string) {
+  const cfg = await getConfig(admin, uid);
+  const { data: p } = await admin.from("spotlight_prospects").select("*").eq("user_id", uid).eq("id", id).maybeSingle();
+  if (!p || !p.deposit_invoice_id || !p.email) return { ok: false as const, error: "No invoice (or no email) on file for them." };
+  const { data: inv } = await admin.from("invoices").select("status,token,number").eq("id", p.deposit_invoice_id).maybeSingle();
+  if (!inv || inv.status === "paid" || inv.status === "void") return { ok: false as const, error: "That invoice is paid or cancelled." };
+  if (!stripeConnected()) return { ok: false as const, error: "Stripe isn't connected — the Pay button wouldn't work yet." };
+  const n = spotN(p as Prospect);
+  if (!n) return { ok: false as const, error: "No spot number on file." };
+  const mail = invoiceEmail(p as Prospect & { first_name?: string | null }, cfg, n, { link: `${SITE}/pay/${inv.token}` });
+  const r = await sendEmail({ to: p.email, from: personaFrom(cfg.caller), subject: mail.subject, text: mail.body });
+  if (!r.ok) return { ok: false as const, error: ("error" in r && r.error) || "Send failed." };
+  await logLine(admin, uid, `spotlight · invoice ${inv.number} re-sent to ${p.business}`);
+  return { ok: true as const };
+}
+export async function cancelInvoice(admin: Admin, uid: string, id: string) {
+  const { data: p } = await admin.from("spotlight_prospects").select("id,business,deposit_invoice_id,member_at").eq("user_id", uid).eq("id", id).maybeSingle();
+  if (!p || !p.deposit_invoice_id) return { ok: false as const, error: "No invoice on file for them." };
+  if (p.member_at) return { ok: false as const, error: "They've paid — that can't be cancelled here." };
+  const { data: inv } = await admin.from("invoices").select("status,number").eq("id", p.deposit_invoice_id).maybeSingle();
+  if (inv?.status === "paid") return { ok: false as const, error: "That invoice is already paid." };
+  await admin.from("invoices").update({ status: "void" }).eq("id", p.deposit_invoice_id);
+  await admin.from("spotlight_prospects").update({ deposit_invoice_id: null, spot_number: null }).eq("id", p.id);
+  await logLine(admin, uid, `spotlight · invoice ${inv?.number || ""} cancelled · ${p.business} · spot released`);
+  return { ok: true as const };
 }

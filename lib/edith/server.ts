@@ -8,6 +8,7 @@ import { getAdminClient } from "@/lib/supabase/admin";
 import { sendEmail, emailShell, esc } from "@/lib/email";
 import { buildIcs } from "@/lib/ics";
 import { CONTENT } from "./content.generated";
+import { discordNotify } from "@/lib/discord";
 import { DEFAULT_PRICES, DEFAULT_FEATURE_SPOTS, DEFAULT_FLOOR_DATE, money, spotPrice, spotTier, floorLine } from "@/lib/spotlight-offer";
 import {
   emit, runDue, contactChanged, retryHeld, settle, etParts, renderEmail, FIELD_LABELS,
@@ -38,6 +39,7 @@ export function defaultConfig(): Config {
     board_link: `${SITE}/spotlight/board`, // the public board: prices, spots left, the interest form
     call_link: "",
     debrief_link: `${SITE}/go/debrief`,
+    preprod_link: `${SITE}/go/preprod`, // new members book the pre-production call (EDITH 6-1)
     episode_link: "https://youtu.be/wNylbkgS1mQ", // the Omaha original, per 2-3's note, until Charlotte Ep 1 exists
     next_board_date: "",
     current_episode: 1,
@@ -101,6 +103,9 @@ export function toContact(row: Row, links: { deposit: string | null; balance: st
   const price = n >= 1 ? spotPrice(offer.prices, n) : null;
   f.spot_price = price ? money(price) : null;
   f.floor_line = n >= 1 ? floorLine(spotTier(n, offer.featureSpots), offer.floorDate) : null;
+  // EDITH's welcome (6-1): the member's prep questions and their business's release form.
+  f.questions_link = row.q_token ? `${SITE}/spotlight/q/${row.q_token}` : null;
+  f.release_line = row.release_token ? `3. Anyone who'll be on camera — you, your team, even a customer or two — signs a one-minute release first. Send them this link (we'll have it on film day too): ${SITE}/spotlight/release/${row.release_token}` : null;
   f.deposit_link = links.deposit;
   f.balance_link = links.balance;
   return {
@@ -421,6 +426,16 @@ export async function sendDigest(admin: Admin, uid: string, cfg: Config) {
   );
   const subject = `EDITH · ${S.filter((s) => s.status !== "failed").length} ${cfg.edith_live ? "sent" : "logged"}, ${H.length} held, ${count("email.replied").length} replies`;
   const r = await sendEmail({ to: cfg.digest_to, from: cfg.from, bcc: null, subject, html });
+  const line = (label: string, rows: string[]) => (rows.length ? `**${label}:** ${rows.slice(0, 12).join(", ")}${rows.length > 12 ? ` +${rows.length - 12} more` : ""}` : "");
+  await discordNotify(admin, uid, `☀️ ${subject}`, [
+    line(cfg.edith_live ? "Sent" : "Logged (EDITH off)", S.filter((s) => s.status !== "failed").map((s) => `${who.get(s.prospect_id) || "—"} (${s.template_id})`)),
+    line("Failed", S.filter((s) => s.status === "failed").map((s) => who.get(s.prospect_id) || "—")),
+    line("Held — a human needs to fill something", H.map((s) => `${who.get(s.prospect_id) || "—"} (${s.template_id}: ${String(s.hold_reason || "").slice(0, 60)})`)),
+    line("Replies", count("email.replied").map((e) => who.get(e.prospect_id) || "—")),
+    line("Bookings", count("call.booked").map((e) => who.get(e.prospect_id) || "—")),
+    line("Paid", count("deposit.paid").map((e) => who.get(e.prospect_id) || "—")),
+    line("Open tasks", T.map((t) => t.title)),
+  ].filter(Boolean).join("\n") || "Quiet day.");
   return { sent: !!r.ok, subject };
 }
 

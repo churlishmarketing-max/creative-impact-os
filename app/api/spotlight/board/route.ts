@@ -4,6 +4,7 @@ import { sendEmail, emailShell, esc } from "@/lib/email";
 import { getConfig } from "@/lib/spotlight";
 import { getEdithConfig, edithEmit } from "@/lib/edith/server";
 import { SCOPE, spotTier, floorLine } from "@/lib/spotlight-offer";
+import { discordNotify } from "@/lib/discord";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -95,5 +96,6 @@ export async function POST(req: Request) {
       ${row("Name", name)}${row("Business", business)}${row("Phone", phone)}${row("Email", email)}${row("Neighborhood", neighborhood)}${row("Years", years)}${row("What Charlotte should understand", q5)}`),
   }).catch((e) => console.error("board form notify failed", e));
 
+  await discordNotify(admin, uid, `⭐ Spotlight form: ${business} — call within the hour`, [`**${name}**${phone ? " · " + phone : ""} · ${email}`, neighborhood ? `Neighborhood: ${neighborhood}` : "", years != null ? `Years: ${years}` : "", `What Charlotte should understand: ${q5.slice(0, 600)}`].filter(Boolean).join("\n"));
   return NextResponse.json({ ok: true });
 }

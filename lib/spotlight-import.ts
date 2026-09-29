@@ -55,7 +55,7 @@ function clean(raw: Row): Row {
 
 // null = mail can be delivered (or we couldn't tell — never block on our own
 // network trouble); a string = why it can't.
-async function mailServer(domain: string): Promise<string | null> {
+export async function mailServer(domain: string): Promise<string | null> {
   const within = <T,>(p: Promise<T>) => Promise.race([p, new Promise<never>((_, rej) => setTimeout(() => rej(Object.assign(new Error("timeout"), { code: "ETIMEOUT" })), 4000))]);
   let code = "";
   try { if ((await within(dns.resolveMx(domain))).length) return null; code = "ENODATA"; }

@@ -5,8 +5,11 @@ import { getAdminClient } from "@/lib/supabase/admin";
 import {
   STAGES, STAGE_KEYS, VERTICALS, TEMPLATES, getConfig, saveConfig, render, nextTouch, importWebsite,
   draftQuestions, sendTemplate, makeMember, createInvoice, createAgreement, agreementText,
-  reconcilePaidDeposits, reconcilePaidBalances, DEFAULT_AGREEMENT, type Prospect, type Question, type SpotlightConfig,
+  reconcilePaidDeposits, reconcilePaidBalances, DEFAULT_AGREEMENT, closeSpot, invoiceEmail, resendInvoice, cancelInvoice,
+  type Prospect, type Question, type SpotlightConfig,
 } from "@/lib/spotlight";
+import { DEFAULT_RELEASE } from "@/lib/spotlight-release";
+import { stripeConnected } from "@/lib/edith/server";
 import { edithEmit, edithTouch, previewColdEmail } from "@/lib/edith/server";
 import { importProspects } from "@/lib/spotlight-import";
 
@@ -72,6 +75,10 @@ export async function GET() {
     proIds.length ? a.admin.from("proposals").select("id,number,status,token,accepted_at,signer_name").in("id", proIds) : Promise.resolve({ data: [] as { id: string; number: string; status: string; token: string; accepted_at: string | null; signer_name: string | null }[] }),
   ]);
   const inv = new Map((invR.data || []).map((x) => [x.id, x]));
+  // Signed releases per business (migration 26; zero until it's run).
+  const relR = await a.admin.from("spotlight_releases").select("prospect_id").eq("user_id", a.user.id);
+  const releases = new Map<string, number>();
+  for (const r of relR.data || []) releases.set(r.prospect_id, (releases.get(r.prospect_id) || 0) + 1);
   const pro = new Map((proR.data || []).map((x) => [x.id, x]));
   const site = process.env.NEXT_PUBLIC_SITE_URL || "https://os.creativeimpactmedia.co";
 
@@ -81,14 +88,16 @@ export async function GET() {
     const g = p.agreement_id ? pro.get(p.agreement_id) : null;
     return {
       ...p,
-      deposit: d ? { number: d.number, status: d.status, link: `${site}/pay/${d.token}` } : null,
+      deposit: d ? { number: d.number, status: d.status, link: `${site}/pay/${d.token}`, amount: Math.round((d.amount_cents || 0) / 100) } : null,
+      release_link: (p as Prospect & { release_token?: string }).release_token ? `${site}/spotlight/release/${(p as Prospect & { release_token?: string }).release_token}` : null,
+      releases: releases.get(p.id) || 0,
       balance: b ? { number: b.number, status: b.status, link: `${site}/pay/${b.token}` } : null,
       agreement: g ? { number: g.number, status: g.accepted_at ? "signed" : g.status, signer: g.signer_name, link: `${site}/proposal/${g.token}` } : null,
       next_touch: nextTouch(p),
       q_link: `${site}/spotlight/q/${p.q_token}`,
     };
   });
-  return NextResponse.json({ ok: true, config: cfg, prospects, stages: STAGES, verticals: VERTICALS, templates: TEMPLATES.map(({ key, label, when, kind }) => ({ key, label, when, kind })), defaultAgreement: DEFAULT_AGREEMENT });
+  return NextResponse.json({ ok: true, config: cfg, prospects, stages: STAGES, verticals: VERTICALS, templates: TEMPLATES.map(({ key, label, when, kind }) => ({ key, label, when, kind })), defaultAgreement: DEFAULT_AGREEMENT, defaultRelease: DEFAULT_RELEASE, stripe: stripeConnected(), releasesReady: !relR.error });
 }
 
 export async function POST(req: Request) {
@@ -114,6 +123,7 @@ export async function POST(req: Request) {
     for (const k of ["month", "episodeDate", "episodeUrl", "crewReelUrl", "caller", "callerPhone"] as const) if (k in patch) allowed[k] = String(patch[k] ?? "").slice(0, 300);
     for (const k of ["autoSendQuestions", "attorneyReviewed"] as const) if (k in patch) allowed[k] = !!patch[k];
     if ("agreementTemplate" in patch) allowed.agreementTemplate = String(patch.agreementTemplate || DEFAULT_AGREEMENT).slice(0, 40000);
+    if ("releaseTemplate" in patch) allowed.releaseTemplate = String(patch.releaseTemplate || DEFAULT_RELEASE).slice(0, 20000);
     return NextResponse.json({ ok: true, config: await saveConfig(a.admin, uid, allowed) });
   }
 
@@ -136,6 +146,28 @@ export async function POST(req: Request) {
     const r = await previewColdEmail(a.admin, uid, (b.row || {}) as Record<string, unknown>);
     if (!r.ok) return fail(r.error);
     return NextResponse.json(r);
+  }
+
+  // Close a Spot: after a yes — the spot, their details, the invoice + its email.
+  if (op === "close_preview") {
+    const spot = Math.round(Number(b.spot) || 0);
+    if (!spot || !cfg.prices[spot - 1]) return fail("Pick a spot on the board.");
+    const mail = invoiceEmail({ business: String(b.business || "[Business]"), owner_name: null, first_name: String(b.first_name || "") }, cfg, spot, { link: "[the Stripe pay link — made when you send]" });
+    return NextResponse.json({ ok: true, ...mail, stripe: stripeConnected(), attorneyReviewed: !!cfg.attorneyReviewed });
+  }
+  if (op === "close") {
+    const r = await closeSpot(a.admin, uid, { id: b.id ? String(b.id) : null, business: String(b.business || ""), first_name: String(b.first_name || ""), last_name: String(b.last_name || ""), email: String(b.email || ""), phone: String(b.phone || ""), spot: Number(b.spot), film_date: String(b.film_date || ""), send: !!b.send, by: "the cockpit" });
+    return r.ok ? NextResponse.json(r) : fail(r.error);
+  }
+  if (op === "invoice_resend" || op === "invoice_cancel") {
+    const r = op === "invoice_resend" ? await resendInvoice(a.admin, uid, String(b.id || "")) : await cancelInvoice(a.admin, uid, String(b.id || ""));
+    return r.ok ? NextResponse.json(r) : fail(r.error);
+  }
+  // A business's signed releases (the drawer's Release forms section).
+  if (op === "releases") {
+    const { data, error } = await a.admin.from("spotlight_releases").select("id,first_name,last_name,email,source,signed_at,consent_version").eq("user_id", uid).eq("prospect_id", String(b.id || "")).order("signed_at", { ascending: false });
+    if (error) return fail(missingTable(error.message) ? "Release forms need supabase/26_close_release_finder.sql — run it in the Supabase SQL editor." : error.message);
+    return NextResponse.json({ ok: true, releases: data || [] });
   }
 
   // Everything below acts on (or creates) one prospect.

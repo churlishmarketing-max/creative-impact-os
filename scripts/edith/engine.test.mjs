@@ -16,13 +16,13 @@ const ET = (y, mo, d, h, mi = 0) => etToUtc(y, mo, d, h, mi);
 const et = (d) => { const p = etParts(new Date(d)); return `${p.wd} ${p.mo}/${p.d} ${String(p.h).padStart(2, "0")}:${String(p.mi).padStart(2, "0")}`; };
 
 function world(people, over = {}) {
-  const mem = createMemoryStore(people.map((p) => ({ email: `${p.id}@example.com`, tags: [], do_not_contact: false, unsubscribe_url: `https://os.example/e/unsubscribe/u-${p.id}`, ...p, fields: { first_name: "Sam", business_name: `${p.id} Co`, neighborhood: "NoDa", ...(p.fields || {}) } })));
+  const mem = createMemoryStore(people.map((p) => ({ email: `${p.id}@example.com`, tags: [], do_not_contact: false, unsubscribe_url: `https://os.example/e/unsubscribe/u-${p.id}`, ...p, fields: { first_name: "Sam", business_name: `${p.id} Co`, neighborhood: "NoDa", questions_link: `https://os.example/spotlight/q/q-${p.id}`, ...(p.fields || {}) } })));
   const w = {
     mem, clock: ET(2026, 10, 6, 9), sent: [], spots: 5,
     cfg: {
       edith_live: false, from: "EDITH at Creative Impact <edith@creativeimpactmedia.co>", reply_to: "emmanuel@creativeimpactmedia.co", digest_to: "", digest: true,
       physical_address: "100 Example St, Charlotte, NC", booking_link: "https://os.example/go/spotlight", board_link: "https://os.example/board",
-      call_link: "https://meet.example/e", debrief_link: "https://os.example/d", episode_link: "https://youtu.be/x", next_board_date: "November 2",
+      call_link: "https://meet.example/e", debrief_link: "https://os.example/d", preprod_link: "https://os.example/go/preprod", episode_link: "https://youtu.be/x", next_board_date: "November 2",
       current_episode: 1, paused: {}, episodes: {}, ...over,
     },
   };
@@ -135,6 +135,35 @@ test("SEQ1 follow-ups count from the day 1-1 went out, not the day of import", a
   assert.equal(sent("b", "1-2"), "Sat 10/10 08:00", "three days after b's own first email");
   assert.equal(sent("b", "1-3"), "Wed 10/14 08:00");
   assert.equal(w.mem.enrollments.find((e) => e.contact_id === "b").status, "completed");
+});
+
+test("closed on a phone call (Close a Spot): cold follow-ups stop, and cold never starts after", async () => {
+  const w = world([{ id: "a", tags: ["cold_prospect"] }, { id: "b" }]);
+  await emit(w.env, { contact_id: "a", type: "contact.created", payload: {} });
+  await emit(w.env, { contact_id: "a", type: "call.completed", payload: { outcome: "closed", spot_number: 3 } });
+  assert.deepEqual(w.steps("a", "SEQ1").map((s) => s.status), ["logged", "cancelled", "cancelled"]);
+  await emit(w.env, { contact_id: "b", type: "call.completed", payload: { outcome: "closed", spot_number: 4 } });
+  await w.mem.store.updateContact("b", { tags: ["cold_prospect"] });
+  await contactChanged(w.env, "b");
+  assert.equal(w.mem.enrollments.some((e) => e.contact_id === "b" && e.seq === "SEQ1"), false);
+});
+
+test("paid → 6-1 is the welcome: pre-production call, prep questions, release; film date optional", async () => {
+  const w = world([{ id: "a", fields: { first_name: null, release_line: "3. Release: https://os.example/spotlight/release/r-a" } }, { id: "b" }]);
+  await emit(w.env, { contact_id: "a", type: "deposit.paid", payload: { spot_number: 6, episode_number: 1 } }); // no film date yet
+  await emit(w.env, { contact_id: "b", type: "deposit.paid", payload: { spot_number: 2, film_date: "2026-10-20", episode_number: 1 } });
+  const a = w.mem.steps.find((s) => s.contact_id === "a" && s.step === "6-1");
+  const b = w.mem.steps.find((s) => s.contact_id === "b" && s.step === "6-1");
+  assert.equal(a.status, "logged", "no film date doesn't hold the welcome");
+  assert.equal(a.subject, "Spot 6 is yours — here's what's next");
+  assert.match(a.body, /^Hi there — payment received\./);
+  assert.match(a.body, /pre-production call — that's where we lock your film date: https:\/\/os\.example\/go\/preprod/);
+  assert.match(a.body, /https:\/\/os\.example\/spotlight\/q\/q-a/);
+  assert.match(a.body, /3\. Release: https:\/\/os\.example\/spotlight\/release\/r-a/);
+  assert.match(a.body, /Film day: set on your pre-production call/);
+  assert.match(b.body, /^Sam — payment received\./);
+  assert.match(b.body, /Film day: Tuesday, October 20/);
+  assert.doesNotMatch(a.body + b.body, /\{\{/);
 });
 
 test("a bulk import can queue without sending (run: false); the clock sends", async () => {

@@ -88,8 +88,8 @@ export async function POST(req: Request) {
       if (p.edith_live && b.confirm !== "EDITH LIVE") return fail("To turn EDITH on, type EDITH LIVE to confirm.");
       next.edith_live = !!p.edith_live;
     }
-    for (const k of ["from", "reply_to", "digest_to", "physical_address", "booking_link", "board_link", "call_link", "debrief_link", "episode_link", "next_board_date", "deposit_pay_link", "balance_pay_link"] as const) if (k in p) next[k] = str(p[k], 400);
-    for (const k of ["deposit_pay_link", "balance_pay_link", "call_link", "board_link", "debrief_link", "booking_link"] as const) if (next[k] && !/^https:\/\//.test(next[k]!)) return fail(`${k.replace(/_/g, " ")} needs to be a full https:// link.`);
+    for (const k of ["from", "reply_to", "digest_to", "physical_address", "booking_link", "board_link", "call_link", "debrief_link", "preprod_link", "episode_link", "next_board_date", "deposit_pay_link", "balance_pay_link"] as const) if (k in p) next[k] = str(p[k], 400);
+    for (const k of ["deposit_pay_link", "balance_pay_link", "call_link", "board_link", "debrief_link", "preprod_link", "booking_link"] as const) if (next[k] && !/^https:\/\//.test(next[k]!)) return fail(`${k.replace(/_/g, " ")} needs to be a full https:// link.`);
     if ("cold_daily_cap" in p) next.cold_daily_cap = Math.max(0, Math.min(500, Math.round(Number(p.cold_daily_cap)) || 0));
     if ("digest" in p) next.digest = !!p.digest;
     if ("current_episode" in p) next.current_episode = Math.max(1, Math.round(Number(p.current_episode)) || 1);

@@ -117,6 +117,7 @@ export const CONTENT: EdithContent = {
         "exit_on": [
           "email.replied",
           "call.booked",
+          "call.completed",
           "do_not_contact"
         ],
         "steps": [
@@ -166,6 +167,7 @@ export const CONTENT: EdithContent = {
         },
         "exit_on": [
           "call.booked",
+          "call.completed",
           "email.replied",
           "deposit.paid"
         ],
@@ -822,19 +824,24 @@ export const CONTENT: EdithContent = {
     },
     "6-1": {
       "template_id": "6-1",
-      "title": "Welcome + timeline",
-      "trigger": "Immediately on deposit",
-      "subject": "Spot {{spot_number}} is yours — the whole timeline",
-      "preview_text": "Film date, delivery, episode, promotion, numbers.",
-      "body": "{{first_name}} — welcome to the season. Spot {{spot_number}} is yours; {{business_name}} is on the board.\n\nHere's the whole timeline in one place:\n- Film day: {{film_date}}\n- Your cut delivered: within a few days of filming. You get five days for one round of tweaks\n- Episode {{episode_number}} releases, then the season promotion runs for a month\n- Your numbers: I'll send them mid-flight, and Emmanuel walks you through the full picture afterward\n\nNext thing you'll get from me: the prep note a few days before film day.",
-      "cta": "None",
-      "internal_note": "Attach the agreement countersigned copy. film_date from Emmanuel's close notes.",
+      "title": "Welcome + next steps",
+      "trigger": "Immediately on payment",
+      "subject": "Spot {{spot_number}} is yours — here's what's next",
+      "preview_text": "Book your prep call, look over a few questions, and you're set.",
+      "body": "{{first_name|Hi there}} — payment received. Welcome to the season: Spot {{spot_number}} is yours, and {{business_name}} is on the board.\n\nThree things before film day:\n\n1. Book your 15-minute pre-production call — that's where we lock your film date: {{preprod_link}}\n2. Look over your prep questions. A sentence or two each is plenty, and star the ones you'd most like to talk about on camera: {{questions_link}}\n{{release_line|}}\n\nAnd the whole season in one place:\n- Film day: {{film_date|set on your pre-production call}}\n- Your cut delivered: within a few days of filming. You get five days for one round of tweaks\n- Episode {{episode_number}} releases, then the season promotion runs for a month\n- Your numbers: I'll send them mid-flight, and Emmanuel walks you through the full picture afterward\n\nNext thing you'll get from me: the prep note a few days before film day.",
+      "cta": "Book the pre-production call",
+      "internal_note": "Brandon, 2026-09-29: once they've paid, one email with next steps, the booking, and the prep questions. Three links on purpose (the call, the questions, the release) — the quality gate's one-link rule is waived here, like 7-1. The OS no longer sends its own questions email while EDITH is live. Attach the agreement countersigned copy when there is one.",
       "merge_fields_used": [
         "spot_number",
-        "first_name",
         "business_name",
-        "film_date",
+        "preprod_link",
+        "questions_link",
         "episode_number"
+      ],
+      "merge_fields_optional": [
+        "first_name",
+        "release_line",
+        "film_date"
       ]
     },
     "6-2": {
@@ -988,7 +995,7 @@ export const CONTENT: EdithContent = {
     }
   },
   "signature": "EDITH\nCreative Impact · Emmanuel's assistant — the AI kind. A human reads every reply.\nhello@creativeimpactmedia.co",
-  "source_hash": "2974f479919aabf5",
+  "source_hash": "e9739a6be6668e3b",
   "warnings": [
     "2-1: 2 links in the body (gate: one CTA)",
     "2-3: 2 links in the body (gate: one CTA)",

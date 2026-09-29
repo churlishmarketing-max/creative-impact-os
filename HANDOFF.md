@@ -200,7 +200,7 @@ were changed, at Brandon's instruction). `npm run edith:build` compiles them to
 - Engine: `lib/edith/engine.ts` (pure) · `lib/edith/server.ts` (store, Resend,
   digest, hooks) · `app/api/edith/` (operator API; `tick` + `unsubscribe` public)
   · `app/cockpit/Edith.jsx` · `app/e/unsubscribe/[token]`. Proof:
-  `npm run edith:test` (25) and `npm run edith:dry-run` (5 contacts × 45 days).
+  `npm run edith:test` (27) and `npm run edith:dry-run` (5 contacts × 45 days).
 - **Emitters:** contact.created (Spotlight add, import, EDITH console, booking,
   board form) · call.booked (Spotlight bookings; console reschedule) ·
   call.cancelled (console) · lead.form_submitted (board form; "Log a form") ·
@@ -217,6 +217,73 @@ were changed, at Brandon's instruction). `npm run edith:build` compiles them to
   global reply-stop; SEQ3/SEQ4 neither wait on nor count toward the 1-per-24h cap;
   "enroll: SEQ7" = tag nurture; release_spot is a no-op; reminders whose moment
   passed are skipped; SEQ1 runs once per contact, ever.
+
+## DISCORD + THE FINDER (built 2026-09-29 — waiting on Brandon's Discord bot + migration 26)
+
+**EDITH reports in Discord, and the team answers her there.** No gateway bot:
+Discord POSTs slash commands and button clicks to `/api/discord/interactions`
+(public, Ed25519-verified with DISCORD_PUBLIC_KEY — unsigned = 401; tested with a
+real key pair); EDITH posts with the bot token (`lib/discord.ts`). Every post
+swallows its own errors — Discord down/unset never breaks a payment or booking.
+- **Vercel env (Brandon adds; never in chat):** `DISCORD_APPLICATION_ID`,
+  `DISCORD_PUBLIC_KEY`, `DISCORD_BOT_TOKEN`. Her channel: `/edith-here` in it
+  (stored in app_state.ops.__discord; `DISCORD_CHANNEL_ID` env as a fallback).
+  Setup panel: Spotlight → EDITH · Email → Settings → Discord (invite link,
+  "Set up the commands" = PUT global commands, test message).
+- **Who can act:** members with Manage Server/Administrator (commands registered
+  with default_member_permissions 32), or allow-listed user ids.
+- **Commands:** `/find vertical area count` · `/edith message` (the same EDITH
+  as the cockpit — `lib/edith/chat.ts`, shared by `/api/rookie`; short history in
+  ops.__discord.history) · `/edith-here`.
+- **What she posts:** finder cards; fleet agent reports (`/api/fleet/ingest`);
+  automations (`runAutomation`); the morning digest; board-form leads; Spotlight
+  bookings (fit call / pre-production / debrief); invoices sent; payments
+  (makeMember); signed releases.
+- **The finder** (`lib/finder.ts`): a hunt row (`prospect_hunts`) → pg_cron
+  `finder-tick` (migration 26, same key as EDITH's tick) → one Anthropic
+  web_search pass (`web_search_20250305`, max 5 searches) → candidates minus the
+  pipeline → three a minute: importWebsite (their own site, facts only), MX check
+  on the email, insert as a prospect tagged `found` (source finder), post a card
+  (Approve — EDITH emails them / Call list / Skip / Website). Approve = tag
+  cold_prospect + contact.created (queued, run:false). Call list = tag call_list.
+  Skip = stage no + tag passed (never found again). Never guesses an email. At
+  most 6 hunts a day, 25 a hunt (each search costs money — Brandon OK'd 9/29).
+  EDITH tools: find_prospects, finder_review, finder_decide. If web search
+  isn't enabled on the Anthropic org, the hunt fails with that message.
+
+## CLOSE A SPOT + RELEASE FORMS (built 2026-09-29)
+
+- **Spotlight → Close a Spot** (`CloseSpot.jsx`; `closeSpot()` in lib/spotlight.ts):
+  after a yes — pick who (or a new business), pick the spot (taken / invoice-out
+  spots blocked; price + inclusions from the board), their details, Send. It
+  saves the business, sets the spot, makes (or reuses) the one invoice, emits
+  call.completed {closed} (ends SEQ1/SEQ2/SEQ3 — yaml exit_on), and emails the
+  invoice explanation (`invoiceEmail()`: inclusions, total, Stripe pay link, the
+  tier's floor line, what happens after paying) from the caller at hello@. Send
+  is OFF until STRIPE_SECRET_KEY is set (the Pay button wouldn't work); "Save
+  without sending" still makes the invoice. The agreement goes along only once
+  attorney-reviewed and a film date exists. Invoices out: copy link / resend /
+  cancel (void → spot released). Stripe Checkout now shows the inclusions and
+  pre-fills the client's email for the receipt (`/api/checkout`).
+- **Paid →** webhook → onInvoicePaid → makeMember("paid") → Discord post +
+  EDITH deposit.paid → **6-1 rewritten as the welcome** (Brandon 9/29: next steps,
+  booking, prep questions): book the pre-production call (`/go/preprod` →
+  booking page ?for=preprod, plain confirmation, Discord post), the prep
+  questions link, the release link; film date optional
+  (`{{film_date|set on your pre-production call}}`). New engine fields:
+  preprod_link (EDITH settings), questions_link, release_line. While EDITH is
+  live the OS doesn't send its separate questions email (q_sent_at stamped).
+- **Release forms:** each business has `release_token` → public
+  `/spotlight/release/<token>` (`?in=person` for film day: "Next person" resets).
+  First name, last name, email, consent checkbox → `spotlight_releases` with the
+  exact text agreed to + hash, IP, UA, source. Rate-limited, honeypot. Drawer →
+  Release forms: copy link, open for in-person, the signed list. Text =
+  `lib/spotlight-release.ts` DEFAULT_RELEASE (Claude's plain-English DRAFT —
+  editable in Settings; in the attorney docx as an appendix with questions:
+  checkbox signature, entity, release-of-claims, irrevocability, minors).
+- **Migration 26** (`supabase/26_close_release_finder.sql`): release_token +
+  spotlight_releases, prospect_hunts, the finder-tick cron job. Until it's run,
+  release forms and the finder say so; Close a Spot works without it.
 
 ## CHARLOTTE SPOTLIGHT — the offer and the agreement (corrected 2026-09-29)
 
@@ -298,6 +365,9 @@ script's "October" lines expire; script §11 has the swap list).
 vars (`EMAIL_REPLY_TO`, `RESEND_WEBHOOK_SECRET`), `CLARITY_WEBHOOK_SECRET`.
 
 **Now SET:** `FLEET_INGEST_SECRET`, `ANTHROPIC_API_KEY`, `RESEND_API_KEY`, `EMAIL_FROM`, `EMAIL_BCC`.
+
+**Pending (Brandon, 9/29):** `STRIPE_SECRET_KEY` + `STRIPE_WEBHOOK_SECRET` ("connect
+Stripe later"), `DISCORD_APPLICATION_ID` + `DISCORD_PUBLIC_KEY` + `DISCORD_BOT_TOKEN`.
 
 Full descriptions live in `.env.local.example`. Two cautions:
 - `NEXT_PUBLIC_*` values are **baked at build time** — changing one in Vercel

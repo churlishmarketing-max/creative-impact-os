@@ -13,6 +13,7 @@
 //  - Every run reports to fleet_reports, so automations land on /fleet next to
 //    the agents' own runs, and drops a sys.log line.
 import { getAdminClient } from "@/lib/supabase/admin";
+import { discordNotify } from "@/lib/discord";
 
 type Admin = NonNullable<ReturnType<typeof getAdminClient>>;
 
@@ -215,6 +216,7 @@ export async function runAutomation(admin: Admin, a: Automation) {
   await admin.from("automations").update({
     last_run_at: new Date().toISOString(), last_status: "ok", last_result: out.title.slice(0, 500), run_count: (a.run_count || 0) + 1,
   }).eq("id", a.id);
+  await discordNotify(admin, a.user_id, `🤖 ${a.name}: ${out.title}`, out.summary.slice(0, 1800));
 
   return { ok: true, title: out.title, summary: out.summary };
 }

@@ -18,7 +18,7 @@ const ymd = (day) => { const p = etParts(at(day, 12)); return `${p.y}-${String(p
 const contact = (id, first, business, hood, extra = {}) => ({
   id, email: `${id}@example.com`, tags: [], do_not_contact: false,
   unsubscribe_url: `https://os.example/e/unsubscribe/u-${id}`,
-  fields: { first_name: first, business_name: business, neighborhood: hood, ...extra },
+  fields: { first_name: first, business_name: business, neighborhood: hood, questions_link: `https://os.example/spotlight/q/q-${id}`, release_line: `3. Anyone who'll be on camera signs a one-minute release first: https://os.example/spotlight/release/r-${id}`, ...extra },
 });
 const people = [
   contact("dana", "Dana", "Queen City Roasters", "NoDa", { specific_detail: "Three hundred Google reviews and half of them mention the Saturday cupping." }),
@@ -36,7 +36,7 @@ const cfg = {
   from: "EDITH at Creative Impact <edith@creativeimpactmedia.co>", reply_to: "emmanuel@creativeimpactmedia.co", digest_to: "ops@example.com", digest: true,
   physical_address: "[dry-run address] 100 Example St, Charlotte, NC 28202",
   booking_link: "https://os.example/go/spotlight", board_link: "https://os.example/board", call_link: "https://meet.example/emmanuel",
-  debrief_link: "https://os.example/go/debrief", episode_link: "https://youtu.be/wNylbkgS1mQ", next_board_date: "November 2",
+  debrief_link: "https://os.example/go/debrief", preprod_link: "https://os.example/go/preprod", episode_link: "https://youtu.be/wNylbkgS1mQ", next_board_date: "November 2",
   current_episode: 1, paused: {}, episodes: {},
 };
 const env = {

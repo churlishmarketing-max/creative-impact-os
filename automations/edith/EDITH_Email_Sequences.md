@@ -436,16 +436,22 @@ Internal note: Both merge fields come from Emmanuel's outcome note. Empty = hold
 **Trigger:** `deposit.paid`.
 **Exit:** none — this runs to the debrief. Steps are event-anchored, not day-counted.
 
-### EMAIL 6-1 — Welcome + timeline
+### EMAIL 6-1 — Welcome + next steps
 ```
-Trigger:      Immediately on deposit
-Subject line: Spot {{spot_number}} is yours — the whole timeline
-Preview text: Film date, delivery, episode, promotion, numbers.
+Trigger:      Immediately on payment
+Subject line: Spot {{spot_number}} is yours — here's what's next
+Preview text: Book your prep call, look over a few questions, and you're set.
 ```
-{{first_name}} — welcome to the season. Spot {{spot_number}} is yours; {{business_name}} is on the board.
+{{first_name|Hi there}} — payment received. Welcome to the season: Spot {{spot_number}} is yours, and {{business_name}} is on the board.
 
-Here's the whole timeline in one place:
-- Film day: {{film_date}}
+Three things before film day:
+
+1. Book your 15-minute pre-production call — that's where we lock your film date: {{preprod_link}}
+2. Look over your prep questions. A sentence or two each is plenty, and star the ones you'd most like to talk about on camera: {{questions_link}}
+{{release_line|}}
+
+And the whole season in one place:
+- Film day: {{film_date|set on your pre-production call}}
 - Your cut delivered: within a few days of filming. You get five days for one round of tweaks
 - Episode {{episode_number}} releases, then the season promotion runs for a month
 - Your numbers: I'll send them mid-flight, and Emmanuel walks you through the full picture afterward
@@ -453,8 +459,8 @@ Here's the whole timeline in one place:
 Next thing you'll get from me: the prep note a few days before film day.
 
 ```
-CTA:           None
-Internal note: Attach the agreement countersigned copy. film_date from Emmanuel's close notes.
+CTA:           Book the pre-production call
+Internal note: Brandon, 2026-09-29: once they've paid, one email with next steps, the booking, and the prep questions. Three links on purpose (the call, the questions, the release) — the quality gate's one-link rule is waived here, like 7-1. The OS no longer sends its own questions email while EDITH is live. Attach the agreement countersigned copy when there is one.
 ```
 
 ### EMAIL 6-2 — Prep note

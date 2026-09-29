@@ -1,0 +1,822 @@
+import { getAdminClient } from "@/lib/supabase/admin";
+import { draftAgentEmail, sendQueuedEmail } from "@/lib/agent";
+import { runAutomation } from "@/lib/automations-engine";
+import { gradeLead as laneGrade, computeWeek as laneComputeWeek, scalingVerdict as laneScaling, fallbackStatus as laneFallbacks, PLAN as LANE_PLAN, FALLBACKS as LANE_FALLBACKS, type Week as LaneWeek } from "@/lib/nationwide";
+import { edithEmit, edithOnBookingChange, getEdithConfig, previewColdEmail } from "@/lib/edith/server";
+import { STAGES as SPOT_STAGES, STAGE_KEYS as SPOT_KEYS, VERTICALS, makeMember, importWebsite, getConfig as getSpotConfig, type Prospect } from "@/lib/spotlight";
+import { readGrid, FIELDS as SHEET_FIELDS } from "@/lib/sheet-map";
+import { importProspects } from "@/lib/spotlight-import";
+import { scriptFields, scriptAsText, SECTIONS as SCRIPT_SECTIONS } from "@/lib/spotlight-script";
+import { startHunt, pendingFinds, finderAct, HUNTS_PER_DAY, MAX_COUNT } from "@/lib/finder";
+import { discordSay } from "@/lib/discord";
+
+
+// EDITH's brain: the tools, the system prompt, and the tool loop. Used by the
+// cockpit (/api/rookie — the header bar and the desk) and by Discord (/edith).
+// Every change she makes is a real Supabase write, echoed back with numbers and
+// logged to sys.log. Callers are responsible for who's asking: the cockpit
+// route checks the session; Discord checks the member's server permissions.
+
+const MODEL = process.env.AGENT_MODEL || "claude-sonnet-5";
+const STAGES = ["Lead", "Diagnostic Sent", "Diagnostic Done", "Proposal", "Signed", "Collected", "Lost"];
+
+function weekKey(d = new Date()) {
+  const t = new Date(d); t.setHours(0, 0, 0, 0); t.setDate(t.getDate() + 3 - ((t.getDay() + 6) % 7));
+  const w1 = new Date(t.getFullYear(), 0, 4);
+  const wn = 1 + Math.round(((t.getTime() - w1.getTime()) / 864e5 - 3 + ((w1.getDay() + 6) % 7)) / 7);
+  return t.getFullYear() + "-W" + String(wn).padStart(2, "0");
+}
+const monthKey = () => { const d = new Date(); return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0"); };
+const c2d = (c: number) => Math.round((c || 0) / 100);
+
+const TOOLS = [
+  { name: "get_board", description: "Read the live board: collected/signed/open pipeline, coverage, current-week Friday Five, counts.", input_schema: { type: "object", properties: {} } },
+  { name: "list_clients", description: "List the client roster (name, contact, email, status). Use to answer 'what clients do we have' or to disambiguate a fuzzy client match.", input_schema: { type: "object", properties: {} } },
+  { name: "log_friday_five", description: "Log/update this week's Friday Five. Only provided fields change. Dollar amounts in DOLLARS.", input_schema: { type: "object", properties: { calls: { type: "number" }, offers_out: { type: "number" }, signed: { type: "number" }, collected: { type: "number" }, founder_free_pct: { type: "number" } } } },
+  { name: "add_deal", description: "Add a deal to the pipeline. Value in DOLLARS.", input_schema: { type: "object", properties: { name: { type: "string" }, offer: { type: "string" }, value: { type: "number" }, stage: { type: "string", enum: STAGES } }, required: ["name", "value"] } },
+  { name: "update_deal_stage", description: "Move a deal to a new stage, matched by (partial) name.", input_schema: { type: "object", properties: { name: { type: "string" }, stage: { type: "string", enum: STAGES } }, required: ["name", "stage"] } },
+  { name: "add_client", description: "Add a client/lead to the roster.", input_schema: { type: "object", properties: { name: { type: "string" }, contact: { type: "string" }, email: { type: "string" }, phone: { type: "string" }, industry: { type: "string" }, status: { type: "string", enum: ["Lead", "Active", "Past"] } }, required: ["name"] } },
+  { name: "update_client", description: "Update fields on an EXISTING client, matched by (partial) name/contact/email. Only provided fields change. Use notes_append to add to their notes without erasing anything.", input_schema: { type: "object", properties: { client_name: { type: "string", description: "Who to update (fuzzy match)" }, name: { type: "string" }, contact: { type: "string" }, email: { type: "string" }, phone: { type: "string" }, industry: { type: "string" }, status: { type: "string", enum: ["Lead", "Active", "Past"] }, notes_append: { type: "string" } }, required: ["client_name"] } },
+  { name: "add_expense", description: "Log an expense. Amount in DOLLARS. Date optional (YYYY-MM-DD, defaults today).", input_schema: { type: "object", properties: { vendor: { type: "string" }, amount: { type: "number" }, category: { type: "string", enum: ["Software", "Ads", "Contractors", "Gear", "Fees", "Other"] }, recurring: { type: "boolean" }, date: { type: "string" } }, required: ["vendor", "amount"] } },
+  { name: "add_expenses_bulk", description: "Log MANY expenses at once (e.g. extracted from an uploaded receipt, statement, or CSV). Amounts in DOLLARS.", input_schema: { type: "object", properties: { items: { type: "array", items: { type: "object", properties: { vendor: { type: "string" }, amount: { type: "number" }, category: { type: "string", enum: ["Software", "Ads", "Contractors", "Gear", "Fees", "Other"] }, recurring: { type: "boolean" }, date: { type: "string" } }, required: ["vendor", "amount"] } } }, required: ["items"] } },
+  { name: "set_sprint", description: "Change the mission-level sprint settings shown on the war board: the collected target (DOLLARS), sell-by date, deadline date, and/or THE ONE THING (title + supporting line). Only provided fields change.", input_schema: { type: "object", properties: { target: { type: "number" }, sellby_date: { type: "string" }, deadline_date: { type: "string" }, one_thing_title: { type: "string" }, one_thing_body: { type: "string" } } } },
+  { name: "add_goal", description: "Add a goal to Founder OS.", input_schema: { type: "object", properties: { text: { type: "string" }, type: { type: "string", enum: ["business", "life"] }, target: { type: "number" } }, required: ["text"] } },
+  { name: "complete_goal", description: "Mark a Founder OS goal done, matched by (partial) text.", input_schema: { type: "object", properties: { text: { type: "string" } }, required: ["text"] } },
+  { name: "set_strategy", description: "Replace the 'My Working Strategy' text on the Strategy tab.", input_schema: { type: "object", properties: { text: { type: "string" } }, required: ["text"] } },
+  { name: "set_kpi", description: "Set the current period's value for a KPI, matched by (partial) name.", input_schema: { type: "object", properties: { name: { type: "string" }, value: { type: "number" } }, required: ["name", "value"] } },
+  { name: "add_work_item", description: "Add a work item to a client's dashboard board, matched by (partial) client name.", input_schema: { type: "object", properties: { client_name: { type: "string" }, title: { type: "string" }, type: { type: "string", enum: ["video", "ad", "doc", "web", "social", "strategy", "other"] } }, required: ["client_name", "title"] } },
+  { name: "add_log", description: "Write a line to the sys.log feed.", input_schema: { type: "object", properties: { message: { type: "string" } }, required: ["message"] } },
+  { name: "draft_client_email", description: "Have Anchor (the client producer) draft an email to a client, matched by (partial) client name. By DEFAULT it queues in the client's COMMS panel for the operator's approval. Set send_now=true ONLY when the operator explicitly said to send it without review (e.g. 'send it', 'send him an email now').", input_schema: { type: "object", properties: { client_name: { type: "string" }, instruction: { type: "string", description: "What the email should say / accomplish, in plain english." }, send_now: { type: "boolean" } }, required: ["client_name", "instruction"] } },
+  { name: "send_pending_email", description: "Send a client's most recent PENDING draft (the one waiting for approval) — use when the operator approves a draft you already created (e.g. 'send it', 'looks good, send'). Does NOT write a new email.", input_schema: { type: "object", properties: { client_name: { type: "string" } }, required: ["client_name"] } },
+  { name: "create_invoice", description: "DRAFT an invoice (never sends it). Provide either an amount (DOLLARS) or line items with unit prices; the amount is computed from items when given. Generates the invoice number and a secret pay link. Sending stays with a human — done from the Invoices tab.", input_schema: { type: "object", properties: { client_name: { type: "string", description: "Who it's for (fuzzy match). Optional." }, title: { type: "string" }, amount: { type: "number", description: "Total in DOLLARS; ignored if items are given." }, items: { type: "array", items: { type: "object", properties: { desc: { type: "string" }, qty: { type: "number" }, unit: { type: "number", description: "Unit price in DOLLARS." } }, required: ["desc"] } }, due_date: { type: "string", description: "YYYY-MM-DD, optional." }, notes: { type: "string" } } } },
+  { name: "create_proposal", description: "DRAFT a proposal with e-sign link (never sends it). Provide amount (DOLLARS) or line items, optional intro and terms (contract language). Generates the number and a secret accept link. Sending stays with a human — done from the Proposals tab.", input_schema: { type: "object", properties: { client_name: { type: "string", description: "Who it's for (fuzzy match). Optional." }, title: { type: "string" }, intro: { type: "string" }, amount: { type: "number", description: "Total in DOLLARS; ignored if items are given." }, items: { type: "array", items: { type: "object", properties: { desc: { type: "string" }, qty: { type: "number" }, unit: { type: "number", description: "Unit price in DOLLARS." } }, required: ["desc"] } }, terms: { type: "string" } } } },
+  { name: "update_booking", description: "Reschedule or cancel an UPCOMING booked call, matched by attendee name/email or client. Reschedule needs a new start time as an ISO timestamp WITH timezone offset (e.g. 2026-08-27T14:00:00-04:00 for 2pm Eastern). Cancel sets the call to cancelled and frees the slot; it does not itself email the client.", input_schema: { type: "object", properties: { who: { type: "string", description: "Attendee name/email or client name (fuzzy match)." }, action: { type: "string", enum: ["reschedule", "cancel"] }, start_at: { type: "string", description: "New start, ISO with tz offset. Required for reschedule." }, end_at: { type: "string", description: "New end, ISO. Optional — defaults to the original call length." } }, required: ["who", "action"] } },
+  { name: "list_automations", description: "List the operator's automations (the AUTOMATIONS tab) with their cadence, action, enabled state, and last run.", input_schema: { type: "object", properties: {} } },
+  { name: "create_automation", description: "Create a recurring automation that the daily cron will run on its own. Actions available: leak_sweep (Black Widow revenue leak sweep off the live board), board_digest (collected/signed/pipeline/coverage snapshot), log_marker (a heartbeat note — useful for testing). Cadence: daily, weekdays, weekly (give day_of_week 0=Sun..6=Sat), monthly (give day_of_month), or manual (only runs when fired by hand). Created enabled unless told otherwise.", input_schema: { type: "object", properties: { name: { type: "string" }, description: { type: "string" }, action: { type: "string", enum: ["leak_sweep", "board_digest", "log_marker"] }, cadence: { type: "string", enum: ["daily", "weekdays", "weekly", "monthly", "manual"] }, day_of_week: { type: "number", description: "0=Sun..6=Sat, for weekly." }, day_of_month: { type: "number" }, note: { type: "string", description: "For log_marker: the text to post." }, enabled: { type: "boolean" } }, required: ["name", "action", "cadence"] } },
+  { name: "toggle_automation", description: "Turn an existing automation on or off, matched by (partial) name. Automations are never deleted — disabling is how you stop one.", input_schema: { type: "object", properties: { name: { type: "string" }, enabled: { type: "boolean" } }, required: ["name", "enabled"] } },
+  { name: "spotlight_list", description: "List the Charlotte Spotlight pipeline: every business with its stage, reviews/years, and whether questions went out or came back. Optionally filter by stage.", input_schema: { type: "object", properties: { stage: { type: "string", enum: SPOT_KEYS } } } },
+  { name: "spotlight_add", description: "Add a business to the Charlotte Spotlight pipeline as a Prospect. If a website is given and import_site is true, the OS reads the site and fills only empty fields (facts from the site only). Reviews and years are what the cold-call opener runs on; ask for them if the operator has them.", input_schema: { type: "object", properties: { business: { type: "string" }, owner_name: { type: "string" }, email: { type: "string" }, phone: { type: "string" }, website: { type: "string" }, vertical: { type: "string", enum: Object.keys(VERTICALS) }, suburb: { type: "string" }, reviews: { type: "number" }, years: { type: "number" }, notes: { type: "string" }, import_site: { type: "boolean" } }, required: ["business"] } },
+  { name: "spotlight_move", description: "Move a Charlotte Spotlight business to a new stage, matched by (partial) business name. Moving to member means their slot is claimed and, if auto-send is on in Spotlight settings, EMAILS them their pre-shoot questions immediately, so restate that before doing it. no is a clean no: they should never be re-added. For not_now pass the month they named.", input_schema: { type: "object", properties: { business: { type: "string" }, stage: { type: "string", enum: SPOT_KEYS }, not_now_month: { type: "string" } }, required: ["business", "stage"] } },
+  { name: "lane_add_lead", description: "Log a lead for the Nationwide Hardscape & Landscape lane (the $3K/mo remote ad engine) from its five qualifier-form answers. The OS grades it A-D deterministically: A = $1M+ owner hardscape/design-build (call in 5 min, Brandon on the close); B = $500K-$1M owner install work (call in 5 min); C = $250K-$500K (no call, one reapply email); D = under $250K, maintenance only, or not the owner (filtered). Never send a calendar link to a C or D.", input_schema: { type: "object", properties: { full_name: { type: "string" }, phone: { type: "string" }, email: { type: "string" }, state: { type: "string" }, company: { type: "string" }, web: { type: "string", description: "website or Instagram" }, ad: { type: "string" }, q_install: { type: "string", enum: ["hardscape", "designbuild", "both", "maintenance"] }, q_revenue: { type: "string", enum: ["under250", "250to500", "500to1m", "1mto3m", "3mplus"] }, q_owner: { type: "string", enum: ["yes", "marketing", "no"] }, q_adspend: { type: "string", enum: ["0", "under1k", "1kto3k", "3kplus"] }, notes: { type: "string" } } } },
+  { name: "lane_status", description: "Status of the Nationwide Hardscape & Landscape lane: plan progress and anything overdue, A/B leads waiting on a first call, this week's constraint from the Friday tracker and its fix, what the scaling rule says about budget, and any pre-committed fallback that has tripped.", input_schema: { type: "object", properties: {} } },
+  { name: "lane_log_week", description: "Log (or update) one Friday row of the Nationwide lane constraint tracker, then report the week's constraint and the scaling-rule verdict. week_of is the Friday (YYYY-MM-DD). Spend, impressions, 3-second views, and frequency come from Ads Manager; leads/qualified($500K+)/booked/held/closed and median minutes to first call come from the lead log. Only provided fields change.", input_schema: { type: "object", properties: { week_of: { type: "string" }, spend: { type: "number" }, impressions: { type: "number" }, views3s: { type: "number" }, frequency: { type: "number" }, leads: { type: "number" }, qualified: { type: "number" }, booked: { type: "number" }, held: { type: "number" }, closed: { type: "number" }, median_call_min: { type: "number" } }, required: ["week_of"] } },
+  { name: "edith_status", description: "Status of EDITH's Spotlight email engine (the automated sequences you send): whether sending is live, what went out in the last 24 hours, what's HELD and why (a missing field a human must fill), what's scheduled in the next 48 hours, and the open tasks waiting on a human.", input_schema: { type: "object", properties: {} } },
+  { name: "edith_log", description: "Record something that happened that the OS can't see, for a Charlotte Spotlight business matched by (partial) name. It drives EDITH's emails, and when EDITH is live the next one can go out right away, so restate what you're logging first. Events: call_completed (needs outcome: undecided | not_fit | closed; spot_number unless not_fit; for not_fit also not_fit_reason and what_would_change — both are quoted word for word in the email), no_show, call_cancelled, replied (keyword: later | yes | stop | other — stop unsubscribes them for good), cut_delivered (cut_link, an https link), debrief_booked.", input_schema: { type: "object", properties: { business: { type: "string" }, event: { type: "string", enum: ["call_completed", "no_show", "call_cancelled", "replied", "cut_delivered", "debrief_booked"] }, outcome: { type: "string", enum: ["undecided", "not_fit", "closed"] }, spot_number: { type: "number" }, not_fit_reason: { type: "string" }, what_would_change: { type: "string" }, keyword: { type: "string", enum: ["later", "yes", "stop", "other"] }, text: { type: "string" }, cut_link: { type: "string" } }, required: ["business", "event"] } },
+  { name: "spotlight_import_sheet", description: "Import the spreadsheet the operator attached (xlsx / csv) into the Charlotte Spotlight pipeline. The OS finds the header row, maps the columns, dedupes against the pipeline (fills empty fields only — never overwrites), and checks that each email's domain can receive mail. ALWAYS run mode='preview' first and show the operator: how many businesses, how many have an email (EDITH can write to them), how many are phone-only (the call list), any rows the sheet itself says to check first, and the subject + opening of the first cold email. mode='import' writes the rows. start_emails=true ALSO tags the ones with an email as cold prospects, which starts your cold emails to them (three over about a week, under the daily cap) — only when the operator has explicitly said to email them, after seeing the preview; pass email_count = the 'have an email' number from the preview.", input_schema: { type: "object", properties: { mode: { type: "string", enum: ["preview", "import"] }, start_emails: { type: "boolean" }, email_count: { type: "number", description: "Required with start_emails: the number of businesses with an email, from the preview." }, source: { type: "string", description: "Where the list came from, e.g. 'cold list' (default), 'referral', 'event'." }, columns: { type: "object", description: "Optional: override a column guess, as {\"Column header\": \"field\"}. Fields: " + SHEET_FIELDS.map(([k]) => k).filter(Boolean).join(", ") + ", or \"\" to skip." } }, required: ["mode"] } },
+  { name: "spotlight_call_script", description: "The Charlotte Spotlight cold-call script (Spotlight → Call Script): the opener, engagement questions, the close, the pivot, the second call, the gap line by vertical, every objection answer, reply lanes and voicemails — with the prices from the board. Pass a topic (e.g. 'send me an email', 'how much', 'partner', 'opener', 'voicemail', 'second call') to get just that part; pass business to fill it in for someone in the pipeline; caller = who's dialing (Emmanuel, Brandon, or a name). Quote the script; never improvise a price.", input_schema: { type: "object", properties: { topic: { type: "string" }, business: { type: "string" }, caller: { type: "string" } } } },
+  { name: "find_prospects", description: "Start EDITH's finder: a web search for local businesses of one vertical in an area, then each one checked against its own website. Each business is posted to Discord with Approve / Call list / Skip buttons and added to Spotlight tagged 'found' — nothing is emailed until someone approves. Costs money per search: at most " + HUNTS_PER_DAY + " hunts a day, " + MAX_COUNT + " businesses a hunt.", input_schema: { type: "object", properties: { vertical: { type: "string", enum: Object.keys(VERTICALS).filter((k) => k !== "other") }, area: { type: "string", description: "Default: Charlotte, NC" }, count: { type: "number", description: "1-" + MAX_COUNT + ", default 10" } }, required: ["vertical"] } },
+  { name: "finder_review", description: "List the businesses the finder brought back that are still waiting on a decision (tagged 'found'): name, email or phone-only, website.", input_schema: { type: "object", properties: {} } },
+  { name: "finder_decide", description: "Decide on found businesses: approve (tags them cold — your three cold emails start, under the daily cap), call (call list), or skip (never found again). Match by business names, or all_with_email=true for every waiting business that has an email. Approving sends email: restate who and how many first, and only act on an explicit instruction.", input_schema: { type: "object", properties: { action: { type: "string", enum: ["approve", "call", "skip"] }, businesses: { type: "array", items: { type: "string" } }, all_with_email: { type: "boolean" } }, required: ["action"] } },
+  { name: "run_automation_now", description: "Fire an existing automation immediately, ignoring its cadence, matched by (partial) name. Use to test one or to get a leak sweep on demand.", input_schema: { type: "object", properties: { name: { type: "string" } }, required: ["name"] } },
+];
+
+async function boardSummary(admin: NonNullable<ReturnType<typeof getAdminClient>>, uid: string) {
+  const wk = weekKey();
+  const [dealsR, weekR, clientsR, kpisR, sprintR] = await Promise.all([
+    admin.from("deals").select("value_cents,stage").eq("user_id", uid),
+    admin.from("weeks").select("*").eq("user_id", uid).eq("week_key", wk).maybeSingle(),
+    admin.from("clients").select("id", { count: "exact", head: true }).eq("user_id", uid),
+    admin.from("kpis").select("name,cadence,target,unit").eq("user_id", uid),
+    admin.from("sprint").select("target_cents,sellby_date,deadline_date,one_thing_title").eq("user_id", uid).maybeSingle(),
+  ]);
+  const deals = dealsR.data || [];
+  const sum = (f: (d: { stage: string }) => boolean) => c2d(deals.filter(f).reduce((s, d: { value_cents?: number; stage: string }) => s + (Number((d as { value_cents?: number }).value_cents) || 0), 0));
+  const collected = sum((d) => d.stage === "Collected");
+  const signed = sum((d) => d.stage === "Signed" || d.stage === "Collected");
+  const open = sum((d) => !["Collected", "Signed", "Lost"].includes(d.stage));
+  // The goal is whatever the operator set on the war board — never a constant.
+  // (This was hardcoded to 150000, which made every coverage figure wrong.)
+  const goal = c2d(sprintR.data?.target_cents);
+  const gap = Math.max(0, goal - collected);
+  const w = weekR.data;
+  return {
+    week: wk,
+    goal: goal || "no sprint target set",
+    sellby_date: sprintR.data?.sellby_date || null,
+    deadline_date: sprintR.data?.deadline_date || null,
+    one_thing: sprintR.data?.one_thing_title || null,
+    collected, signed_in_year: signed, open_pipeline: open,
+    coverage: goal && gap ? +(open / gap).toFixed(2) : null,
+    friday_five: w ? { calls: w.calls, offers_out: w.offers_out, signed: c2d(w.signed_cents), collected: c2d(w.collected_cents), founder_free_pct: w.founder_free_pct } : "not logged yet",
+    open_deals: deals.filter((d) => !["Collected", "Signed", "Lost"].includes(d.stage)).length,
+    clients: clientsR.count || 0,
+    kpis: (kpisR.data || []).map((k) => `${k.name} (${k.cadence}${k.target != null ? `, target ${k.target}${k.unit === "%" ? "%" : ""}` : ""})`),
+  };
+}
+
+// Match a client by name, contact, or email (fuzzy). Returns rows.
+async function matchClients(admin: NonNullable<ReturnType<typeof getAdminClient>>, uid: string, term: unknown) {
+  const t = String(term || "").replace(/[,()%]/g, " ").trim();
+  if (!t) return [];
+  const { data } = await admin
+    .from("clients")
+    .select("id,name,contact_name,email")
+    .eq("user_id", uid)
+    .or(`name.ilike.%${t}%,contact_name.ilike.%${t}%,email.ilike.%${t}%`);
+  return data || [];
+}
+const clientLabel = (c: { name: string; contact_name?: string | null }) => c.name + (c.contact_name ? ` (${c.contact_name})` : "");
+
+type Sheet = { name: string; rows: string[][] } | null;
+async function runTool(admin: NonNullable<ReturnType<typeof getAdminClient>>, uid: string, name: string, input: Record<string, unknown>, ctx: { sheet: Sheet; by?: string } = { sheet: null }): Promise<string> {
+  const log = async (msg: string) => { await admin.from("log_entries").insert({ user_id: uid, tag: "RK", color: "var(--cream)", message: msg }); };
+  const num = (v: unknown) => (v == null || v === "" ? null : Number(v));
+
+  if (name === "get_board") return JSON.stringify(await boardSummary(admin, uid));
+
+  if (name === "list_clients") {
+    const { data } = await admin.from("clients").select("name,contact_name,email,status").eq("user_id", uid).order("created_at", { ascending: false }).limit(50);
+    if (!data?.length) return "Roster is empty.";
+    return data.map((c) => `${c.name} · ${c.contact_name || "—"} · ${c.email || "no email"} · ${c.status}`).join("\n");
+  }
+
+  if (name === "log_friday_five") {
+    const wk = weekKey();
+    const { data: cur } = await admin.from("weeks").select("*").eq("user_id", uid).eq("week_key", wk).maybeSingle();
+    const row = {
+      user_id: uid, week_key: wk,
+      calls: num(input.calls) ?? cur?.calls ?? 0,
+      offers_out: num(input.offers_out) ?? cur?.offers_out ?? 0,
+      signed_cents: input.signed != null ? Math.round(Number(input.signed) * 100) : cur?.signed_cents ?? 0,
+      collected_cents: input.collected != null ? Math.round(Number(input.collected) * 100) : cur?.collected_cents ?? 0,
+      founder_free_pct: num(input.founder_free_pct) ?? cur?.founder_free_pct ?? null,
+      manual: cur?.manual || {},
+    };
+    const { error } = await admin.from("weeks").upsert(row, { onConflict: "user_id,week_key" });
+    if (error) return "ERROR: " + error.message;
+    await log(`friday five updated · ${row.calls} calls · ${row.offers_out} offers · $${c2d(row.signed_cents)} signed · $${c2d(row.collected_cents)} collected`);
+    return `Logged for ${wk}: calls ${row.calls}, offers ${row.offers_out}, signed $${c2d(row.signed_cents)}, collected $${c2d(row.collected_cents)}, founder-free ${row.founder_free_pct ?? "—"}%`;
+  }
+
+  if (name === "add_deal") {
+    const stage = STAGES.includes(String(input.stage)) ? String(input.stage) : "Lead";
+    const { error } = await admin.from("deals").insert({ user_id: uid, name: String(input.name), offer: String(input.offer || ""), value_cents: Math.round(Number(input.value) * 100), stage });
+    if (error) return "ERROR: " + error.message;
+    await log(`deal added · ${input.name} · $${input.value} · ${stage}`);
+    return `Deal added: ${input.name} at $${input.value} (${stage}).`;
+  }
+
+  if (name === "update_deal_stage") {
+    const { data: matches } = await admin.from("deals").select("id,name,stage,value_cents").eq("user_id", uid).ilike("name", `%${input.name}%`);
+    if (!matches?.length) return `No deal matching "${input.name}".`;
+    if (matches.length > 1) return `Ambiguous — matches: ${matches.map((m) => m.name).join(", ")}. Which one?`;
+    const { error } = await admin.from("deals").update({ stage: String(input.stage) }).eq("id", matches[0].id);
+    if (error) return "ERROR: " + error.message;
+    await log(`deal moved · ${matches[0].name} → ${input.stage}`);
+    return `${matches[0].name} ($${c2d(matches[0].value_cents)}) moved: ${matches[0].stage} → ${input.stage}.`;
+  }
+
+  if (name === "add_client") {
+    const { error } = await admin.from("clients").insert({ user_id: uid, name: String(input.name), contact_name: (input.contact as string) || null, email: (input.email as string) || null, phone: (input.phone as string) || null, industry: (input.industry as string) || null, status: STAGES.includes(String(input.status)) ? "Lead" : String(input.status || "Lead"), source: "EDITH" });
+    if (error) return "ERROR: " + error.message;
+    await log(`client added · ${input.name}`);
+    return `Client added: ${input.name}${input.email ? " (" + input.email + ")" : ""}.`;
+  }
+
+  if (name === "update_client") {
+    const matches = await matchClients(admin, uid, input.client_name);
+    if (!matches.length) return `No client matching "${input.client_name}". Use list_clients to see the roster.`;
+    if (matches.length > 1) return `Ambiguous — matches: ${matches.map(clientLabel).join(", ")}. Which one?`;
+    const patch: Record<string, unknown> = {};
+    if (input.name) patch.name = String(input.name);
+    if (input.contact) patch.contact_name = String(input.contact);
+    if (input.email) patch.email = String(input.email);
+    if (input.phone) patch.phone = String(input.phone);
+    if (input.industry) patch.industry = String(input.industry);
+    if (input.status && ["Lead", "Active", "Past"].includes(String(input.status))) patch.status = String(input.status);
+    if (input.notes_append) {
+      const { data: cur } = await admin.from("clients").select("notes").eq("id", matches[0].id).maybeSingle();
+      patch.notes = ((cur?.notes ? cur.notes + "\n" : "") + String(input.notes_append)).slice(0, 8000);
+    }
+    if (!Object.keys(patch).length) return "Nothing to change — provide at least one field (email, phone, contact, industry, status, notes_append, name).";
+    const { error } = await admin.from("clients").update(patch).eq("id", matches[0].id);
+    if (error) return "ERROR: " + error.message;
+    await log(`client updated · ${matches[0].name} · ${Object.keys(patch).join(", ")}`);
+    return `Updated ${clientLabel(matches[0])}: ${Object.keys(patch).join(", ")}.`;
+  }
+
+  if (name === "add_expense") {
+    const spent = /^\d{4}-\d{2}-\d{2}$/.test(String(input.date || "")) ? String(input.date) : new Date().toISOString().slice(0, 10);
+    const { error } = await admin.from("expenses").insert({ user_id: uid, vendor: String(input.vendor), amount_cents: Math.round(Number(input.amount) * 100), category: String(input.category || "Other"), recurring: !!input.recurring, spent_on: spent });
+    if (error) return "ERROR: " + error.message;
+    await log(`expense logged · ${input.vendor} · $${input.amount}${input.recurring ? " /mo" : ""}`);
+    return `Expense logged: ${input.vendor} $${input.amount}${input.recurring ? " (recurring monthly)" : ""} on ${spent}.`;
+  }
+
+  if (name === "add_expenses_bulk") {
+    const items = Array.isArray(input.items) ? (input.items as Record<string, unknown>[]) : [];
+    if (!items.length) return "No items provided.";
+    const rows = items.filter((it) => it.vendor && it.amount != null).map((it) => ({
+      user_id: uid,
+      vendor: String(it.vendor),
+      amount_cents: Math.round(Number(it.amount) * 100),
+      category: String(it.category || "Other"),
+      recurring: !!it.recurring,
+      spent_on: /^\d{4}-\d{2}-\d{2}$/.test(String(it.date || "")) ? String(it.date) : new Date().toISOString().slice(0, 10),
+    }));
+    const { error } = await admin.from("expenses").insert(rows);
+    if (error) return "ERROR: " + error.message;
+    const total = rows.reduce((s, r) => s + r.amount_cents, 0);
+    await log(`expenses imported · ${rows.length} items · $${c2d(total)} total`);
+    return `Logged ${rows.length} expenses totaling $${c2d(total)}: ${rows.map((r) => `${r.vendor} $${c2d(r.amount_cents)}`).join(", ")}.`;
+  }
+
+  if (name === "set_sprint") {
+    const { data: cur } = await admin.from("sprint").select("*").eq("user_id", uid).maybeSingle();
+    const row: Record<string, unknown> = { user_id: uid };
+    if (input.target != null) row.target_cents = Math.round(Number(input.target) * 100);
+    if (/^\d{4}-\d{2}-\d{2}$/.test(String(input.sellby_date || ""))) row.sellby_date = input.sellby_date;
+    if (/^\d{4}-\d{2}-\d{2}$/.test(String(input.deadline_date || ""))) row.deadline_date = input.deadline_date;
+    if (input.one_thing_title) row.one_thing_title = String(input.one_thing_title).slice(0, 140);
+    if (input.one_thing_body != null) row.one_thing_body = String(input.one_thing_body).slice(0, 400);
+    if (Object.keys(row).length === 1) return "Nothing to change — provide at least one field.";
+    const { error } = await admin.from("sprint").upsert({ ...(cur || {}), ...row }, { onConflict: "user_id" });
+    if (error) return "ERROR: " + error.message;
+    const parts = [];
+    if (row.target_cents != null) parts.push(`target $${c2d(row.target_cents as number)}`);
+    if (row.sellby_date) parts.push(`sell-by ${row.sellby_date}`);
+    if (row.deadline_date) parts.push(`deadline ${row.deadline_date}`);
+    if (row.one_thing_title) parts.push(`ONE THING: "${row.one_thing_title}"`);
+    await log(`sprint updated · ${parts.join(" · ")}`);
+    return `Sprint updated — ${parts.join(", ")}. (Refresh shows it on the war board.)`;
+  }
+
+  if (name === "add_goal") {
+    const { data: st } = await admin.from("app_state").select("goals").eq("user_id", uid).maybeSingle();
+    const goals = Array.isArray(st?.goals) ? st.goals : [];
+    goals.push({ id: "g" + Date.now(), text: String(input.text), type: input.type === "life" ? "life" : "business", target: Number(input.target) || 0, done: false });
+    const { error } = await admin.from("app_state").upsert({ user_id: uid, goals }, { onConflict: "user_id" });
+    if (error) return "ERROR: " + error.message;
+    await log(`goal added · ${input.text}`);
+    return `Goal added: "${input.text}" (${input.type === "life" ? "life" : "business"}).`;
+  }
+
+  if (name === "complete_goal") {
+    const { data: st } = await admin.from("app_state").select("goals").eq("user_id", uid).maybeSingle();
+    const goals: { id: string; text: string; done?: boolean }[] = Array.isArray(st?.goals) ? st.goals : [];
+    const q = String(input.text).toLowerCase();
+    const matches = goals.filter((g) => (g.text || "").toLowerCase().includes(q) && !g.done);
+    if (!matches.length) return `No open goal matching "${input.text}".`;
+    if (matches.length > 1) return `Ambiguous — matches: ${matches.map((g) => g.text).join(" | ")}. Which one?`;
+    matches[0].done = true;
+    const { error } = await admin.from("app_state").upsert({ user_id: uid, goals }, { onConflict: "user_id" });
+    if (error) return "ERROR: " + error.message;
+    await log(`goal completed · ${matches[0].text}`);
+    return `Goal completed: "${matches[0].text}".`;
+  }
+
+  if (name === "set_strategy") {
+    const { data: st } = await admin.from("app_state").select("ops").eq("user_id", uid).maybeSingle();
+    const ops = { ...(st?.ops || {}), __strategy: String(input.text) };
+    const { error } = await admin.from("app_state").upsert({ user_id: uid, ops }, { onConflict: "user_id" });
+    if (error) return "ERROR: " + error.message;
+    await log("working strategy updated");
+    return "Working Strategy updated (Strategy tab).";
+  }
+
+  if (name === "set_kpi") {
+    const { data: matches } = await admin.from("kpis").select("id,name,cadence").eq("user_id", uid).ilike("name", `%${input.name}%`);
+    if (!matches?.length) return `No KPI matching "${input.name}".`;
+    if (matches.length > 1) return `Ambiguous — matches: ${matches.map((m) => m.name).join(", ")}. Which one?`;
+    const k = matches[0];
+    const period = k.cadence === "monthly" ? monthKey() : weekKey();
+    const { error } = await admin.from("kpi_entries").upsert({ user_id: uid, kpi_id: k.id, period_key: period, value: Number(input.value) }, { onConflict: "kpi_id,period_key" });
+    if (error) return "ERROR: " + error.message;
+    await log(`kpi set · ${k.name} = ${input.value} (${period})`);
+    return `${k.name} set to ${input.value} for ${period}.`;
+  }
+
+  if (name === "add_work_item") {
+    const matches = await matchClients(admin, uid, input.client_name);
+    if (!matches.length) return `No client matching "${input.client_name}".`;
+    if (matches.length > 1) return `Ambiguous — matches: ${matches.map(clientLabel).join(", ")}. Which one?`;
+    const { error } = await admin.from("work_items").insert({ user_id: uid, client_id: matches[0].id, title: String(input.title), type: String(input.type || "other"), status: "in_progress" });
+    if (error) return "ERROR: " + error.message;
+    await log(`work item added · ${matches[0].name} · ${input.title}`);
+    return `Work item added to ${matches[0].name}: ${input.title}.`;
+  }
+
+  if (name === "add_log") {
+    await log(String(input.message));
+    return "Logged.";
+  }
+
+  if (name === "draft_client_email") {
+    const matches = await matchClients(admin, uid, input.client_name);
+    if (!matches.length) return `No client matching "${input.client_name}" (searched names, contacts, and emails). Use list_clients to see the roster.`;
+    if (matches.length > 1) return `Ambiguous — matches: ${matches.map(clientLabel).join(", ")}. Which one?`;
+    const client = matches[0];
+    if (!client.email) return `${client.name} has no email on file — add one on their client record first.`;
+
+    const draft = await draftAgentEmail({ userId: uid, clientId: client.id, kind: "manual", task: String(input.instruction) });
+    if (!draft.ok || !draft.id) return "ERROR: draft failed (" + (draft.error || "unknown") + ").";
+
+    if (input.send_now) {
+      const sent = await sendQueuedEmail(draft.id, uid);
+      if (!sent.ok) return `Draft created ("${draft.subject}") but SEND FAILED (${sent.error}) — it's waiting in ${client.name}'s COMMS panel instead.`;
+      await log(`email sent · ${client.name} · ${draft.subject}`);
+      return `SENT to ${client.name} (${client.email}) as Anchor — "${draft.subject}":\n\n${draft.body}`;
+    }
+    await log(`email drafted · ${client.name} · ${draft.subject}`);
+    return `Draft queued for approval in ${client.name}'s COMMS panel (their dashboard) — "${draft.subject}":\n\n${draft.body}\n\nSay "send it" and I'll push it out, or approve it from the dashboard.`;
+  }
+
+  if (name === "send_pending_email") {
+    const matches = await matchClients(admin, uid, input.client_name);
+    if (!matches.length) return `No client matching "${input.client_name}".`;
+    if (matches.length > 1) return `Ambiguous — matches: ${matches.map(clientLabel).join(", ")}. Which one?`;
+    const { data: pending } = await admin.from("email_log").select("id,subject").eq("user_id", uid).eq("client_id", matches[0].id).eq("status", "draft_pending_approval").order("created_at", { ascending: false }).limit(1).maybeSingle();
+    if (!pending) return `No pending draft for ${matches[0].name}.`;
+    const sent = await sendQueuedEmail(pending.id, uid);
+    if (!sent.ok) return `SEND FAILED (${sent.error}) — still queued in their COMMS panel.`;
+    await log(`email sent · ${matches[0].name} · ${pending.subject}`);
+    return `SENT: "${pending.subject}" to ${matches[0].name} (${matches[0].email}).`;
+  }
+
+  // Build [{desc, qty, unit_cents}] line items and a cents total from tool input.
+  const lineItems = (raw: unknown) => {
+    const arr = Array.isArray(raw) ? (raw as Record<string, unknown>[]) : [];
+    const items = arr.filter((it) => it.desc).map((it) => ({ desc: String(it.desc), qty: Number(it.qty) || 1, unit_cents: Math.round(Number(it.unit || 0) * 100) }));
+    const total = items.reduce((s, it) => s + it.qty * it.unit_cents, 0);
+    return { items, total };
+  };
+  const siteUrl = () => process.env.NEXT_PUBLIC_SITE_URL || "https://os.creativeimpactmedia.co";
+
+  if (name === "create_invoice") {
+    let clientId: string | null = null, clientName = "";
+    if (input.client_name) {
+      const m = await matchClients(admin, uid, input.client_name);
+      if (!m.length) return `No client matching "${input.client_name}". Add the client first, or omit the client.`;
+      if (m.length > 1) return `Ambiguous — matches: ${m.map(clientLabel).join(", ")}. Which one?`;
+      clientId = m[0].id; clientName = m[0].name;
+    }
+    const { items, total } = lineItems(input.items);
+    let amount_cents = total || (input.amount != null ? Math.round(Number(input.amount) * 100) : 0);
+    if (!amount_cents) return "Provide an amount (dollars) or line items with unit prices.";
+    const { count } = await admin.from("invoices").select("id", { count: "exact", head: true }).eq("user_id", uid);
+    const number = "INV-" + String((count || 0) + 1).padStart(4, "0");
+    const due = /^\d{4}-\d{2}-\d{2}$/.test(String(input.due_date || "")) ? String(input.due_date) : null;
+    const { data: inv, error } = await admin.from("invoices").insert({ user_id: uid, client_id: clientId, number, title: String(input.title || ""), items, amount_cents, status: "draft", due_date: due, notes: input.notes ? String(input.notes) : null }).select("token").maybeSingle();
+    if (error) return "ERROR: " + error.message;
+    await log(`invoice drafted · ${number} · ${clientName || "no client"} · $${c2d(amount_cents)}`);
+    return `Invoice ${number} drafted${clientName ? " for " + clientName : ""}: $${c2d(amount_cents)} (status: draft). Pay link: ${siteUrl()}/pay/${inv?.token}. NOT sent — review it on the Invoices tab and send from there.`;
+  }
+
+  if (name === "create_proposal") {
+    let clientId: string | null = null, clientName = "";
+    if (input.client_name) {
+      const m = await matchClients(admin, uid, input.client_name);
+      if (!m.length) return `No client matching "${input.client_name}". Add the client first, or omit the client.`;
+      if (m.length > 1) return `Ambiguous — matches: ${m.map(clientLabel).join(", ")}. Which one?`;
+      clientId = m[0].id; clientName = m[0].name;
+    }
+    const { items, total } = lineItems(input.items);
+    let amount_cents = total || (input.amount != null ? Math.round(Number(input.amount) * 100) : 0);
+    if (!amount_cents) return "Provide an amount (dollars) or line items with unit prices.";
+    const { count } = await admin.from("proposals").select("id", { count: "exact", head: true }).eq("user_id", uid);
+    const number = "PRO-" + String((count || 0) + 1).padStart(4, "0");
+    const { data: prop, error } = await admin.from("proposals").insert({ user_id: uid, client_id: clientId, number, title: String(input.title || ""), intro: input.intro ? String(input.intro) : null, items, amount_cents, terms: input.terms ? String(input.terms) : null, status: "draft" }).select("token").maybeSingle();
+    if (error) return "ERROR: " + error.message;
+    await log(`proposal drafted · ${number} · ${clientName || "no client"} · $${c2d(amount_cents)}`);
+    return `Proposal ${number} drafted${clientName ? " for " + clientName : ""}: $${c2d(amount_cents)} (status: draft). Accept link: ${siteUrl()}/proposal/${prop?.token}. NOT sent — review it on the Proposals tab and send from there.`;
+  }
+
+  if (name === "update_booking") {
+    const term = String(input.who || "").trim();
+    const { data: all } = await admin.from("bookings").select("id,name,email,start_at,end_at,status,client_id").eq("user_id", uid).eq("status", "booked").gte("start_at", new Date().toISOString()).order("start_at", { ascending: true });
+    let matches = all || [];
+    if (term) {
+      const tl = term.toLowerCase();
+      matches = matches.filter((b) => (b.name || "").toLowerCase().includes(tl) || (b.email || "").toLowerCase().includes(tl));
+      if (!matches.length) {
+        const cm = await matchClients(admin, uid, term);
+        const ids = new Set(cm.map((c) => c.id));
+        matches = (all || []).filter((b) => b.client_id && ids.has(b.client_id));
+      }
+    }
+    if (!matches.length) return `No upcoming booked call matching "${term}".`;
+    if (matches.length > 1) return `Multiple upcoming calls match: ${matches.map((m) => `${m.name || m.email} (${new Date(m.start_at).toUTCString()})`).join("; ")}. Which one?`;
+    const bk = matches[0];
+    if (input.action === "cancel") {
+      const { error } = await admin.from("bookings").update({ status: "cancelled" }).eq("id", bk.id);
+      if (error) return "ERROR: " + error.message;
+      await log(`call cancelled · ${bk.name || bk.email || "guest"}`);
+      if (bk.email) await edithOnBookingChange(admin, uid, bk.email, { cancelled: true });
+      return `Cancelled the call with ${bk.name || bk.email || "guest"} (was ${new Date(bk.start_at).toUTCString()}). The slot is open again on the booker. The client was not emailed — tell me if you want a note drafted.`;
+    }
+    const start = String(input.start_at || "");
+    if (!/\dT\d/.test(start) || isNaN(new Date(start).getTime())) return "To reschedule, give the new start time as an ISO timestamp with timezone offset (e.g. 2026-08-27T14:00:00-04:00).";
+    const durMs = new Date(bk.end_at).getTime() - new Date(bk.start_at).getTime();
+    const endIso = /\dT\d/.test(String(input.end_at || "")) && !isNaN(new Date(String(input.end_at)).getTime())
+      ? new Date(String(input.end_at)).toISOString()
+      : new Date(new Date(start).getTime() + (durMs > 0 ? durMs : 30 * 60000)).toISOString();
+    const { error } = await admin.from("bookings").update({ start_at: new Date(start).toISOString(), end_at: endIso }).eq("id", bk.id);
+    if (error) return "ERROR: " + error.message;
+    await log(`call rescheduled · ${bk.name || bk.email || "guest"} → ${new Date(start).toUTCString()}`);
+    if (bk.email) await edithOnBookingChange(admin, uid, bk.email, { start: new Date(start).toISOString(), end: endIso });
+    return `Rescheduled the call with ${bk.name || bk.email || "guest"} to ${new Date(start).toUTCString()}. The client was not emailed — tell me if you want a note drafted.`;
+  }
+
+  // --- Automations (the AUTOMATIONS tab) ---
+  const AUTO_MIGRATION = 'The automations table does not exist yet - run supabase/21_automations.sql in the Supabase SQL editor, then try again.';
+  const missingAutoTable = (m?: string) => !!m && /does not exist|schema cache/i.test(m);
+  const cadenceLabel = (a: { cadence: string; day_of_week: number | null; day_of_month: number | null }) => {
+    const DOW = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+    if (a.cadence === "weekly") return `weekly · ${DOW[a.day_of_week ?? 1]}`;
+    if (a.cadence === "monthly") return `monthly · day ${a.day_of_month ?? 1}`;
+    return a.cadence;
+  };
+
+  if (name === "list_automations") {
+    const { data, error } = await admin.from("automations").select("*").eq("user_id", uid).order("created_at", { ascending: true });
+    if (error) return missingAutoTable(error.message) ? AUTO_MIGRATION : "ERROR: " + error.message;
+    if (!data?.length) return "No automations yet.";
+    return data.map((a) => `${a.enabled ? "ON " : "OFF"} · ${a.name} · ${cadenceLabel(a)} · ${a.action}${a.last_run_at ? ` · last run ${String(a.last_run_at).slice(0, 10)} (${a.last_status})` : " · never run"}`).join("\n");
+  }
+
+  if (name === "create_automation") {
+    const action = String(input.action || "");
+    const cadence = String(input.cadence || "daily");
+    const row: Record<string, unknown> = {
+      user_id: uid,
+      name: String(input.name).slice(0, 120),
+      description: input.description ? String(input.description).slice(0, 600) : null,
+      cadence,
+      day_of_week: cadence === "weekly" ? Math.min(6, Math.max(0, Number(input.day_of_week ?? 1))) : null,
+      day_of_month: cadence === "monthly" ? Math.min(31, Math.max(1, Number(input.day_of_month ?? 1))) : null,
+      action,
+      action_config: input.note ? { note: String(input.note) } : {},
+      enabled: input.enabled == null ? true : !!input.enabled,
+      created_by: "edith",
+    };
+    const { error } = await admin.from("automations").insert(row);
+    if (error) return missingAutoTable(error.message) ? AUTO_MIGRATION : "ERROR: " + error.message;
+    await log(`automation created · ${row.name} · ${cadence} · ${action}`);
+    return `Automation created: "${row.name}" — ${cadenceLabel(row as never)} running ${action}, ${row.enabled ? "enabled" : "disabled"}. The daily sweep will pick it up; say "run <name> now" to fire it immediately.`;
+  }
+
+  if (name === "toggle_automation") {
+    const { data: matches, error } = await admin.from("automations").select("id,name,enabled").eq("user_id", uid).ilike("name", `%${input.name}%`);
+    if (error) return missingAutoTable(error.message) ? AUTO_MIGRATION : "ERROR: " + error.message;
+    if (!matches?.length) return `No automation matching "${input.name}".`;
+    if (matches.length > 1) return `Ambiguous — matches: ${matches.map((m) => m.name).join(", ")}. Which one?`;
+    const next = !!input.enabled;
+    const { error: e2 } = await admin.from("automations").update({ enabled: next }).eq("id", matches[0].id);
+    if (e2) return "ERROR: " + e2.message;
+    await log(`automation ${next ? "enabled" : "disabled"} · ${matches[0].name}`);
+    return `${matches[0].name} is now ${next ? "ON" : "OFF"}.`;
+  }
+
+  if (name === "run_automation_now") {
+    const { data: matches, error } = await admin.from("automations").select("*").eq("user_id", uid).ilike("name", `%${input.name}%`);
+    if (error) return missingAutoTable(error.message) ? AUTO_MIGRATION : "ERROR: " + error.message;
+    if (!matches?.length) return `No automation matching "${input.name}".`;
+    if (matches.length > 1) return `Ambiguous — matches: ${matches.map((m) => m.name).join(", ")}. Which one?`;
+    const r = await runAutomation(admin, matches[0] as never);
+    if (!r.ok) return `Run failed: ${r.error}`;
+    return `Ran "${matches[0].name}" — ${r.title}\n\n${r.summary}`;
+  }
+
+  // --- Charlotte Spotlight ---
+  const SPOT_MIGRATION = "The Spotlight table does not exist yet - run supabase/22_spotlight.sql in the Supabase SQL editor.";
+  const spotMissing = (m?: string) => !!m && /does not exist|schema cache/i.test(m);
+  const stageLabel = (k: string) => SPOT_STAGES.find((x) => x.key === k)?.label || k;
+  if (name === "spotlight_list") {
+    let q = admin.from("spotlight_prospects").select("business,owner_name,stage,reviews,years,q_sent_at,q_returned_at,film_date").eq("user_id", uid).order("created_at", { ascending: true });
+    if (input.stage) q = q.eq("stage", String(input.stage));
+    const { data, error } = await q;
+    if (error) return spotMissing(error.message) ? SPOT_MIGRATION : "ERROR: " + error.message;
+    if (!data?.length) return input.stage ? `Nobody at ${stageLabel(String(input.stage))}.` : "The Spotlight pipeline is empty.";
+    return data.map((p) => `${p.business}${p.owner_name ? " (" + p.owner_name + ")" : ""} · ${stageLabel(p.stage)} · ${p.reviews ?? "—"} reviews · ${p.years ?? "—"} yrs${p.film_date ? " · films " + p.film_date : ""}${p.q_returned_at ? " · ★ answers back" : p.q_sent_at ? " · questions sent" : ""}`).join("\n");
+  }
+  if (name === "spotlight_add") {
+    const row: Record<string, unknown> = { user_id: uid, stage: "prospect", source: "edith", business: String(input.business).slice(0, 200) };
+    for (const k of ["owner_name", "email", "phone", "website", "suburb", "notes"]) if (input[k]) row[k] = String(input[k]).slice(0, 1000);
+    if (input.vertical && VERTICALS[String(input.vertical)]) row.vertical = String(input.vertical);
+    if (input.reviews != null) row.reviews = Math.max(0, Math.round(Number(input.reviews)) || 0);
+    if (input.years != null) row.years = Math.max(0, Math.round(Number(input.years)) || 0);
+    let filled: string[] = [];
+    if (input.import_site && row.website) {
+      const r = await importWebsite(String(row.website));
+      if (r.ok) {
+        const pr = r.profile as Record<string, unknown>;
+        row.profile = pr;
+        const fillIn = (k: string, v: unknown) => { if (row[k] == null && v != null && v !== "") { row[k] = v; filled.push(k); } };
+        fillIn("owner_name", pr.owner_name); fillIn("phone", pr.phone); fillIn("email", pr.email); fillIn("suburb", pr.city_or_suburb);
+        if (!row.vertical && pr.vertical && VERTICALS[String(pr.vertical)]) { row.vertical = String(pr.vertical); filled.push("vertical"); }
+        if (row.years == null && pr.years_in_business != null && !isNaN(Number(pr.years_in_business))) { row.years = Number(pr.years_in_business); filled.push("years"); }
+      } else filled = ["(site import failed: " + r.error + ")"];
+    }
+    const { data: added, error } = await admin.from("spotlight_prospects").insert(row).select("id").maybeSingle();
+    if (error) return spotMissing(error.message) ? SPOT_MIGRATION : "ERROR: " + error.message;
+    await log(`spotlight · added ${row.business}`);
+    if (added?.id) await edithEmit(admin, uid, { prospect_id: added.id, type: "contact.created", source: "edith-desk" });
+    return `Added ${row.business} to the Spotlight pipeline as a Prospect.${filled.length ? " From their site: " + filled.join(", ") + "." : ""}${row.reviews == null || row.years == null ? " Still missing reviews/years — the call opener needs both." : ""}`;
+  }
+  if (name === "spotlight_move") {
+    const stage = String(input.stage || "");
+    if (!SPOT_KEYS.includes(stage)) return "Unknown stage.";
+    const { data: matches, error } = await admin.from("spotlight_prospects").select("*").eq("user_id", uid).ilike("business", `%${String(input.business).replace(/[%,()]/g, " ").trim()}%`);
+    if (error) return spotMissing(error.message) ? SPOT_MIGRATION : "ERROR: " + error.message;
+    if (!matches?.length) return `No Spotlight business matching "${input.business}".`;
+    if (matches.length > 1) return `Ambiguous — matches: ${matches.map((m) => m.business).join(", ")}. Which one?`;
+    const p = matches[0] as Prospect;
+    if (stage === "member") {
+      const r = await makeMember(admin, p);
+      const q = r.questions;
+      return `${p.business} is now a MEMBER.${q ? (q.ok ? " Their pre-shoot questions were emailed." : " Questions NOT sent: " + ("error" in q ? q.error : "")) : " Questions drafted but not sent (auto-send is off, no email on file, or already sent)."}`;
+    }
+    const patch: Record<string, unknown> = { stage, stage_at: new Date().toISOString() };
+    if (stage === "not_now" && input.not_now_month) patch.not_now_month = String(input.not_now_month).slice(0, 60);
+    const { error: e2 } = await admin.from("spotlight_prospects").update(patch).eq("id", p.id);
+    if (e2) return "ERROR: " + e2.message;
+    await log(`spotlight · ${p.business} → ${stageLabel(stage)}`);
+    return `${p.business}: ${stageLabel(p.stage)} → ${stageLabel(stage)}.`;
+  }
+
+  // --- Nationwide lane (Hardscape & Landscape) ---
+  const LANE_MIGRATION = "The lead table does not exist yet - run supabase/23_nationwide.sql in the Supabase SQL editor.";
+  const laneMissing = (m?: string) => !!m && /does not exist|schema cache/i.test(m);
+  const laneCfg = async () => {
+    const { data } = await admin.from("app_state").select("ops").eq("user_id", uid).maybeSingle();
+    const ops = (data?.ops || {}) as Record<string, unknown>;
+    return { ops, cfg: ((ops.__nationwide as Record<string, unknown>) || {}) as { plan?: Record<string, boolean>; weeks?: LaneWeek[]; [k: string]: unknown } };
+  };
+  if (name === "lane_add_lead") {
+    const row: Record<string, unknown> = { user_id: uid, lane: "hardscape" };
+    for (const k of ["full_name", "phone", "email", "state", "company", "web", "ad", "q_install", "q_revenue", "q_owner", "q_adspend", "notes"]) if (input[k]) row[k] = String(input[k]).slice(0, 400);
+    const grade = laneGrade(row as never);
+    row.grade = grade;
+    row.stage = grade === "C" || grade === "D" ? "filtered" : "new";
+    const { error } = await admin.from("lane_leads").insert(row);
+    if (error) return laneMissing(error.message) ? LANE_MIGRATION : "ERROR: " + error.message;
+    await log(`hardscape lead · ${row.company || row.full_name || "—"} · grade ${grade || "?"}`);
+    const action = grade === "A" ? "Call inside 5 minutes, Brandon on the close, calendar inside 48 hours." : grade === "B" ? "Call inside 5 minutes, calendar inside 48 hours." : grade === "C" ? "No call. One email: reapply at half a million. Never sees a calendar." : grade === "D" ? "Filtered at the form. Nobody calls them." : "Ungraded — the gate questions (install, revenue, owner) aren't all answered.";
+    return `Logged ${row.company || row.full_name} — grade ${grade || "?"}. ${action}${row.q_owner === "marketing" ? " They run marketing for the owner: the owner joins the call or the call does not happen." : ""}`;
+  }
+  if (name === "lane_status") {
+    const { cfg } = await laneCfg();
+    const todayStr = new Date().toISOString().slice(0, 10);
+    const done = (t: { id: string; carried?: boolean }) => (cfg.plan && t.id in cfg.plan ? !!cfg.plan[t.id] : !!t.carried);
+    const open = LANE_PLAN.filter((t) => !done(t));
+    const overdue = open.filter((t) => t.due && t.due < todayStr);
+    const weeks = (cfg.weeks || []) as LaneWeek[];
+    const sorted = [...weeks].sort((a, b) => a.week_of.localeCompare(b.week_of));
+    const last = sorted[sorted.length - 1];
+    const heldBefore = last ? sorted.slice(0, -1).reduce((s, w) => s + (Number(w.held) || 0), 0) : 0;
+    const res = last ? laneComputeWeek(last, heldBefore) : null;
+    const fb = laneFallbacks(sorted, todayStr);
+    const tripped = LANE_FALLBACKS.filter((f) => fb[f.id].state === "TRIPPED");
+    const { data: leads } = await admin.from("lane_leads").select("grade,stage,lead_at").eq("user_id", uid).eq("lane", "hardscape");
+    const waiting = (leads || []).filter((l) => l.stage === "new" && (l.grade === "A" || l.grade === "B")).length;
+    return [
+      `PLAN: ${LANE_PLAN.length - open.length}/${LANE_PLAN.length} done.${overdue.length ? " OVERDUE: " + overdue.map((t) => `${t.title} (${t.dueLabel}, ${t.owner})`).join("; ") + "." : ""} Next open: ${open[0] ? open[0].title + (open[0].dueLabel ? " — " + open[0].dueLabel : "") : "none"}.`,
+      `LEADS: ${leads?.length ?? 0} logged; ${waiting} A/B lead${waiting === 1 ? "" : "s"} waiting on a first call.`,
+      last && res ? `TRACKER (week of ${last.week_of}): constraint = ${res.constraint ? `${res.constraint.label} — fix: ${res.constraint.fix}` : "none, every stage with data is on its line"}.` : "TRACKER: no weeks logged yet (first update due Fri Oct 9).",
+      `SCALING: ${laneScaling(sorted).text}`,
+      tripped.length ? `FALLBACKS TRIPPED: ${tripped.map((f) => `${f.when} → ${f.then}`).join(" | ")}` : "FALLBACKS: none tripped.",
+    ].join("\n");
+  }
+  if (name === "lane_log_week") {
+    const weekOf = String(input.week_of || "");
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(weekOf)) return "Give the week as the Friday date, YYYY-MM-DD.";
+    const num = (x: unknown) => (x == null || x === "" || isNaN(Number(x)) ? undefined : Number(x));
+    const w: LaneWeek = { week_of: weekOf };
+    for (const k of ["spend", "impressions", "views3s", "frequency", "leads", "qualified", "booked", "held", "closed", "median_call_min"] as const) { const v = num(input[k]); if (v != null) (w as Record<string, unknown>)[k] = v; }
+    const { ops, cfg } = await laneCfg();
+    const weeks = ((cfg.weeks || []) as LaneWeek[]).filter((x) => x.week_of !== weekOf);
+    const prev = ((cfg.weeks || []) as LaneWeek[]).find((x) => x.week_of === weekOf) || { week_of: weekOf };
+    const merged = { ...prev, ...w };
+    const next = [...weeks, merged].sort((a, b) => a.week_of.localeCompare(b.week_of));
+    await admin.from("app_state").upsert({ user_id: uid, ops: { ...ops, __nationwide: { ...cfg, weeks: next } } }, { onConflict: "user_id" });
+    const heldBefore = next.filter((x) => x.week_of < weekOf).reduce((s, x) => s + (Number(x.held) || 0), 0);
+    const res = laneComputeWeek(merged, heldBefore);
+    await log(`hardscape tracker · week of ${weekOf} logged`);
+    return `Week of ${weekOf} logged. ${res.constraint ? `Constraint: ${res.constraint.label} (line: ${res.constraint.line}). Fix: ${res.constraint.fix}` : "No stage with data is below its line."} Scaling: ${laneScaling(next).text}`;
+  }
+
+  // --- A spreadsheet the operator attached: into the Spotlight pipeline ---
+  if (name === "spotlight_import_sheet") {
+    const sheet = ctx.sheet;
+    if (!sheet || !sheet.rows?.length) return "There's no spreadsheet attached to this conversation. Ask the operator to attach it with the 📎 (xlsx or csv).";
+    const g0 = readGrid(sheet.rows, VERTICALS);
+    let map = g0.map;
+    if (input.columns && typeof input.columns === "object") {
+      const known = new Set(SHEET_FIELDS.map(([k]) => k));
+      map = g0.headers.map((h, i) => { const o = (input.columns as Record<string, unknown>)[h]; return typeof o === "string" && known.has(o) ? o : g0.map[i]; });
+    }
+    const g = readGrid(sheet.rows, VERTICALS, map);
+    const rows = g.rows.filter((r) => r.business);
+    const withEmail = rows.filter((r) => r.email && !r.hold);
+    const phoneOnly = rows.filter((r) => !r.email && r.phone);
+    const flagged = rows.filter((r) => r.hold);
+    if (input.mode !== "import") {
+      const pv = withEmail[0] ? await previewColdEmail(admin, uid, withEmail[0] as unknown as Record<string, unknown>) : null;
+      return [
+        `PREVIEW of ${sheet.name} — nothing written yet.`,
+        `Column names on row ${g.headerRow + 1}: ${g.headers.map((h, i) => `${h || "(blank)"} → ${g.map[i] || "skip"}`).join("; ")}.`,
+        `${rows.length} businesses: ${withEmail.length} have an email (EDITH can write to them), ${phoneOnly.length} are phone-only (the call list), ${flagged.length} the sheet says to check first${flagged.length ? " (" + flagged.map((r) => r.business).join(", ") + ")" : ""}${g.rows.length - rows.length ? `, ${g.rows.length - rows.length} rows with no business name (skipped)` : ""}.`,
+        `First rows: ${rows.slice(0, 4).map((r) => [r.business, r.email || "no email", r.phone || "no phone", r.vertical ? r.vertical + (r.vertical_guessed ? "?" : "") : ""].filter(Boolean).join(" · ")).join(" | ")}`,
+        pv && pv.ok ? `EDITH's first email to ${withEmail[0].business}: subject "${pv.subject}" — opens: "${pv.text.split("\n").filter(Boolean).slice(0, 3).join(" ").slice(0, 400)}"${pv.missing.length ? ` — it would HOLD until: ${pv.missing.join("; ")}` : ""}. Sending is ${pv.live ? "LIVE" : "OFF (logging only)"}, cap ${pv.cap || "none"} new a day.` : "",
+        "Before EDITH writes to anyone, the import also checks each email's domain can receive mail; ones that can't are imported but left off her list.",
+      ].filter(Boolean).join("\n");
+    }
+    const start = !!input.start_emails;
+    if (start && Number(input.email_count) !== withEmail.length) return `Not imported: start_emails needs email_count = ${withEmail.length} (the number with an email). Show the operator the preview and get their go-ahead first.`;
+    const r = await importProspects(admin, uid, rows as unknown as Record<string, unknown>[], { source: String(input.source || "cold list").slice(0, 40), cold: start, by: "EDITH" });
+    if (!r.ok) return "ERROR: " + r.error;
+    await log(`spotlight · EDITH imported ${sheet.name} · ${r.added} new`);
+    return [
+      `Imported ${sheet.name}: ${r.added} added, ${r.updated} updated, ${r.skipped} skipped. ${r.callList} on the call list (phone only).`,
+      start ? `${r.queued} queued for your cold emails${r.edith.cap ? `, ${r.edith.cap} new a day` : ""}.${!r.edith.address ? " They are HOLDING until the mailing address is set in EDITH settings (required in every cold email) — tell the operator." : ""}${!r.edith.live ? " Sending is OFF — they'll be logged, not sent." : ""}` : "Nobody was tagged cold — no emails will go out from this import.",
+      r.held.length ? `Not emailed (the sheet says check first): ${r.held.map((h) => h.business).join(", ")}.` : "",
+      r.badEmail.length ? `Not emailed (address can't receive mail): ${r.badEmail.map((h) => `${h.business} — ${h.reason}`).join("; ")}.` : "",
+    ].filter(Boolean).join("\n");
+  }
+  if (name === "spotlight_call_script") {
+    const scfg = await getSpotConfig(admin, uid);
+    let prospect: Record<string, unknown> | null = null;
+    const term = String(input.business || "").replace(/[%,()]/g, " ").trim();
+    if (term) {
+      const { data } = await admin.from("spotlight_prospects").select("business,owner_name,first_name,email,phone,vertical,suburb,reviews,years,spot_number").eq("user_id", uid).ilike("business", `%${term}%`).limit(2);
+      if (data?.length === 1) prospect = data[0];
+    }
+    const caller = String(input.caller || scfg.caller || "Emmanuel");
+    const offer = { prices: scfg.prices, featureSpots: scfg.featureSpots, floorDate: scfg.floorDate, episodeDate: scfg.episodeDate, crewReelUrl: scfg.crewReelUrl, callerPhone: scfg.callerPhone };
+    const fields = scriptFields({ prospect: prospect as never, caller, offer, verticals: VERTICALS });
+    if (!input.topic) return "The call script's sections: " + SCRIPT_SECTIONS.map((x) => x.title).join(" · ") + ". Ask for one (or an objection like 'send me an email') and I'll pull it." + (term && !prospect ? ` (No single Spotlight business matched "${term}".)` : "");
+    return (term && !prospect ? `(No single Spotlight business matched "${term}" — [brackets] left in.)\n` : "") + scriptAsText({ topic: String(input.topic), fields, caller, offer, verticals: VERTICALS }).slice(0, 9000);
+  }
+
+  // --- The finder ---
+  if (name === "find_prospects") {
+    const r = await startHunt(admin, uid, { vertical: String(input.vertical || ""), area: input.area ? String(input.area) : undefined, count: Number(input.count) || undefined, requestedBy: ctx.by });
+    if (!r.ok) return "ERROR: " + r.error;
+    const posted = await discordSay(admin, uid, { content: `🔎 ${ctx.by || "The operator"} asked me to find ${r.count} ${VERTICALS[r.vertical]?.label.split(" /")[0] || r.vertical} businesses in ${r.area}. Cards coming here as I check each website.` });
+    return r.message + (posted ? " They'll show up in Discord." : " (Discord isn't connected yet, so they'll only show up in Spotlight → Prospects, tagged found.)");
+  }
+  if (name === "finder_review") {
+    const rows = await pendingFinds(admin, uid);
+    if (!rows.length) return "Nothing from the finder is waiting on a decision.";
+    return `${rows.length} waiting: ` + rows.map((p) => `${p.business} (${p.email ? "email" : p.phone ? "phone only" : "no contact"}${p.suburb ? ", " + p.suburb : ""})`).join("; ");
+  }
+  if (name === "finder_decide") {
+    const rows = await pendingFinds(admin, uid);
+    const want = Array.isArray(input.businesses) ? (input.businesses as unknown[]).map((x) => String(x).toLowerCase().trim()).filter(Boolean) : [];
+    const pick = input.all_with_email ? rows.filter((p) => p.email) : rows.filter((p) => want.some((w) => String(p.business).toLowerCase().includes(w)));
+    if (!pick.length) return "None of the waiting businesses matched. finder_review lists them.";
+    const act = input.action === "approve" ? "e" : input.action === "call" ? "c" : "s";
+    const out: string[] = [];
+    for (const p of pick) { const r = await finderAct(admin, uid, String(p.id), act, ctx.by || "EDITH"); out.push(`${p.business}: ${r.ok ? r.outcome : r.error}`); }
+    return out.join("\n");
+  }
+
+  // --- EDITH's own email engine (Charlotte Spotlight) ---
+  if (name === "edith_status") {
+    const cfg = await getEdithConfig(admin, uid);
+    const since = new Date(Date.now() - 86400e3).toISOString();
+    const soon = new Date(Date.now() + 48 * 3600e3).toISOString();
+    const [q, held, sent, tasks, names] = await Promise.all([
+      admin.from("edith_steps").select("prospect_id,template_id,due_at").eq("user_id", uid).eq("status", "scheduled").lte("due_at", soon).order("due_at").limit(20),
+      admin.from("edith_steps").select("prospect_id,template_id,hold_reason").eq("user_id", uid).eq("status", "held").limit(20),
+      admin.from("edith_steps").select("prospect_id,template_id,status").eq("user_id", uid).in("status", ["sent", "logged", "failed"]).gte("sent_at", since).limit(40),
+      admin.from("ops_tasks").select("title").eq("user_id", uid).eq("status", "open").order("due_at", { ascending: true, nullsFirst: false }).limit(12),
+      admin.from("spotlight_prospects").select("id,business").eq("user_id", uid),
+    ]);
+    if (q.error) return /does not exist|schema cache/i.test(q.error.message) ? "EDITH's tables aren't set up yet — run supabase/24_edith.sql." : "ERROR: " + q.error.message;
+    const who = new Map((names.data || []).map((x) => [x.id, x.business]));
+    const et = (iso: string) => new Intl.DateTimeFormat("en-US", { timeZone: "America/New_York", weekday: "short", hour: "numeric", minute: "2-digit" }).format(new Date(iso)) + " ET";
+    const list = <T,>(rows: T[] | null, f: (r: T) => string, none: string) => (rows && rows.length ? rows.map(f).join("; ") : none);
+    return [
+      `Sending is ${cfg.edith_live ? "LIVE" : "OFF (logging only)"}; from ${cfg.from}, replies to ${cfg.reply_to}.`,
+      `Last 24h: ${list(sent.data, (s) => `${who.get(s.prospect_id)} · ${s.template_id} (${s.status})`, "nothing went out")}.`,
+      `HELD: ${list(held.data, (s) => `${who.get(s.prospect_id)} · ${s.template_id} — ${s.hold_reason}`, "nothing")}.`,
+      `Next 48h: ${list(q.data, (s) => `${who.get(s.prospect_id)} · ${s.template_id} at ${et(s.due_at)}`, "nothing scheduled")}.`,
+      `Waiting on a human: ${list(tasks.data, (t) => t.title, "nothing")}.`,
+    ].join("\n");
+  }
+  if (name === "edith_log") {
+    const term = String(input.business || "").replace(/[%,()]/g, " ").trim();
+    const { data: matches, error } = await admin.from("spotlight_prospects").select("id,business,stage").eq("user_id", uid).ilike("business", `%${term}%`);
+    if (error) return spotMissing(error.message) ? SPOT_MIGRATION : "ERROR: " + error.message;
+    if (!matches?.length) return `No Spotlight business matching "${term}".`;
+    if (matches.length > 1) return `Ambiguous — matches: ${matches.map((m) => m.business).join(", ")}. Which one?`;
+    const p = matches[0];
+    const TYPE: Record<string, string> = { call_completed: "call.completed", no_show: "call.no_show", call_cancelled: "call.cancelled", replied: "email.replied", cut_delivered: "cut.delivered", debrief_booked: "debrief.booked" };
+    const type = TYPE[String(input.event || "")];
+    if (!type) return "Unknown event.";
+    const payload: Record<string, unknown> = {};
+    if (type === "call.completed") {
+      const outcome = String(input.outcome || "");
+      if (!["undecided", "not_fit", "closed"].includes(outcome)) return "Which outcome — undecided, not a fit, or closed?";
+      payload.outcome = outcome;
+      if (outcome !== "not_fit") { if (!Number(input.spot_number)) return "Which spot did Emmanuel recommend? The recap and welcome emails quote it."; payload.spot_number = Math.round(Number(input.spot_number)); }
+      else {
+        payload.not_fit_reason = String(input.not_fit_reason || "").slice(0, 600);
+        payload.what_would_change = String(input.what_would_change || "").slice(0, 600);
+        if (!payload.not_fit_reason || !payload.what_would_change) return "For a not-a-fit, I need the reason and what would change it — the email quotes both word for word.";
+      }
+    }
+    if (type === "email.replied") { payload.keyword = ["later", "yes", "stop", "other"].includes(String(input.keyword)) ? input.keyword : "other"; payload.text = String(input.text || "").slice(0, 2000); }
+    if (type === "cut.delivered") {
+      const link = String(input.cut_link || "");
+      if (!/^https?:\/\//.test(link)) return "I need the cut link (https://…) — it's the whole point of that email.";
+      payload.cut_link = link;
+      if (["member", "filming", "filmed"].includes(p.stage)) await admin.from("spotlight_prospects").update({ stage: "delivered", stage_at: new Date().toISOString() }).eq("id", p.id);
+    }
+    const r = await edithEmit(admin, uid, { prospect_id: p.id, type, payload, source: "edith-desk" });
+    if (!r.ok) return "ERROR: " + r.error;
+    await log(`EDITH · ${type} · ${p.business}`);
+    return `Logged ${type} for ${p.business}. The sequences take it from here — edith_status or Spotlight → EDITH · Email shows what's queued or held.`;
+  }
+
+  return "Unknown tool.";
+}
+
+type Admin = NonNullable<ReturnType<typeof getAdminClient>>;
+
+export type ChatBody = { messages?: unknown; file?: unknown; sheet?: unknown };
+export type ChatResult = { ok: true; reply: string; actions: string[] } | { ok: false; error: string; status: number };
+
+// One turn of EDITH: the conversation so far (the last message is the new
+// order), an optional attachment, and where she's answering from.
+export async function edithChat(admin: Admin, uid: string, body: ChatBody, opts: { surface?: "cockpit" | "discord"; by?: string } = {}): Promise<ChatResult> {
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  if (!apiKey) return { ok: false, error: "no_api_key", status: 400 };
+  const history: { role: string; content: unknown }[] = Array.isArray(body.messages) ? (body.messages as { role: string; content: unknown }[]).slice(-14) : [];
+  if (!history.length) return { ok: false, error: "empty", status: 400 };
+  const surfaceNote = opts.surface === "discord"
+    ? `\n\nYOU'RE ANSWERING IN DISCORD, in the team's server${opts.by ? ` (${opts.by} asked)` : ""}. Keep it short — a few lines, Discord markdown, no tables. The same write-safety rules apply: restate anything that sends email or changes money before doing it.`
+    : "";
+
+  // Persona voice: an "EDITH" agent row if one exists. The old Jarvis /
+  // Showrunner rows are NOT used — their voice prompts introduce a different
+  // name. (Jarvis became EDITH on 2026-09-29: one assistant for the OS and
+  // the Spotlight emails.)
+  const { data: agent } = await admin.from("agents").select("voice_prompt").eq("user_id", uid).eq("name", "EDITH").maybeSingle();
+  const board = await boardSummary(admin, uid);
+  const system = `${agent?.voice_prompt || "You are EDITH, Creative Impact's assistant — the AI kind. You run the Creative Impact OS alongside Brandon and Emmanuel: warm, direct, brief — the sharpest assistant in a small shop, never a marketing department."}\n\nYou are EDITH. You are an AI and say so plainly if asked; you never pose as Brandon, Emmanuel, or a client. The same EDITH signs the Charlotte Spotlight emails, so the operator may ask you about those too.\n\nLIVE BOARD CONTEXT (as of this message):\n${JSON.stringify(board)}\n\nToday: ${new Date().toDateString()}. Current ISO week: ${weekKey()}.\n\nCAPABILITIES NOTE: You can change mission-level settings (set_sprint: target, dates, THE ONE THING), manage Founder OS goals (add_goal/complete_goal), rewrite the working strategy (set_strategy), set KPIs, and ingest uploaded receipts/statements/CSVs — extract each line item and log via add_expenses_bulk (use the document's dates; ask before logging if any line is unreadable or ambiguous). Changing the sprint target or dates is a big lever — restate the change and act only when the instruction is explicit.\n\nINVOICES & PROPOSALS: create_invoice and create_proposal DRAFT the document and generate its client link — they never email the client. Sending an invoice or proposal is an outbound, money-adjacent action that stays with a human: after drafting, show the operator the number, amount, and link, and tell them to send it from the Invoices/Proposals tab. Do not claim anything was sent.\n\nAUTOMATIONS: you can set up recurring work yourself. create_automation makes a scheduled job the OS runs on its own (leak_sweep = Black Widow's revenue leak sweep computed off the live board; board_digest = a numbers snapshot; log_marker = a heartbeat for testing). list_automations shows what exists, toggle_automation turns one on/off (they are never deleted), run_automation_now fires one immediately. The OS dispatches due automations once a day, so day-level cadences are real and sub-daily timing is not. When the operator describes recurring work ("every Monday sweep for money we're leaving on the table"), offer to create the automation rather than just doing it once.\n\nNATIONWIDE LANE (Hardscape & Landscape): a $3,000/mo remote ad engine sold nationwide to hardscape/landscape companies doing $500K+ (Emmanuel fronts every ad; the client films on a phone). lane_add_lead logs and grades a lead from the five form answers; lane_status reads the plan, leads waiting, the week's constraint, the scaling verdict, and tripped fallbacks; lane_log_week records a Friday tracker row. The planning numbers are assumptions, not benchmarks; never present them as results.\n\nCHARLOTTE SPOTLIGHT: the local video series (ten businesses a month, filmed like Diners, Drive-Ins and Dives). spotlight_list shows the pipeline; spotlight_add adds a prospect (set import_site=true with a website to pull facts off their site); spotlight_move moves a stage. Moving someone to 'member' can email them their pre-shoot questions immediately, and starts your client emails (SEQ6); say so before you do it.\n\nYOUR SPOTLIGHT EMAILS: you also run the Spotlight's automated sequences (cold, inbound, booked-to-show, no-show, post-call, client lifecycle, monthly episode). edith_status reports what's live, sent, HELD (and the field a human must fill), queued, and waiting on a human. edith_log records what the OS can't see — a call outcome with the spot number, a no-show, a cancellation, a reply that landed in the inbox, a delivered cut, a booked debrief — and can send the next email right away, so restate it first. You never turn sending on or off, never edit the email copy (it's locked in the repo), and never hand-send cold email: cold goes out only through the sequence, to tagged cold prospects with an email address, under the daily cap. Your cold emails introduce you honestly — "This is EDITH, Creative Impact's AI assistant… Brandon and Emmanuel thought you'd be a great fit for our new series."\n\nFILES: the operator can attach PDFs, Word documents (you get the text), spreadsheets (you get the rows), images, and text files. Read what's there before acting; ask if something is unreadable. A spreadsheet of businesses goes into the Spotlight pipeline with spotlight_import_sheet — preview first, show the counts, and start your emails only on an explicit go-ahead.\n\nTHE CALL SCRIPT: spotlight_call_script pulls the Spotlight cold-call script — a section, one objection's answer, the voicemails — filled in for a business when you name one. When the operator asks what to say on a call, quote it rather than improvising, and never quote a price that isn't on the board.\n\nTHE FINDER: find_prospects sends you out to find businesses (web search, then each one's own website — facts only, never a guessed email). Each one is posted to Discord with Approve / Call list / Skip and lands in Spotlight tagged found. Searches cost money: at most ${HUNTS_PER_DAY} hunts a day. finder_review lists what's waiting; finder_decide approves (your cold emails start), calls, or skips — restate who and how many before approving.\n\nCLOSING A SPOT: when someone says yes, the operator uses Spotlight → Close a Spot — pick the spot (price from the board), their info, and the OS emails the invoice with a Stripe pay button. When it's paid, your welcome (6-1) goes out: the pre-production call link, the prep questions, and the release link for everyone who'll be on camera. Signed releases are saved under the business.\n\nCALLS: update_booking reschedules or cancels an upcoming booked call. Rescheduling needs an explicit new start time. Cancelling frees the slot on the public booker; restate the call before cancelling.\n\nCLIENT EMAIL: draft_client_email hands the writing to Anchor (the client producer) — client-facing mail is his voice, not yours. Drafts queue for approval by default; pass send_now=true ONLY on an explicit send order. When the operator approves a draft you just showed them ("send it"), use send_pending_email — never redraft. Show the operator the draft body after creating it. Use list_clients to see or disambiguate the roster; client matching covers names, contact names, and emails.\n\nYou can add and update, but you NEVER delete anything, and you never send an invoice, proposal, or client email without the operator's explicit go-ahead.`;
+
+  const convo: { role: string; content: unknown }[] = history.map((m) => ({ role: m.role === "assistant" ? "assistant" : "user", content: m.content }));
+
+  // Optional attachment, read in the browser (app/cockpit/files.js): an image
+  // or PDF as-is, a Word doc as its text, a spreadsheet as its rows. It's
+  // merged into the latest user message so EDITH can read it. A spreadsheet
+  // stays in the conversation (the cockpit re-sends it as body.sheet) so a
+  // follow-up "yes, import them" still has the rows.
+  const file = body.file as { name?: string; kind?: string; media_type?: string; data?: string; text?: string; rows?: unknown } | undefined;
+  const asSheet = (x: unknown): Sheet => {
+    const o = x as { name?: unknown; rows?: unknown } | null;
+    if (!o || !Array.isArray(o.rows)) return null;
+    const rows = (o.rows as unknown[]).slice(0, 2000).map((r) => (Array.isArray(r) ? r.slice(0, 40).map((c) => String(c ?? "").slice(0, 500)) : []));
+    return rows.length ? { name: String(o.name || "spreadsheet").slice(0, 120), rows } : null;
+  };
+  const sheet: Sheet = file?.kind === "sheet" ? asSheet(file) : asSheet(body.sheet);
+  if (file && convo.length) {
+    const last = convo[convo.length - 1];
+    if (last.role === "user" && typeof last.content === "string") {
+      const caption = { type: "text", text: (last.content || "Process this file.") + `\n\n[Attached file: ${file.name || "upload"}]` };
+      if (file.kind === "image" && file.data) {
+        if (file.data.length > 5_000_000) return { ok: false, error: "file_too_large", status: 413 };
+        last.content = [caption, { type: "image", source: { type: "base64", media_type: file.media_type || "image/png", data: file.data } }];
+      } else if (file.kind === "pdf" && file.data) {
+        if (file.data.length > 5_000_000) return { ok: false, error: "file_too_large", status: 413 };
+        last.content = [caption, { type: "document", source: { type: "base64", media_type: "application/pdf", data: file.data } }];
+      } else if (file.kind === "text" && file.text) {
+        last.content = [{ type: "text", text: caption.text + "\n\n```\n" + file.text.slice(0, 60000) + "\n```" }];
+      } else if (file.kind === "sheet" && sheet) {
+        const tsv = String(file.text || sheet.rows.slice(0, 400).map((r) => r.join("\t")).join("\n")).slice(0, 40000);
+        last.content = [{ type: "text", text: caption.text + `\n\n[Spreadsheet: ${sheet.rows.length} rows. The rows as the file has them (title/total rows included); spotlight_import_sheet reads the whole sheet.]\n\n\`\`\`tsv\n` + tsv + "\n```" }];
+      }
+    }
+  }
+  const actions: string[] = [];
+  let finalText = "";
+
+  for (let i = 0; i < 6; i++) {
+    const r = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: { "x-api-key": apiKey, "anthropic-version": "2023-06-01", "content-type": "application/json" },
+      body: JSON.stringify({ model: MODEL, max_tokens: 1600, system: (sheet ? system + `\n\nATTACHED SPREADSHEET in this conversation: "${sheet.name}" (${sheet.rows.length} rows) — spotlight_import_sheet can preview or import it.` : system) + surfaceNote, tools: TOOLS, messages: convo }),
+    });
+    const j = await r.json();
+    if (j.error) return { ok: false, error: j.error.message || "api_error", status: 502 };
+
+    const blocks: { type: string; text?: string; id?: string; name?: string; input?: Record<string, unknown> }[] = j.content || [];
+    const toolUses = blocks.filter((b) => b.type === "tool_use");
+    const texts = blocks.filter((b) => b.type === "text").map((b) => b.text).join("\n");
+
+    if (j.stop_reason !== "tool_use" || !toolUses.length) { finalText = texts; break; }
+
+    convo.push({ role: "assistant", content: blocks });
+    const results = [];
+    for (const t of toolUses) {
+      const out = await runTool(admin, uid, t.name!, t.input || {}, { sheet, by: opts.by || "the operator" });
+      if (!out.startsWith("ERROR") && t.name !== "get_board") actions.push(`${t.name}: ${out}`);
+      results.push({ type: "tool_result", tool_use_id: t.id, content: out });
+    }
+    convo.push({ role: "user", content: results });
+  }
+
+  return { ok: true, reply: finalText || "Done.", actions };
+}

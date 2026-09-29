@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import Stripe from "stripe";
 import { createClient } from "@supabase/supabase-js";
+import { getAdminClient } from "@/lib/supabase/admin";
 
 // Creates a Stripe Checkout session for an invoice (by its public token).
 // Public route (the client clicks "Pay"). Requires STRIPE_SECRET_KEY (server env).
@@ -28,16 +29,33 @@ export async function POST(req: Request) {
 
   const origin = req.headers.get("origin") || new URL(req.url).origin;
   const stripe = new Stripe(secret);
+  // The explanation on Stripe's page: what the invoice covers (its "– " scope
+  // lines — a Spotlight spot's inclusions), and the client's email so Stripe's
+  // receipt goes to them.
+  const scope = String(inv.notes || "").split("\n").filter((l: string) => /^[–-] /.test(l)).map((l: string) => l.replace(/^[–-] /, "").replace(/ — included$/, "")).join(" · ");
+  const description = scope.slice(0, 480) || undefined;
+  let email: string | undefined;
+  const admin = getAdminClient();
+  if (admin) {
+    const { data: row } = await admin.from("invoices").select("client_id").eq("token", token).maybeSingle();
+    if (row?.client_id) {
+      const { data: c } = await admin.from("clients").select("email").eq("id", row.client_id).maybeSingle();
+      if (c?.email && /^[^@\s]+@[^@\s]+\.[a-z]{2,}$/i.test(c.email)) email = c.email;
+    }
+  }
+  const title = ((inv.number || "Invoice") + (inv.title ? " · " + inv.title : "")).slice(0, 250);
   const session = await stripe.checkout.sessions.create({
     mode: "payment",
     // Bind the session to THIS invoice so /api/confirm can verify the receipt
     // being presented actually paid for this token (prevents receipt replay).
     metadata: { token },
+    ...(email ? { customer_email: email } : {}),
+    payment_intent_data: { description: title, ...(email ? { receipt_email: email } : {}) },
     line_items: [
       {
         price_data: {
           currency: inv.currency || "usd",
-          product_data: { name: (inv.number || "Invoice") + (inv.title ? " · " + inv.title : "") },
+          product_data: { name: title, ...(description ? { description } : {}) },
           unit_amount: amount,
         },
         quantity: 1,

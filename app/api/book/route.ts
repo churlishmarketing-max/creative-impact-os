@@ -4,6 +4,7 @@ import { sendEmail, emailShell, esc } from "@/lib/email";
 import { buildIcs } from "@/lib/ics";
 import { getAdminClient } from "@/lib/supabase/admin";
 import { edithEmit, edithOnBooking } from "@/lib/edith/server";
+import { discordNotify } from "@/lib/discord";
 
 export const runtime = "nodejs";
 
@@ -32,6 +33,8 @@ export async function POST(req: Request) {
   const isSpotlight = /spotlight/i.test(det.reason || "") || /spotlight/i.test(String(title || ""));
   // A member booking their debrief (/go/debrief) is not a new lead.
   const isDebrief = /debrief/i.test(det.reason || "") || /debrief/i.test(String(title || ""));
+  // A paid member booking the pre-production call (/go/preprod, from EDITH's welcome) — not a lead either.
+  const isPreprod = /pre-?production/i.test(det.reason || "") || /pre-?production/i.test(String(title || ""));
   // EDITH's 3-1 confirmation (with the invite) replaces the generic welcome for
   // Spotlight bookings — but only when it actually SENT. If she held it (e.g.
   // no call link yet) the booker still gets the welcome. Never both, never none.
@@ -41,7 +44,7 @@ export async function POST(req: Request) {
     if (admin) {
       const { data: owner } = await admin.from("app_state").select("user_id").filter("ops->__booking->>token", "eq", token).limit(1).maybeSingle();
       const uid = owner?.user_id;
-      if (uid && isSpotlight && !isDebrief) {
+      if (uid && isSpotlight && !isDebrief && !isPreprod) {
         const { data: client } = email ? await admin.from("clients").select("id").eq("user_id", uid).ilike("email", email).limit(1).maybeSingle() : { data: null };
         const { data: existing } = email ? await admin.from("spotlight_prospects").select("id,stage").eq("user_id", uid).ilike("email", email).limit(1).maybeSingle() : { data: null };
         const note = `Booked a Spotlight call for ${whenText || start}.${notes ? " Notes: " + notes : ""}`;
@@ -62,7 +65,16 @@ export async function POST(req: Request) {
       }
       // EDITH: a Spotlight fit call starts SEQ3; a client booking after their
       // debrief invite counts as the debrief. Everything else: EDITH stays out.
-      if (uid && email) edithConfirmed = await edithOnBooking(admin, uid, { email, start, end, isSpotlight: isSpotlight && !isDebrief });
+      if (uid && email) edithConfirmed = await edithOnBooking(admin, uid, { email, start, end, isSpotlight: isSpotlight && !isDebrief && !isPreprod });
+      // EDITH tells the team in Discord.
+      if (uid && isSpotlight) {
+        let biz = det.business || name || email || "Someone";
+        if (isPreprod && email) {
+          const { data: m } = await admin.from("spotlight_prospects").select("id,business,notes").eq("user_id", uid).ilike("email", email).limit(1).maybeSingle();
+          if (m) { biz = m.business || biz; await admin.from("spotlight_prospects").update({ notes: [m.notes, `Pre-production call booked for ${whenText || start}.`].filter(Boolean).join(" ").slice(0, 4000) }).eq("id", m.id); }
+        }
+        await discordNotify(admin, uid, isPreprod ? `📅 ${biz} booked their pre-production call — ${whenText || start}` : isDebrief ? `📅 ${biz} booked their debrief — ${whenText || start}` : `📅 ${biz} booked a Spotlight call — ${whenText || start}`, isPreprod ? "Lock their film date on the call, then set it on their card — EDITH's prep note and day-before email run off it." : undefined);
+      }
     }
   } catch (e) { console.error("spotlight booking hook failed", e); }
 
@@ -80,7 +92,16 @@ export async function POST(req: Request) {
     alarmMinutes: 60,
   });
   const when = whenText || new Date(start).toUTCString();
-  if (email && isDebrief) {
+  if (email && isPreprod) {
+    const firstName = String(name || "").trim().split(/\s+/)[0] || "there";
+    await sendEmail({
+      to: email,
+      bcc: null,
+      subject: `Your pre-production call is booked — ${when}`,
+      text: `${firstName} — you're on the calendar for your Charlotte Spotlight pre-production call: ${when}.\n\nFifteen minutes. We'll lock your film date and talk through what we'll shoot. If you haven't yet, a look at your prep questions beforehand helps — the link is in your welcome email. The calendar invite is attached.\n\nCreative Impact\nhello@creativeimpactmedia.co`,
+      ics,
+    });
+  } else if (email && isDebrief) {
     // Members booking the debrief get a plain confirmation, not the new-lead welcome.
     const firstName = String(name || "").trim().split(/\s+/)[0] || "there";
     await sendEmail({

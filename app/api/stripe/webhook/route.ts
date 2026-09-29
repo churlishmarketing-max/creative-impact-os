@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import Stripe from "stripe";
 import { getAdminClient } from "@/lib/supabase/admin";
 import { markPaid, ensureDiagnosticForSession, type StripeSessionLike } from "@/lib/diagnostic/pipeline";
+import { onInvoicePaid } from "@/lib/spotlight";
 
 export const runtime = "nodejs";
 
@@ -31,7 +32,7 @@ export async function POST(req: Request) {
     const admin = getAdminClient();
     // Ours if: tagged by metadata (offer page or tagged payment link), OR a
     // $750 payment-link purchase on this account (the Diagnostic's price).
-    const isDiagnostic = session.metadata?.product === "authority_diagnostic" || (!!session.payment_link && session.amount_total === 75000);
+    const isDiagnostic = !session.metadata?.token && (session.metadata?.product === "authority_diagnostic" || (!!session.payment_link && session.amount_total === 75000));
     if (admin && isDiagnostic && session.payment_status === "paid") {
       if (session.metadata?.diagnostic_id) {
         await markPaid(admin, session.metadata.diagnostic_id, { session_id: session.id, payment_id: String(session.payment_intent || "") });
@@ -39,7 +40,17 @@ export async function POST(req: Request) {
         await ensureDiagnosticForSession(admin, session as unknown as StripeSessionLike);
       }
     }
-    // invoice checkouts (metadata.token) keep their existing redirect-confirm flow
+    // OS invoice checkouts (metadata.token): mark the invoice paid here too, so
+    // a client who closes the tab before the redirect still counts. Idempotent
+    // with /api/confirm. A paid Spotlight invoice makes them a member.
+    const token = session.metadata?.token;
+    if (admin && token && session.payment_status === "paid") {
+      const { data: inv } = await admin.from("invoices").select("id,status").eq("token", token).maybeSingle();
+      if (inv && inv.status !== "paid") {
+        await admin.from("invoices").update({ status: "paid", paid_at: new Date().toISOString(), stripe_session_id: session.id }).eq("id", inv.id);
+      }
+      if (inv) await onInvoicePaid(admin, token).catch((e) => console.error("spotlight onInvoicePaid (webhook) failed", e));
+    }
   }
   return NextResponse.json({ received: true });
 }

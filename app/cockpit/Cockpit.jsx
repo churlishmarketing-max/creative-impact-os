@@ -302,6 +302,10 @@ class Cockpit extends React.Component {
       rookieInput: '',
       rookieBusy: false,
       rookieFile: null,
+      quickInput: '',   // the header EDITH bar
+      quickOpen: false,
+      quickFrom: 0,     // index in rookieMsgs where the bar's exchange starts
+      quickX: 0,        // where the dropdown centers (under the bar, kept on screen)
       founder: {},
       habits: [
         { id: 'h1', name: '3 sales conversations', owner: 'BK', days: {} },
@@ -2178,13 +2182,26 @@ Signed: {{signer}}      Date: {{date}}`;
     };
     if (isImage || isPdf) reader.readAsDataURL(f); else reader.readAsText(f);
   }
-  async sendRookie() {
-    const text = (this.state.rookieInput || '').trim();
+  // Center the bar's dropdown under the bar, but never off screen.
+  quickBarX() {
+    const el = typeof document !== 'undefined' ? document.getElementById('edith-bar') : null;
+    const vw = typeof window !== 'undefined' ? window.innerWidth : 1200;
+    const half = Math.min(620, vw * 0.94) / 2;
+    const x = el ? el.getBoundingClientRect().left + el.getBoundingClientRect().width / 2 : vw / 2;
+    return Math.max(half + 8, Math.min(vw - half - 8, x));
+  }
+
+  // fromBar: the header EDITH bar sends its own input and shows the reply in
+  // its dropdown; the desk sends rookieInput. Both write the same thread.
+  async sendRookie(fromBar) {
+    const text = ((fromBar ? this.state.quickInput : this.state.rookieInput) || '').trim();
     const file = this.state.rookieFile;
     if ((!text && !file) || this.state.rookieBusy) return;
     const shown = text || 'Process this file.';
     const msgs = [...this.state.rookieMsgs, { role: 'user', content: shown, fileName: file ? file.name : null }];
-    this.setState({ rookieMsgs: msgs, rookieInput: '', rookieBusy: true, rookieFile: null });
+    this.setState(fromBar
+      ? { rookieMsgs: msgs, quickInput: '', quickOpen: true, quickX: this.quickBarX(), quickFrom: this.state.quickOpen ? this.state.quickFrom : this.state.rookieMsgs.length, rookieBusy: true, rookieFile: null }
+      : { rookieMsgs: msgs, rookieInput: '', rookieBusy: true, rookieFile: null });
     try {
       const res = await fetch('/api/rookie', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ messages: msgs.map(m => ({ role: m.role, content: m.content })), file: file || undefined }) });
       const j = await res.json();
@@ -2342,7 +2359,7 @@ Signed: {{signer}}      Date: {{date}}`;
                 <div style={{ color: "var(--dim)", fontSize: "12.5px", lineHeight: 1.7, marginBottom: "14px" }}>EDITH online. Standing by. Try:</div>
                 <div style={{ display: "flex", flexDirection: "column", gap: "8px", alignItems: "flex-start" }}>
                   {chips.map((c, i) => (
-                    <button key={i} onClick={() => this.setState({ rookieInput: c }, () => this.sendRookie())} style={{ background: "transparent", border: "1px dashed var(--line2)", color: "var(--muted)", fontFamily: "var(--mono)", fontSize: "11px", padding: "8px 12px", cursor: "pointer", textAlign: "left" }}>▸ {c}</button>
+                    <button key={i} onClick={() => this.setState({ rookieInput: c }, () => this.sendRookie(false))} style={{ background: "transparent", border: "1px dashed var(--line2)", color: "var(--muted)", fontFamily: "var(--mono)", fontSize: "11px", padding: "8px 12px", cursor: "pointer", textAlign: "left" }}>▸ {c}</button>
                   ))}
                 </div>
               </div>
@@ -2375,9 +2392,9 @@ Signed: {{signer}}      Date: {{date}}`;
               value={this.state.rookieInput}
               placeholder={this.state.rookieFile ? "What should EDITH do with the file?" : "Give an order — EDITH writes it to the OS"}
               onChange={(e) => this.setState({ rookieInput: e.target.value })}
-              onKeyDown={(e) => { if (e.key === 'Enter') this.sendRookie(); }}
+              onKeyDown={(e) => { if (e.key === 'Enter') this.sendRookie(false); }}
             />
-            <button onClick={() => this.sendRookie()} disabled={this.state.rookieBusy} style={{ background: "var(--red)", border: "1px solid var(--red)", color: "var(--golddark)", fontFamily: "var(--mono)", fontWeight: 700, fontSize: "11px", letterSpacing: ".12em", padding: "11px 20px", cursor: this.state.rookieBusy ? "default" : "pointer", textTransform: "uppercase", opacity: this.state.rookieBusy ? .5 : 1 }}>Execute →</button>
+            <button onClick={() => this.sendRookie(false)} disabled={this.state.rookieBusy} style={{ background: "var(--red)", border: "1px solid var(--red)", color: "var(--golddark)", fontFamily: "var(--mono)", fontWeight: 700, fontSize: "11px", letterSpacing: ".12em", padding: "11px 20px", cursor: this.state.rookieBusy ? "default" : "pointer", textTransform: "uppercase", opacity: this.state.rookieBusy ? .5 : 1 }}>Execute →</button>
           </div>
         </div>
         <div style={{ fontSize: "10px", color: "var(--dim)", marginTop: "10px", lineHeight: 1.5 }}>Write-safe: EDITH can add and update — deals, clients, box score, expenses, KPIs, invoices, proposals, calls, the sprint target, THE ONE THING, goals, and strategy — but cannot delete anything, and never sends an invoice, proposal, or client email without your explicit approval. 📎 attach a receipt, statement, PDF, or CSV and it'll extract + log the expenses. Conversation resets on refresh (persistence later).</div>
@@ -2618,7 +2635,54 @@ Signed: {{signer}}      Date: {{date}}`;
         </div>
       </div>
 
-      <div style={{ flex: 1 }}></div>
+      {/* The EDITH bar: ask her anything, or attach a file, from any screen. */}
+      <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", padding: "0 18px", minWidth: 0, position: "relative" }}>
+        <div id="edith-bar" style={{ display: "flex", alignItems: "center", width: "100%", maxWidth: "580px", height: "36px", border: "1px solid " + (this.state.quickOpen ? "var(--gold)" : "var(--line2)"), background: "var(--panel)" }}>
+          <span onClick={() => this.setState((st) => ({ quickOpen: !st.quickOpen, quickX: this.quickBarX(), quickFrom: st.quickOpen ? st.quickFrom : Math.max(0, (st.rookieMsgs || []).length - 2) }))} title="Show EDITH's latest answers" style={{ cursor: "pointer", fontSize: "10px", fontWeight: 800, letterSpacing: ".16em", color: "var(--gold)", padding: "0 11px", height: "100%", display: "flex", alignItems: "center", borderRight: "1px solid var(--line)" }}>EDITH</span>
+          <label title={this.state.rookieFile ? "Attached: " + this.state.rookieFile.name : "Attach a file — image, PDF, CSV, or text"} style={{ cursor: "pointer", padding: "0 8px", height: "100%", display: "flex", alignItems: "center", fontSize: "14px", color: this.state.rookieFile ? "var(--gold)" : "var(--dim)" }}>
+            📎<input type="file" accept="image/*,application/pdf,.csv,.txt" onChange={(e) => this.pickRookieFile(e)} style={{ display: "none" }} />
+          </label>
+          {this.state.rookieFile ? <button onClick={() => this.setState({ rookieFile: null })} title="Remove the file" style={{ background: "none", border: "none", color: "var(--gold)", fontSize: "10px", cursor: "pointer", padding: "0 4px 0 0", whiteSpace: "nowrap", maxWidth: "140px", overflow: "hidden", textOverflow: "ellipsis", fontFamily: "var(--mono)" }}>{this.state.rookieFile.name} ✕</button> : null}
+          <input
+            value={this.state.quickInput}
+            onChange={(e) => this.setState({ quickInput: e.target.value })}
+            onKeyDown={(e) => { if (e.key === 'Enter') this.sendRookie(true); if (e.key === 'Escape') this.setState({ quickOpen: false }); }}
+            placeholder={this.state.rookieFile ? "What should EDITH do with the file?" : "Ask EDITH — or attach a file"}
+            style={{ flex: 1, minWidth: 0, height: "100%", background: "transparent", border: "none", outline: "none", color: "var(--cream)", fontFamily: "var(--mono)", fontSize: "12px", padding: "0 8px" }}
+          />
+          <button onClick={() => this.sendRookie(true)} disabled={this.state.rookieBusy} title="Send to EDITH" style={{ height: "100%", background: "var(--gold)", border: "none", color: "var(--golddark)", fontWeight: 900, fontSize: "13px", padding: "0 14px", cursor: this.state.rookieBusy ? "default" : "pointer", opacity: this.state.rookieBusy ? .6 : 1 }}>{this.state.rookieBusy ? "…" : "→"}</button>
+        </div>
+        {this.state.quickOpen ? (
+          <div style={{ position: "fixed", top: "62px", left: (this.state.quickX || 0) ? this.state.quickX + "px" : "50%", transform: "translateX(-50%)", width: "min(620px, 94vw)", maxHeight: "70vh", overflowY: "auto", background: "#0b1526", border: "1px solid var(--gold)", boxShadow: "0 18px 40px rgba(0,0,0,.45)", zIndex: 60, padding: "12px 14px" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
+              <span style={{ fontSize: "9px", letterSpacing: ".18em", color: "var(--dim)" }}>EDITH · SAME THREAD AS THE DESK</span>
+              <span style={{ display: "flex", gap: "6px" }}>
+                <button onClick={() => this.setState({ view: 'rookie', quickOpen: false })} style={{ background: "transparent", border: "1px solid var(--line2)", color: "var(--muted)", fontSize: "9.5px", letterSpacing: ".1em", padding: "4px 8px", cursor: "pointer", fontFamily: "var(--mono)" }}>OPEN DESK</button>
+                <button onClick={() => this.setState({ quickOpen: false })} style={{ background: "transparent", border: "1px solid var(--line2)", color: "var(--muted)", fontSize: "10px", padding: "4px 8px", cursor: "pointer" }}>✕</button>
+              </span>
+            </div>
+            {(this.state.rookieMsgs || []).slice(this.state.quickFrom).map((m, i) => (
+              <div key={i} style={{ marginBottom: "10px" }}>
+                <div style={{ fontSize: "9px", letterSpacing: ".18em", color: m.role === 'user' ? 'var(--cream)' : 'var(--red)', marginBottom: "3px" }}>{m.role === 'user' ? '> YOU' : '◉ EDITH'}</div>
+                <div style={{ fontSize: "12.5px", color: m.role === 'user' ? "var(--cream)" : "var(--muted)", lineHeight: 1.6, whiteSpace: "pre-wrap", borderLeft: "2px solid " + (m.role === 'user' ? 'var(--line2)' : 'var(--red)'), paddingLeft: "10px" }}>{m.content}{m.fileName ? <span style={{ marginLeft: "8px", color: "var(--dim)", fontSize: "9.5px" }}>📎 {m.fileName}</span> : null}</div>
+                {m.actions && m.actions.length ? m.actions.map((a, k) => <div key={k} style={{ fontSize: "10.5px", color: "var(--good)", lineHeight: 1.6, paddingLeft: "12px" }}>✓ {a}</div>) : null}
+              </div>
+            ))}
+            {!(this.state.rookieMsgs || []).slice(this.state.quickFrom).length && !this.state.rookieBusy ? <div style={{ color: "var(--dim)", fontSize: "11.5px", marginBottom: "8px" }}>Ask EDITH anything — or attach a file and tell her what to do with it.</div> : null}
+            {this.state.rookieBusy ? <div style={{ color: "var(--dim)", fontSize: "11px" }}>◉ working on it…</div> : null}
+            <div style={{ display: "flex", gap: "6px", marginTop: "10px", borderTop: "1px solid var(--line)", paddingTop: "10px" }}>
+              <input
+                value={this.state.quickInput}
+                onChange={(e) => this.setState({ quickInput: e.target.value })}
+                onKeyDown={(e) => { if (e.key === 'Enter') this.sendRookie(true); if (e.key === 'Escape') this.setState({ quickOpen: false }); }}
+                placeholder={this.state.rookieFile ? "What should EDITH do with " + this.state.rookieFile.name + "?" : "Reply to EDITH…"}
+                style={{ flex: 1, minWidth: 0, background: "var(--deep)", border: "1px solid var(--line2)", color: "var(--cream)", fontFamily: "var(--mono)", fontSize: "12px", padding: "8px 10px", outline: "none" }}
+              />
+              <button onClick={() => this.sendRookie(true)} disabled={this.state.rookieBusy} style={{ background: "var(--gold)", border: "none", color: "var(--golddark)", fontWeight: 900, fontSize: "13px", padding: "0 14px", cursor: "pointer" }}>→</button>
+            </div>
+          </div>
+        ) : null}
+      </div>
 
       <div style={{ display: "flex", alignItems: "center", gap: "18px" }}>
         <div style={{ textAlign: "right" }}>

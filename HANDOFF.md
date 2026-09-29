@@ -116,7 +116,8 @@ $500K+. Plan · Leads · Tracker · Math · Ads · The Call · Form & Build.
 
 ## EDITH — the assistant AND the Spotlight emails (LIVE since 2026-09-29)
 
-**One assistant.** Jarvis became EDITH on 2026-09-29 (Brandon: "I thought we
+**One assistant, on every screen.** The header has an EDITH bar (type an order or
+attach a file; answers drop down under it — same thread as the desk). Jarvis became EDITH on 2026-09-29 (Brandon: "I thought we
 were changing Jarvis into EDITH"). Nav 08 is EDITH — the same console
 (`/api/rookie`, `rookie` screen id kept) with the same tools, plus
 `edith_status` (what's sent / held / queued / waiting on a human) and
@@ -178,22 +179,38 @@ were changed, at Brandon's instruction). `npm run edith:build` compiles them to
   "enroll: SEQ7" = tag nurture; release_spot is a no-op; reminders whose moment
   passed are skipped; SEQ1 runs once per contact, ever.
 
-## CHARLOTTE SPOTLIGHT — the offer and the agreement (2026-09-29)
+## CHARLOTTE SPOTLIGHT — the offer and the agreement (corrected 2026-09-29)
 
-- **Offer: $997 = $250 deposit at booking + $747 on film day**, ten a month (Sep 19
-  script; EDITH's emails quote it). Settings, not code.
-- **Agreement v5** (`DEFAULT_AGREEMENT` in `lib/spotlight.ts`, rewritten 9/29):
-  client OWNS their commercial (script: "you own it forever"); refund-or-roll
-  floor (fewer than 3 filmed → roll or full refund in 5 business days — EDITH 5-1
-  promises it); film date may follow the deposit; no filming-speed promise.
-  Tokens: {{business}} {{contact}} {{emailPhone}} {{spot}} {{fee}} {{filmDate}}
-  {{month}} {{deposit}} {{balance}}. A stored template still containing the
-  Aug 21 {{tier}} token is replaced automatically.
-- **Still locked:** needs the NC attorney pass, then "attorney reviewed" ticked in
-  Spotlight → Settings. The attorney copy with 8 open questions (legal entity —
-  "Emmanuel Impressions" vs Creative Impact — ownership, deposit refund window,
-  floor + delivered cut, promo wording, e-sign, on-premises releases, Section 8):
-  `docs/spotlight/Charlotte_Spotlight_Agreement_v5_DRAFT_for_attorney.docx`.
+- **THE OFFER = the Aug 21 price board** (Charlotte_Spotlight_Invoice_Template —
+  Brandon, 9/29: "You have the pricing wrong"). Ten spots, two tiers, **paid in
+  full at booking**, one founding season: Feature 1–4 = $1,750 / $1,500 / $1,500
+  / $1,200; Community 5–10 = $1,000 / $950 / $950 / $950 / $750 / $750. **NOT**
+  the Sep 19 script's $997 = $250 + $747 (retired everywhere 9/29).
+- One source of truth: `lib/spotlight-offer.ts` (defaults, tier scope verbatim
+  from the invoice template, payment-terms block, tier-specific floor lines);
+  overrides in Spotlight → Settings (price board, feature spots, floor date).
+  Read by invoices, the public board, the agreement, and EDITH (`{{spot_price}}`,
+  `{{floor_line}}` in 5-1).
+- **Invoices:** one per spot, at the board price, title/scope/terms verbatim
+  from the invoice template; needs the spot number first. Stored in
+  `deposit_invoice_id` (legacy column name). Paying it = member = EDITH
+  deposit.paid + balance.paid (so 6-3 always takes its "all set" variant).
+- **Agreement = the Aug 21 template, verbatim** (`DEFAULT_AGREEMENT`): two tiers,
+  paid in full, Oct 10 2026 season floor (Community: roll or refund; Feature:
+  keep video + promoted week, segment rolls), license not ownership. Tokens
+  {{business}} {{contact}} {{emailPhone}} {{spot}} {{tier}} {{fee}} {{filmDate}}.
+  A stored copy of the short-lived "v5" ($997) text is replaced automatically.
+  Still locked until the NC attorney pass + "attorney reviewed" is ticked.
+  Attorney copy with open questions:
+  `docs/spotlight/Charlotte_Spotlight_Agreement_Aug21_for_attorney.docx`.
+- **Open question for Brandon:** the season dates. The floor is Oct 10, 2026
+  (11 days from 9/29) and EDITH's copy still says "monthly series" / "next board
+  opens next month" in places — the founding-season model and the monthly copy
+  disagree; not pricing, so left as written pending his call.
+- **Stripe:** the webhook now also marks OS invoices paid (metadata.token) and
+  runs the Spotlight member hook — not just the redirect. Don't create a $750
+  Stripe *Payment Link* for a Spotlight spot: the webhook treats a $750
+  payment-link purchase as the Authority Diagnostic. Use OS invoices.
 
 **How it works:** prospect → contacted → call booked → **member** (deposit
 paid; that auto-emails the pre-shoot questions and starts EDITH's SEQ6) →

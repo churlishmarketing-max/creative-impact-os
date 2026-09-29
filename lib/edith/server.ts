@@ -8,6 +8,7 @@ import { getAdminClient } from "@/lib/supabase/admin";
 import { sendEmail, emailShell, esc } from "@/lib/email";
 import { buildIcs } from "@/lib/ics";
 import { CONTENT } from "./content.generated";
+import { DEFAULT_PRICES, DEFAULT_FEATURE_SPOTS, DEFAULT_FLOOR_DATE, money, spotPrice, spotTier, floorLine } from "@/lib/spotlight-offer";
 import {
   emit, runDue, contactChanged, retryHeld, settle, etParts,
   type Config, type Contact, type Env, type Store, type StepRow, type Enrollment,
@@ -84,10 +85,22 @@ function firstNameOf(row: Row): string {
   return f && f === f.toLowerCase() ? f.charAt(0).toUpperCase() + f.slice(1) : f;
 }
 
-export function toContact(row: Row, links: { deposit: string | null; balance: string | null } = { deposit: null, balance: null }): Contact {
+// The price board (Spotlight settings) — what {{spot_price}} and {{floor_line}} read.
+export type Offer = { prices: number[]; featureSpots: number; floorDate: string };
+const DEFAULT_OFFER: Offer = { prices: DEFAULT_PRICES, featureSpots: DEFAULT_FEATURE_SPOTS, floorDate: DEFAULT_FLOOR_DATE };
+export async function getOffer(admin: Admin, uid: string): Promise<Offer> {
+  const sp = ((await loadOps(admin, uid)).__spotlight || {}) as Partial<Offer>;
+  return { prices: Array.isArray(sp.prices) && sp.prices.length ? sp.prices : DEFAULT_PRICES, featureSpots: Number(sp.featureSpots ?? DEFAULT_FEATURE_SPOTS), floorDate: sp.floorDate || DEFAULT_FLOOR_DATE };
+}
+
+export function toContact(row: Row, links: { deposit: string | null; balance: string | null } = { deposit: null, balance: null }, offer: Offer = DEFAULT_OFFER): Contact {
   const f: Record<string, string | null> = {};
   for (const [k, col] of Object.entries(COLS)) f[k] = row[col] == null || row[col] === "" ? null : String(row[col]);
   f.first_name = firstNameOf(row) || null;
+  const n = Number(row.spot_number);
+  const price = n >= 1 ? spotPrice(offer.prices, n) : null;
+  f.spot_price = price ? money(price) : null;
+  f.floor_line = n >= 1 ? floorLine(spotTier(n, offer.featureSpots), offer.floorDate) : null;
   f.deposit_link = links.deposit;
   f.balance_link = links.balance;
   return {
@@ -98,7 +111,7 @@ export function toContact(row: Row, links: { deposit: string | null; balance: st
 
 /* ------------------------------------------------------------------ store */
 
-export function supabaseStore(admin: Admin, uid: string, cfg?: Config): Store {
+export function supabaseStore(admin: Admin, uid: string, cfg?: Config, offer: Offer = DEFAULT_OFFER): Store {
   const must = (r: { error: { message: string } | null }) => { if (r.error) throw new Error(r.error.message); };
   const enr = (r: Row): Enrollment => ({ id: r.id, contact_id: r.prospect_id, seq: r.seq, status: r.status, enrolled_at: r.enrolled_at, ended_at: r.ended_at, end_reason: r.end_reason, context: r.context || {} });
   const step = (r: Row): StepRow => ({ id: r.id, enrollment_id: r.enrollment_id, contact_id: r.prospect_id, seq: r.seq, step: r.step, template_id: r.template_id, kind: r.kind, status: r.status, due_at: r.due_at, anchor: r.anchor, hold_reason: r.hold_reason, to_email: r.to_email, subject: r.subject, body: r.body, sent_at: r.sent_at, error: r.error, meta: r.meta || {} });
@@ -120,11 +133,11 @@ export function supabaseStore(admin: Admin, uid: string, cfg?: Config): Store {
       }
       if (!links.deposit && cfg?.deposit_pay_link) links.deposit = cfg.deposit_pay_link;
       if (!links.balance && cfg?.balance_pay_link) links.balance = cfg.balance_pay_link;
-      return toContact(data, links);
+      return toContact(data, links, offer);
     },
     async listContacts() {
       const { data } = await admin.from("spotlight_prospects").select("*").eq("user_id", uid);
-      return (data || []).map((r) => toContact(r));
+      return (data || []).map((r) => toContact(r, undefined, offer));
     },
     async updateContact(id, p) {
       const row: Record<string, unknown> = {};
@@ -222,9 +235,9 @@ export async function spotsRemaining(admin: Admin, uid: string) {
 }
 
 export async function edithEnv(admin: Admin, uid: string): Promise<Env> {
-  const cfg = await getEdithConfig(admin, uid);
+  const [cfg, offer] = await Promise.all([getEdithConfig(admin, uid), getOffer(admin, uid)]);
   return {
-    store: supabaseStore(admin, uid, cfg),
+    store: supabaseStore(admin, uid, cfg, offer),
     content: CONTENT,
     cfg,
     now: () => new Date(),

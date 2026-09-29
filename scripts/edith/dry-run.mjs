@@ -24,7 +24,7 @@ const people = [
   contact("dana", "Dana", "Queen City Roasters", "NoDa", { specific_detail: "Three hundred Google reviews and half of them mention the Saturday cupping." }),
   contact("marcus", "Marcus", "Hale Plumbing", "Plaza Midwood"),
   contact("priya", "Priya", "Nair Family Dental", "Ballantyne"),
-  contact("tom", "Tom", "Reyes Auto Care", "South End", { deposit_link: "https://os.example/pay/dep-reyes" }),
+  contact("tom", "Tom", "Reyes Auto Care", "South End", { deposit_link: "https://os.example/pay/inv-reyes", spot_price: "$950", floor_line: "if fewer than three businesses are filmed by October 10, 2026, the season episode won't assemble — and you choose: roll your spot to the next season at the same position and price, or every dollar back within five business days." }),
   contact("alicia", "Alicia", "Grant & Co. Florals", "Dilworth", { balance_link: "https://os.example/pay/bal-grant" }),
 ];
 people[0].tags = ["cold_prospect"];

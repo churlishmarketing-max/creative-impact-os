@@ -601,7 +601,7 @@ export const CONTENT: EdithContent = {
       "trigger": "Day 6",
       "subject": "{{spots_remaining}} spots left on the board",
       "preview_text": "Spots assign at payment. Nobody holds one.",
-      "body": "{{first_name}} — straight update: {{spots_remaining}} of the ten spots are still open for this episode.\n\nSpots assign the moment a deposit clears, and Emmanuel doesn't hold them — for anyone. When this board fills, the next one opens next month, and the businesses on it get filmed then.\n\nWhat would need to be true for you to grab fifteen minutes this week? {{booking_link}}",
+      "body": "{{first_name}} — straight update: {{spots_remaining}} of the ten spots are still open for this episode.\n\nSpots assign the moment payment clears, and Emmanuel doesn't hold them — for anyone. When this board fills, the next one opens next month, and the businesses on it get filmed then.\n\nWhat would need to be true for you to grab fifteen minutes this week? {{booking_link}}",
       "cta": "Book the fit call",
       "internal_note": "{{spots_remaining}} pulls live from the board. If 0, the engine sends 2-4-full instead.",
       "merge_fields_used": [
@@ -738,13 +738,15 @@ export const CONTENT: EdithContent = {
       "trigger": "2 hours after call end",
       "subject": "Recap from today — Spot {{spot_number}}",
       "preview_text": "What Emmanuel recommended, in writing.",
-      "body": "{{first_name}} — good talking with Emmanuel today. Here's the recap so you're not working from memory.\n\nHis read: {{business_name}} is a Spot {{spot_number}}. What that includes — your own film, your commercial cut, your place in the episode, the season promoted across the metro, and a walk-through of the numbers afterward.\n\nThe spot is $997: a $250 deposit claims it, the balance on film day. Spots assign at payment and nobody holds one — if it's gone when you're ready, the next open position is the offer.\n\nAnd the safety line: if the episode doesn't reach its filming floor, you choose — roll to the next season at the same spot and price, or every dollar back. It's in the agreement.\n\nDeposit here when you're ready: {{deposit_link}}",
-      "cta": "Pay the deposit",
-      "internal_note": "{{spot_number}} from Emmanuel's call outcome. If he recommended \"not a fit,\" Sequence 5b fires instead.",
+      "body": "{{first_name}} — good talking with Emmanuel today. Here's the recap so you're not working from memory.\n\nHis read: {{business_name}} is a Spot {{spot_number}}. What that includes — your own film, your commercial cut, your place in the episode, the season promoted across the metro, and a walk-through of the numbers afterward.\n\nSpot {{spot_number}} is {{spot_price}}, paid in full at booking. Spots assign at payment and nobody holds one — if it's gone when you're ready, the next open position is the offer.\n\nAnd the safety line: {{floor_line}} It's in the agreement.\n\nPay here when you're ready: {{deposit_link}}",
+      "cta": "Pay for the spot",
+      "internal_note": "{{spot_number}} from Emmanuel's call outcome; {{spot_price}} and {{floor_line}} come from the price board for that spot (the floor differs by tier — Agreement §6). If he recommended \"not a fit,\" Sequence 5b fires instead.",
       "merge_fields_used": [
         "spot_number",
         "first_name",
         "business_name",
+        "spot_price",
+        "floor_line",
         "deposit_link"
       ]
     },
@@ -755,7 +757,7 @@ export const CONTENT: EdithContent = {
       "subject": "What would need to be true?",
       "preview_text": "One honest question.",
       "body": "{{first_name}} — it seems like you're weighing whether the Spotlight is the right spend for {{business_name}} right now.\n\nSo — what would need to be true for it to make sense?\n\nIf the hesitation is \"that's a lot for a short segment,\" the reframe Emmanuel would give you: you're not buying seconds. You're buying position in a season the city sees, a produced commercial you own and run as your own ad, and someone showing you afterward what the attention did.\n\nIf the hesitation is something else, reply and tell me — that's what I'm here for.\n\n{{deposit_link}}",
-      "cta": "Reply (or deposit)",
+      "cta": "Reply (or pay)",
       "internal_note": "",
       "merge_fields_used": [
         "first_name",
@@ -769,7 +771,7 @@ export const CONTENT: EdithContent = {
       "trigger": "Day 5",
       "subject": "Different direction?",
       "preview_text": "Either answer helps us plan the board.",
-      "body": "{{first_name}} — have you decided to go a different direction on Spot {{spot_number}}?\n\nEither way, I'd like to know so Emmanuel can plan the board. If it's a yes, the deposit link still works: {{deposit_link}}\n\nIf it's a no, thanks for the time — and I'll let you know when the next board opens.",
+      "body": "{{first_name}} — have you decided to go a different direction on Spot {{spot_number}}?\n\nEither way, I'd like to know so Emmanuel can plan the board. If it's a yes, the payment link still works: {{deposit_link}}\n\nIf it's a no, thanks for the time — and I'll let you know when the next board opens.",
       "cta": "Reply",
       "internal_note": "No reply = tag `nurture`, spot released to the board. Any reply = Emmanuel.",
       "merge_fields_used": [
@@ -800,7 +802,7 @@ export const CONTENT: EdithContent = {
       "trigger": "Immediately on deposit",
       "subject": "Spot {{spot_number}} is yours — the whole timeline",
       "preview_text": "Film date, delivery, episode, promotion, numbers.",
-      "body": "{{first_name}} — welcome to the season. Spot {{spot_number}} is yours; {{business_name}} is on the board.\n\nHere's the whole timeline in one place:\n- Film day: {{film_date}} — the $747 balance is due that day\n- Your cut delivered: within a few days of filming. You get five days for one round of tweaks\n- Episode {{episode_number}} releases, then the season promotion runs for a month\n- Your numbers: I'll send them mid-flight, and Emmanuel walks you through the full picture afterward\n\nNext thing you'll get from me: the prep note a few days before film day.",
+      "body": "{{first_name}} — welcome to the season. Spot {{spot_number}} is yours; {{business_name}} is on the board.\n\nHere's the whole timeline in one place:\n- Film day: {{film_date}}\n- Your cut delivered: within a few days of filming. You get five days for one round of tweaks\n- Episode {{episode_number}} releases, then the season promotion runs for a month\n- Your numbers: I'll send them mid-flight, and Emmanuel walks you through the full picture afterward\n\nNext thing you'll get from me: the prep note a few days before film day.",
       "cta": "None",
       "internal_note": "Attach the agreement countersigned copy. film_date from Emmanuel's close notes.",
       "merge_fields_used": [
@@ -831,10 +833,10 @@ export const CONTENT: EdithContent = {
       "title": "Day-before",
       "trigger": "1 day before film_date",
       "subject": "Tomorrow — balance link and one reminder",
-      "preview_text": "$747 due on film day. Team heads-up done?",
-      "body": "{{first_name}} — tomorrow's the day.\n\nThe $747 balance is due on film day; here's the link so it's one less thing: {{balance_link}}\n\nOne reminder: tell the team a camera's coming. It goes better when nobody's surprised.",
+      "preview_text": "Balance due on film day. Team heads-up done?",
+      "body": "{{first_name}} — tomorrow's the day.\n\nYour balance is due on film day; here's the link so it's one less thing: {{balance_link}}\n\nOne reminder: tell the team a camera's coming. It goes better when nobody's surprised.",
       "cta": "Pay the balance",
-      "internal_note": "If balance.paid was already seen, the engine sends 6-3-paid instead.",
+      "internal_note": "If balance.paid was already seen, the engine sends 6-3-paid instead. Spots are paid in full at booking, so every client has balance.paid — 6-3-paid is the one that goes.",
       "merge_fields_used": [
         "first_name",
         "balance_link"
@@ -962,7 +964,7 @@ export const CONTENT: EdithContent = {
     }
   },
   "signature": "EDITH\nCreative Impact · Emmanuel's assistant — the AI kind. A human reads every reply.\nhello@creativeimpactmedia.co",
-  "source_hash": "b5d880ae08c6811f",
+  "source_hash": "6024d7453e95b16c",
   "warnings": [
     "2-1: 2 links in the body (gate: one CTA)",
     "2-3: 2 links in the body (gate: one CTA)",

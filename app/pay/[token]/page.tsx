@@ -110,7 +110,7 @@ export default function PayPage() {
             </div>
           </div>
 
-          {inv.notes ? <div style={{ fontSize: 12, color: "#8ea3c4", lineHeight: 1.5, marginBottom: 18 }}>{inv.notes}</div> : null}
+          {inv.notes ? <div style={{ fontSize: 12, color: "#8ea3c4", lineHeight: 1.5, marginBottom: 18, whiteSpace: "pre-wrap" }}>{inv.notes}</div> : null}
           {inv.due_date && !paid ? <div style={{ fontSize: 11, color: "#5c7096", marginBottom: 14 }}>Due {inv.due_date}</div> : null}
 
           {paid ? (

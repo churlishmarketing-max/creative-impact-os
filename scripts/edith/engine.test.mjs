@@ -139,7 +139,7 @@ test("a reply ends SEQ1 and cancels every pending step", async () => {
 });
 
 test("a booking ends SEQ2; a deposit ends SEQ5", async () => {
-  const w = world([{ id: "a" }, { id: "b", fields: { deposit_link: "https://os.example/pay/1" } }]);
+  const w = world([{ id: "a" }, { id: "b", fields: { deposit_link: "https://os.example/pay/1", spot_price: "$950", floor_line: "if the floor isn't met, roll or refund." } }]);
   await emit(w.env, { contact_id: "a", type: "lead.form_submitted", payload: { q5_answer: "Q." } });
   w.clock = new Date(w.clock.getTime() + 60 * 60e3);
   await emit(w.env, { contact_id: "a", type: "call.booked", payload: { call_time: ET(2026, 10, 9, 10).toISOString() } });
@@ -213,7 +213,7 @@ test("one email per contact per 24h, except SEQ3/SEQ4 reminders", async () => {
   await w.run(1.1);
   const [s1, s2] = ["2-1", "2-2"].map((k) => w.mem.steps.find((s) => s.step === k));
   assert.ok(new Date(s2.sent_at) - new Date(s1.sent_at) >= 86400e3, "2-2 waited out the 24 hours");
-  const w2 = world([{ id: "b", fields: { deposit_link: "https://os.example/pay/1" } }]);
+  const w2 = world([{ id: "b", fields: { deposit_link: "https://os.example/pay/1", spot_price: "$950", floor_line: "if the floor isn't met, roll or refund." } }]);
   w2.clock = ET(2026, 10, 6, 9);
   await emit(w2.env, { contact_id: "b", type: "call.booked", payload: { call_time: ET(2026, 10, 6, 10, 30).toISOString() } });
   await w2.at(ET(2026, 10, 6, 10, 45));

@@ -4,10 +4,11 @@
 // Agreement Template, the Invoice Template, and the Call Script + Emails. The
 // email copy below is the Sep 19 script's, verbatim except where noted.
 //
-// Everything money- or contract-shaped reads from the __spotlight config in
-// app_state.ops, NEVER from constants here, because the source documents
-// disagree on the offer (Aug 21: tiered $750-$1,750 paid in full; Sep 19: flat
-// $997 with $250 deposit). Changing the offer is a settings edit, not a deploy.
+// THE OFFER (confirmed by Brandon 2026-09-29): the Aug 21 price board — ten
+// spots, two tiers (Feature 1–4, Community 5–10), $1,750 down to $750, PAID IN
+// FULL at booking, one founding season with a floor. The Sep 19 script's flat
+// $997 = $250 + $747 is NOT the offer. Prices, tiers, and the floor date live
+// in lib/spotlight-offer.ts (defaults) and the __spotlight config (overrides).
 //
 // Guardrails carried over from the documents:
 //  - No invented proof: any merge field we can't fill stays as a visible
@@ -19,6 +20,7 @@
 import { getAdminClient } from "@/lib/supabase/admin";
 import { sendEmail, personaFrom } from "@/lib/email";
 import { edithEmit, edithEmitOnce } from "@/lib/edith/server";
+import { DEFAULT_PRICES, DEFAULT_FEATURE_SPOTS, DEFAULT_FLOOR_DATE, SCOPE, paymentTerms, spotPrice, spotTier, spotTitle } from "@/lib/spotlight-offer";
 
 type Admin = NonNullable<ReturnType<typeof getAdminClient>>;
 const SITE = process.env.NEXT_PUBLIC_SITE_URL || "https://os.creativeimpactmedia.co";
@@ -76,11 +78,10 @@ export const VERTICALS: Record<string, { label: string; gap: string; season: str
 // --- Config (app_state.ops.__spotlight) --------------------------------------
 // Defaults are the NEWEST document (Sep 19 call script). The Aug 21 agreement
 // and invoice templates describe a different offer — see HANDOFF.md.
-// v5, Sep 29 2026: rewritten to the offer actually being sold (Sep 19 script +
-// EDITH's emails) — $997 = deposit at booking + balance on film day, one monthly
-// episode, the client OWNS their commercial, and the refund-or-roll floor that
-// EDITH's 5-1 promises is "in the agreement". Still DRAFT: needs the NC
-// attorney pass before first use (attorneyReviewed stays false until then).
+// The Aug 21 Agreement Template (Churlish Media for Emmanuel Impressions),
+// verbatim with its blanks as {{tokens}} the OS fills per client. It matches the
+// price board: two tiers, paid in full, the Oct 10 season floor, and a license
+// (not ownership). REQUIRED BEFORE FIRST USE: the NC attorney pass.
 export const DEFAULT_AGREEMENT = `CHARLOTTE SPOTLIGHT VIDEO SERIES AGREEMENT
 
 This Agreement ("the Agreement") is entered into between Emmanuel Impressions ("the Company") and the client specified below ("the Client"). It contains the entire understanding between the Company and the Client. All prior agreements, understandings, and representations, whether oral or written, are superseded by this Agreement. This Agreement may not be modified or amended except in writing executed by both parties.
@@ -89,47 +90,52 @@ This Agreement ("the Agreement") is entered into between Emmanuel Impressions ("
 Client business name: {{business}}
 Client contact name: {{contact}}
 Email / phone: {{emailPhone}}
-Spot: {{spot}} on the {{month}} Charlotte Spotlight episode
-Fee: {{fee}}, paid as a {{deposit}} deposit at booking and a {{balance}} balance on the film date
-Film date: {{filmDate}}
+Spot number (1–10): {{spot}}      Tier (Feature / Community): {{tier}}
+Total fee (per the published board): {{fee}}      Film date (set at close): {{filmDate}}
 
 2. SCOPE OF SERVICES
-For the fee, the Company will provide: (a) on-site filming at the Client's business on the film date, including a conversation with the owner or a representative; (b) one fully produced commercial featuring the Client's business, delivered as a standalone video file (the "Client Commercial"); (c) a segment featuring the Client in the Charlotte Spotlight episode for {{month}} (the "Episode"), which will feature up to ten (10) businesses; (d) publication of the Episode as a YouTube video and a blog post, and promotion of the Episode as a paid advertisement on Meta platforms (Facebook and Instagram) for approximately one (1) month after publication, media cost included; and (e) a mid-promotion reach update and one (1) debrief session reviewing the promotion's delivered metrics.
-Additional cuts, longer pieces, and other services are not included and will be quoted separately.
-Promotion metrics (including reach) depend on platform delivery and are not guaranteed. The Company does not guarantee any audience, lead, sales, or other business outcome; its promotion obligations are defined by the placements and media budget it commits.
+Feature spots (1–4) include: (a) a dedicated video of approximately one minute, produced from on-site filming including an owner interview, delivered as a standalone commercial; (b) a segment of approximately 20–25 seconds featuring the Client, included in the season episode; (c) one promoted-distribution week for the Client's dedicated video on Meta platforms, media cost included; (d) inclusion in the season's promoted-distribution month; and (e) one post-season debrief session reviewing the promotion's delivered metrics.
+
+Community spots (5–10) include: (a) a produced segment of approximately 15–20 seconds featuring the Client (no interview), included in the season episode and delivered as a standalone cut; (b) inclusion in the season's promoted-distribution month; and (c) one post-season debrief session reviewing the promotion's delivered metrics.
+
+The season episode will include up to ten (10) businesses. Promotion metrics (including reach) depend on platform delivery and are not guaranteed; the Company's promotion obligations are defined by the media budgets it commits, not by any audience outcome.
 
 3. PAYMENT
-A deposit of {{deposit}} is due at booking. The Client's spot is assigned when the deposit is received; spots are not held without a deposit, and unassigned spots remain available to other businesses. The balance of {{balance}} is due on the film date. The Company may withhold delivery of the Client Commercial until the fee is paid in full. Refunds are governed exclusively by Section 6.
+The full fee is due at booking. The Client's spot is assigned upon payment in full; unpaid spots remain available to other businesses. Refund terms are governed exclusively by Section 6.
 
 4. SCHEDULING & FILMING
-The film date is scheduled by mutual agreement and confirmed in writing. The Client will make the filming location and the owner or a representative available on the film date. If the Client reschedules within 48 hours of the scheduled film date more than once, the Company may charge a rescheduling fee of $150.
+The Client's film date is scheduled at booking, at a time mutually agreed. The Client will make the filming location and, for Feature spots, the interviewed owner or representative available on the scheduled date. If the Client reschedules within 48 hours of the scheduled film date more than once, the Company may charge a rescheduling fee of $150.
 
 5. APPROVAL & REVISIONS
-The Client Commercial will be delivered for approval before the Episode is assembled. The Client is entitled to one (1) round of revisions, requested within five (5) days of delivery, limited to factual corrections, requested trims, and on-screen text changes. If no revision is requested within five (5) days of delivery, the Client Commercial is deemed approved. After the Episode is assembled, revisions apply to the Client Commercial only; the published Episode is final. Creative direction, structure, and final cut remain with the Company.
+The Client's standalone cut(s) will be delivered for approval before episode assembly. The Client is entitled to one (1) round of revisions per video, requested within five (5) days of delivery, limited to factual corrections, requested trims, and on-screen text changes. If no revision is requested within five (5) days of delivery, the cut is deemed approved. After the episode is assembled, revisions apply to standalone cuts only; the published episode is final. Creative direction, structure, and final cut remain with the Company.
 
-6. EPISODE FLOOR, ROLLOVER & REFUNDS
-If fewer than three (3) businesses have been filmed for the Episode and the Company therefore does not publish it, the Client may elect in writing either (a) to roll the Client's spot to the next Charlotte Spotlight episode at the same spot and price, with all amounts paid credited in full, or (b) to receive a full refund of all amounts paid, issued within five (5) business days of the Client's written election. Except as provided in this Section, amounts paid are non-refundable once the Client's film date is scheduled. Before the film date, the Client may transfer the spot to another business with written notice to the Company.
+6. SEASON FLOOR, ROLLOVER & REFUNDS
+Filming is scheduled per Client at booking. If fewer than three (3) businesses have been filmed by October 10, 2026, the season-one episode will not be assembled, and: (a) Community-spot Clients may elect in writing either to roll their paid spot to the next season at the same position and price, or to receive a full refund within five (5) business days of election; (b) Feature-spot Clients retain their delivered dedicated video and promoted week, and their episode segment will be included in the next season's episode at no additional charge. Once the Client's film date is calendared, payments are otherwise non-refundable. Before the Client's film date, the Client may transfer their spot to another business with written notice to the Company.
 
-7. OWNERSHIP & LICENSE
-Upon payment of the fee in full, the Company assigns to the Client the copyright in the final Client Commercial as delivered, so the Client owns it and may use it for any purpose and in any channel, including paid advertising, with no additional fee. Music, stock footage, and other third-party assets in the Client Commercial are licensed, not owned; the Company warrants that they are licensed for the Client's commercial use of the Client Commercial, including paid advertising. The Company retains all rights in the Episode, in all raw and unused footage, and in all other businesses' segments. The Client grants the Company a perpetual, non-exclusive, royalty-free license to use the Client Commercial and the Client's segment in the Episode, the Charlotte Spotlight series, and the Company's marketing and portfolio.
+7. COPYRIGHT & LICENSE
+The Company retains all copyright and ownership of the videos produced under this Agreement, including the episode and all raw footage. Upon payment in full, the Company grants the Client a perpetual, non-exclusive, royalty-free license to use the Client's produced video(s) — including, for Feature spots, both the dedicated video and the episode segment's standalone cut — for the Client's own business marketing across any channel, including paid advertising. No additional fee applies to the Client's use of their own video(s). All music and third-party assets in the Client's video(s) are licensed for this use. This license does not extend to the full episode or to other businesses' segments, and may not be sold or transferred to a third party.
 
 8. RESULTS REFERENCE & BOARD DISPLAY
-The Client grants the Company permission to display the Client's business name on the Charlotte Spotlight board once the spot is assigned, and to reference the Client's feature and its campaign metrics in the Company's marketing and case studies. The Client may opt out of either use with written notice.
+The Client grants the Company permission to display the Client's business name on the season board upon booking, and to reference the Client's feature and its campaign metrics in the Company's marketing and case studies. The Client may opt out of either use with written notice.
 
 9. INDEMNIFICATION
-The Client is responsible for the accuracy of all claims, statements, and materials about the Client's business supplied for or appearing in the Client Commercial or the Episode, and shall indemnify and hold harmless the Company from third-party claims arising from them. The Company is responsible for its production, its licensing of music and stock assets, and delivery of the Services as described in this Agreement.
+The Client is responsible for the accuracy of all claims, statements, and materials about the Client's business supplied for or appearing in the Client's video(s), and shall indemnify and hold harmless the Company from third-party claims arising from them. The Company is responsible for its production, its licensing of music and stock assets, and delivery of the Services as described in this Agreement.
 
 10. GENERAL TERMS
 This Agreement is governed by and construed in accordance with the laws of the State of North Carolina, and any disputes arising out of it shall be resolved in the jurisdiction of the State of North Carolina. If any provision is held unenforceable, the remainder of the Agreement remains in effect. This Agreement may be executed electronically.
 
 11. SIGNATURES
 By signing, the Client affirms that they have read, understood, and agreed to the terms contained herein. Typing your name below and accepting constitutes your electronic signature.`;
-// The Aug 21 two-tier template used {{tier}}, which nothing can fill — a stored
-// template that still has it is that old text, so the current one replaces it.
-const isLegacyAgreement = (t: unknown) => typeof t === "string" && t.includes("{{tier}}");
+// A stored template from the short-lived Sep 29 "v5" ($997 deposit model) is
+// replaced by the real one automatically.
+const isLegacyAgreement = (t: unknown) => typeof t === "string" && t.includes("{{deposit}} deposit at booking");
 
 export type SpotlightConfig = {
-  price: number; deposit: number; balance: number; perMonth: number;
+  prices: number[];       // the price board, spot 1..10 (paid in full at booking)
+  featureSpots: number;   // spots 1..N are Feature, the rest Community
+  floorDate: string;      // "October 10, 2026" — the season floor (Agreement §6)
+  perMonth: number;       // number of spots on the board (= prices.length)
+  price?: number; deposit?: number; balance?: number; // legacy ($997 model) — unused
   month: string;          // the slot month the sequence sells ("October"); roll forward each month
   episodeDate: string;    // spoken form, e.g. "October 1"
   episodeUrl: string;     // Email 6 + the examples objection, once it exists
@@ -141,7 +147,7 @@ export type SpotlightConfig = {
   agreementTemplate: string;
 };
 export const DEFAULT_CONFIG: SpotlightConfig = {
-  price: 997, deposit: 250, balance: 747, perMonth: 10,
+  prices: DEFAULT_PRICES, featureSpots: DEFAULT_FEATURE_SPOTS, floorDate: DEFAULT_FLOOR_DATE, perMonth: DEFAULT_PRICES.length,
   month: "October", episodeDate: "October 1", episodeUrl: "", crewReelUrl: "",
   caller: "Emmanuel", callerPhone: "",
   autoSendQuestions: true, attorneyReviewed: false,
@@ -166,6 +172,7 @@ export async function saveConfig(admin: Admin, userId: string, patch: Partial<Sp
 
 // --- Merge fields --------------------------------------------------------------
 const money = (n: number) => "$" + Math.round(Number(n) || 0).toLocaleString("en-US");
+const spotN = (p: Prospect) => { const n = Number((p as Prospect & { spot_number?: number | null }).spot_number); return n >= 1 ? n : null; };
 const firstName = (p: Prospect) => (p.owner_name || "").trim().split(/\s+/)[0] || "";
 const withArticle = (w: string) => (/^[aeiou]/i.test(w) ? "an " : "a ") + w;
 
@@ -186,7 +193,9 @@ export function mergeFields(p: Prospect, cfg: SpotlightConfig): Record<string, s
     episodeDate: cfg.episodeDate || "[episode date]",
     episodeUrl: cfg.episodeUrl || "[episode link]",
     crewReelUrl: cfg.crewReelUrl || "[crew reel link]",
-    price: money(cfg.price), deposit: money(cfg.deposit), balance: money(cfg.balance),
+    // The spot's board price, once a spot number is logged (paid in full).
+    spot: spotN(p) ? `${spotTier(spotN(p)!, cfg.featureSpots)} Spot ${spotN(p)}` : "[spot — set the spot number]",
+    fee: spotN(p) && spotPrice(cfg.prices, spotN(p)!) ? money(spotPrice(cfg.prices, spotN(p)!)!) : "[spot price — set the spot number]",
     caller: cfg.caller || "Emmanuel",
     callerPhone: cfg.callerPhone || "[phone]",
     ltv: "[LTV — from the Benchmarks tab; say 'industry average']",
@@ -229,7 +238,7 @@ Creative Impact · Charlotte`,
 
 Here's why this one's different: ten businesses share the shoot week, so nobody pays the solo price. You get your own cut, fully produced, yours to run on Meta, YouTube, your site, a billboard on 485 if you want.
 
-It usually runs about a thousand dollars — {{deposit}} holds a slot. Two to four days from the form to filming. No retainer. Nothing to renew.
+Every price is on the public board — nothing hidden, nothing to negotiate. No retainer. Nothing to renew.
 
 Want the {{vertical}} slot for {{month}}? Reply "{{month}}" and I'll call you to hold it.
 
@@ -251,7 +260,7 @@ Have you given up on getting {{business}} in front of Charlotte this year?
     subject: "The math on one new {{customer}}",
     body: `One new {{customer}} is worth roughly {{ltv}} to a {{vertical}} business over the life of the relationship. Industry average — not your books — but it's the right order of magnitude.
 
-The commercial is about a thousand dollars — less than one of them. And it doesn't stop running after one.
+A spot on the board costs less than one of them. And the commercial doesn't stop running after one.
 
 That's the whole argument. Not 'exposure,' not 'brand awareness' — one customer who saw you before they called, and then another one.
 
@@ -284,7 +293,7 @@ Still no? Reply "no." Worth a look? Reply "next ten."
   {
     key: "postcall", label: "Post-call — after a pivot", when: "Within the hour of a live conversation", kind: "warm",
     subject: "{{business}} — what we covered",
-    body: `Good talking, {{firstName}}. The whole thing in three lines: ten Charlotte businesses a month, you own the commercial forever, filmed two to four days from the form. {{price}} — {{deposit}} holds the slot, {{balance}} at filming.
+    body: `Good talking, {{firstName}}. The whole thing in three lines: up to ten Charlotte businesses in one season the city sees, a produced commercial you can run anywhere, forever, and a debrief on the real numbers. {{spot}} is {{fee}}, paid in full at booking — it's yours the moment payment clears.
 
 {{packageLine}}
 
@@ -301,7 +310,7 @@ Our fifteen minutes: {{callTime}}. I'm holding the {{vertical}} slot until then.
 
 What happens next: the team calls you {{callDay}} to lock the filming date — two to four days out, {{shootPref}} as you asked. Have three things ready: the story of how you started, the job you're proudest of, and the one thing customers say about you.
 
-Deposit received: {{deposit}}. Balance at filming: {{balance}}.
+Payment received: {{fee}}, in full. Your spot is off the board with your name on it.
 
 — {{caller}}`,
   },
@@ -479,40 +488,46 @@ export async function ensureClient(admin: Admin, p: Prospect) {
   return id;
 }
 
-export async function createInvoice(admin: Admin, p: Prospect, cfg: SpotlightConfig, kind: "deposit" | "balance") {
-  const amount = kind === "deposit" ? cfg.deposit : cfg.balance;
-  if (!(amount > 0)) return { ok: false as const, error: `No ${kind} amount set in Spotlight settings.` };
+// Paid in full at booking: ONE invoice per spot, at the board price. (It's
+// stored in deposit_invoice_id — the column name predates the price board.)
+export async function createInvoice(admin: Admin, p: Prospect, cfg: SpotlightConfig) {
+  const n = spotN(p);
+  if (!n) return { ok: false as const, error: "Set their spot number first (log the call outcome, or the Spot # field in the EDITH section) — the price comes from the board." };
+  const amount = spotPrice(cfg.prices, n);
+  if (!amount) return { ok: false as const, error: `Spot ${n} has no price on the board (Spotlight → Settings).` };
+  const tier = spotTier(n, cfg.featureSpots);
   const clientId = await ensureClient(admin, p);
   const { count } = await admin.from("invoices").select("id", { count: "exact", head: true }).eq("user_id", p.user_id);
   const number = "INV-" + String((count || 0) + 1).padStart(4, "0");
-  const title = `Charlotte Spotlight — ${p.business} — ${kind === "deposit" ? "slot deposit" : "balance at filming"}`;
-  const desc = kind === "deposit" ? `Charlotte Spotlight slot deposit — holds the ${p.slot_month || cfg.month} slot` : `Charlotte Spotlight — balance due at filming`;
+  const title = spotTitle(n, cfg.featureSpots);
+  const scope = [`${title.toUpperCase()} · FOUNDING SEASON`, "Your position on the season board, and everything that comes with it:", ...SCOPE[tier].map((x) => "– " + x), `TOTAL: ${money(amount)} · Due in full at booking · Your spot is assigned the moment payment clears`];
   const { data, error } = await admin.from("invoices").insert({
-    user_id: p.user_id, client_id: clientId, number, title,
-    items: [{ desc, qty: 1, unit_cents: Math.round(amount * 100) }],
+    user_id: p.user_id, client_id: clientId, number, title: `${title} — ${p.business}`,
+    items: [{ desc: `${title} · Founding Season`, qty: 1, unit_cents: Math.round(amount * 100) }],
     amount_cents: Math.round(amount * 100), status: "sent",
-    notes: `Charlotte Spotlight ${kind}. Total slot price ${money(cfg.price)}.`,
+    notes: scope.join("\n") + "\n\n" + paymentTerms(cfg.floorDate),
   }).select("id,token").maybeSingle();
   if (error || !data) return { ok: false as const, error: error?.message || "invoice failed" };
-  await admin.from("spotlight_prospects").update(kind === "deposit" ? { deposit_invoice_id: data.id } : { balance_invoice_id: data.id }).eq("id", p.id);
+  await admin.from("spotlight_prospects").update({ deposit_invoice_id: data.id }).eq("id", p.id);
   return { ok: true as const, number, link: `${SITE}/pay/${data.token}` };
 }
 
 export function agreementText(p: Prospect, cfg: SpotlightConfig) {
-  const spot = (p as Prospect & { spot_number?: number | null }).spot_number;
+  const n = spotN(p);
+  const price = n ? spotPrice(cfg.prices, n) : null;
   const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(p.film_date || ""));
   const film = m ? new Intl.DateTimeFormat("en-US", { timeZone: "UTC", weekday: "long", month: "long", day: "numeric", year: "numeric" }).format(new Date(Date.UTC(+m[1], +m[2] - 1, +m[3]))) : "";
   const f: Record<string, string> = {
     business: p.business || "[Business]",
     contact: p.owner_name || "[Contact name]",
     emailPhone: [p.email, p.phone].filter(Boolean).join(" / ") || "[Email / phone]",
-    spot: spot != null ? `Spot ${spot}` : "[Spot number — log the call outcome]",
-    fee: money(cfg.price),
-    // The film date is often locked after the deposit (script: "the team calls
-    // you to lock the date"), so an open date doesn't block the agreement.
-    filmDate: film || "to be scheduled by mutual agreement and confirmed in writing",
+    spot: n ? String(n) : "[Spot number — log the call outcome]",
+    tier: n ? spotTier(n, cfg.featureSpots) : "[Tier — set the spot number]",
+    fee: price ? money(price) : "[Fee — set the spot number]",
+    // The template says "Film date (set at close)" and the invoice terms say
+    // the film date is set at booking — so a missing date blocks the agreement.
+    filmDate: film || "[Film date — set it on the prospect]",
     month: p.slot_month || cfg.month,
-    deposit: money(cfg.deposit), balance: money(cfg.balance),
   };
   const text = fill(cfg.agreementTemplate || DEFAULT_AGREEMENT, f);
   return { text, unresolved: unresolved(text) };
@@ -528,9 +543,9 @@ export async function createAgreement(admin: Admin, p: Prospect, cfg: SpotlightC
   const { data, error } = await admin.from("proposals").insert({
     user_id: p.user_id, client_id: clientId, number,
     title: `Charlotte Spotlight — ${p.business}`,
-    intro: `Your Charlotte Spotlight agreement for the ${p.slot_month || cfg.month} slot. Read it through, then type your name to sign.`,
-    items: [{ desc: `Charlotte Spotlight — ${p.slot_month || cfg.month} slot`, qty: 1, unit_cents: Math.round(cfg.price * 100) }],
-    amount_cents: Math.round(cfg.price * 100), terms: text, status: "sent",
+    intro: `Your Charlotte Spotlight agreement — ${spotTitle(spotN(p)!, cfg.featureSpots)}. Read it through, then type your name to sign.`,
+    items: [{ desc: `${spotTitle(spotN(p)!, cfg.featureSpots)} · Founding Season`, qty: 1, unit_cents: Math.round((spotPrice(cfg.prices, spotN(p)!) || 0) * 100) }],
+    amount_cents: Math.round((spotPrice(cfg.prices, spotN(p)!) || 0) * 100), terms: text, status: "sent",
   }).select("id,token").maybeSingle();
   if (error || !data) return { ok: false as const, error: error?.message || "agreement failed" };
   await admin.from("spotlight_prospects").update({ agreement_id: data.id }).eq("id", p.id);
@@ -576,6 +591,7 @@ export async function makeMember(admin: Admin, p: Prospect) {
   if (!p.member_at) {
     const x = p as Prospect & { spot_number?: number | null; episode_number?: number | null };
     await edithEmit(admin, p.user_id, { prospect_id: p.id, type: "deposit.paid", payload: { spot_number: x.spot_number ?? null, film_date: p.film_date, episode_number: x.episode_number ?? null }, source: "payment" });
+    await edithEmitOnce(admin, p.user_id, { prospect_id: p.id, type: "balance.paid", payload: { paid_in_full: true }, source: "payment" });
   }
   const fresh = { ...p, ...patch, questions } as Prospect;
   if (cfg.autoSendQuestions && p.email && !p.q_sent_at) {

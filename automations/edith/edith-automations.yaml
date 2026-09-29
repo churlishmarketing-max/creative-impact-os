@@ -1,6 +1,7 @@
 # edith-automations.yaml
 # Creative Impact OS — EDITH email automation manifest
 # Prepared 2026-09-24. Templates live in EDITH_Email_Sequences.md (keyed by template_id).
+# 2026-09-29: pricing corrected to the Aug 21 price board (paid in full at booking).
 # Claude Code implements this against the OS's existing contact/event/scheduler models. See CLAUDE_CODE_BUILD_PROMPT.md.
 
 version: 1

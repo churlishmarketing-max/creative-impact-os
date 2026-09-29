@@ -23,7 +23,7 @@ The disclosure line is not optional. It reads as honest and it pre-empts the "is
 - One CTA per email. One question per email.
 - Plain text. No images in sequence emails. The only link is the CTA.
 - Subject lines under 50 characters, honest preview of the email.
-- Prices: never in cold outreach or the inbound sequence — the board page carries them. Post-call and client emails may name $997 and the $250 deposit.
+- Prices: never in cold outreach or the inbound sequence — the board page carries them. Post-call emails may name the spot's price from the board ({{spot_price}}), paid in full at booking. (Corrected 2026-09-29: the offer is the Aug 21 price board — ten spots, $1,750–$750, paid in full — not $997 = $250 + $747.)
 - Numbers are receipts or spends. The Omaha line is always "22,000+ locals on its first $77" — never a projection for Charlotte.
 - Send window 8:00 AM–6:00 PM ET, Monday–Saturday. No Sundays.
 - Any reply stops the sequence and routes to Emmanuel. Any booking, deposit, or "stop" stops it.
@@ -174,7 +174,7 @@ Preview text: Spots assign at payment. Nobody holds one.
 ```
 {{first_name}} — straight update: {{spots_remaining}} of the ten spots are still open for this episode.
 
-Spots assign the moment a deposit clears, and Emmanuel doesn't hold them — for anyone. When this board fills, the next one opens next month, and the businesses on it get filmed then.
+Spots assign the moment payment clears, and Emmanuel doesn't hold them — for anyone. When this board fills, the next one opens next month, and the businesses on it get filmed then.
 
 What would need to be true for you to grab fifteen minutes this week? {{booking_link}}
 
@@ -341,15 +341,15 @@ Preview text: What Emmanuel recommended, in writing.
 
 His read: {{business_name}} is a Spot {{spot_number}}. What that includes — your own film, your commercial cut, your place in the episode, the season promoted across the metro, and a walk-through of the numbers afterward.
 
-The spot is $997: a $250 deposit claims it, the balance on film day. Spots assign at payment and nobody holds one — if it's gone when you're ready, the next open position is the offer.
+Spot {{spot_number}} is {{spot_price}}, paid in full at booking. Spots assign at payment and nobody holds one — if it's gone when you're ready, the next open position is the offer.
 
-And the safety line: if the episode doesn't reach its filming floor, you choose — roll to the next season at the same spot and price, or every dollar back. It's in the agreement.
+And the safety line: {{floor_line}} It's in the agreement.
 
-Deposit here when you're ready: {{deposit_link}}
+Pay here when you're ready: {{deposit_link}}
 
 ```
-CTA:           Pay the deposit
-Internal note: {{spot_number}} from Emmanuel's call outcome. If he recommended "not a fit," Sequence 5b fires instead.
+CTA:           Pay for the spot
+Internal note: {{spot_number}} from Emmanuel's call outcome; {{spot_price}} and {{floor_line}} come from the price board for that spot (the floor differs by tier — Agreement §6). If he recommended "not a fit," Sequence 5b fires instead.
 ```
 
 ### EMAIL 5-2 — What would need to be true
@@ -369,7 +369,7 @@ If the hesitation is something else, reply and tell me — that's what I'm here 
 {{deposit_link}}
 
 ```
-CTA:           Reply (or deposit)
+CTA:           Reply (or pay)
 ```
 
 ### EMAIL 5-3 — Different direction?
@@ -380,7 +380,7 @@ Preview text: Either answer helps us plan the board.
 ```
 {{first_name}} — have you decided to go a different direction on Spot {{spot_number}}?
 
-Either way, I'd like to know so Emmanuel can plan the board. If it's a yes, the deposit link still works: {{deposit_link}}
+Either way, I'd like to know so Emmanuel can plan the board. If it's a yes, the payment link still works: {{deposit_link}}
 
 If it's a no, thanks for the time — and I'll let you know when the next board opens.
 
@@ -424,7 +424,7 @@ Preview text: Film date, delivery, episode, promotion, numbers.
 {{first_name}} — welcome to the season. Spot {{spot_number}} is yours; {{business_name}} is on the board.
 
 Here's the whole timeline in one place:
-- Film day: {{film_date}} — the $747 balance is due that day
+- Film day: {{film_date}}
 - Your cut delivered: within a few days of filming. You get five days for one round of tweaks
 - Episode {{episode_number}} releases, then the season promotion runs for a month
 - Your numbers: I'll send them mid-flight, and Emmanuel walks you through the full picture afterward
@@ -458,17 +458,17 @@ CTA:           None
 ```
 Trigger:      1 day before film_date
 Subject line: Tomorrow — balance link and one reminder
-Preview text: $747 due on film day. Team heads-up done?
+Preview text: Balance due on film day. Team heads-up done?
 ```
 {{first_name}} — tomorrow's the day.
 
-The $747 balance is due on film day; here's the link so it's one less thing: {{balance_link}}
+Your balance is due on film day; here's the link so it's one less thing: {{balance_link}}
 
 One reminder: tell the team a camera's coming. It goes better when nobody's surprised.
 
 ```
 CTA:           Pay the balance
-Internal note: If balance.paid was already seen, the engine sends 6-3-paid instead.
+Internal note: If balance.paid was already seen, the engine sends 6-3-paid instead. Spots are paid in full at booking, so every client has balance.paid — 6-3-paid is the one that goes.
 ```
 
 ### EMAIL 6-3-paid — Variant: balance already paid
@@ -611,7 +611,7 @@ Internal note: Unsubscribe footer required on this one; it's list mail.
 
 ## QUALITY GATE (run before any sequence goes live)
 - [ ] Every email: one CTA, one question, under 50-char subject, first line labels the reader's situation
-- [ ] No prices in Sequences 1–4. $997 / $250 / $747 appear only in 5 and 6
+- [ ] No prices in Sequences 1–4. A price appears only in 5-1, from the board ({{spot_price}})
 - [ ] The Omaha line reads as a receipt everywhere; no Charlotte reach projections anywhere
 - [ ] No hard number of days for filming speed anywhere
 - [ ] Merge-field holds: `specific_detail`, `q5_answer`, `not_fit_reason`, `reach_number` — empty means hold, never send blank

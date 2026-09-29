@@ -3,11 +3,17 @@
 import React, { useEffect, useRef, useState } from "react";
 
 // The public Charlotte Spotlight board — the page EDITH's emails call "the
-// board" (2-1, 3-1): prices, how many spots are open, the proof, the fit-call
-// link, and the interest form. Prices live here and nowhere in ads (playbook).
-// Copy is the Sep 19 script's and EDITH's, not new claims: no filming-speed
-// promise (that line is closing-room only), no projections — receipts only.
-type Board = { month: string; episodeDate: string; price: number; deposit: number; balance: number; perMonth: number; open: number; booking_link: string; episode_link: string };
+// board" (2-1, 3-1): the price board (ten positions, two tiers, paid in full at
+// booking), which positions are claimed, what each tier includes, the proof,
+// the fit-call link, and the interest form. Prices live here and nowhere in ads
+// (playbook). Every line comes from the Aug 21 kit / invoice template or
+// EDITH's copy: no filming-speed promise, no projections — receipts only.
+type Spot = { n: number; tier: "Feature" | "Community"; price: number; claimed: boolean };
+type Board = {
+  spots: Spot[]; open: number; total: number; featureSpots: number;
+  scope: { Feature: string[]; Community: string[] }; floorDate: string; floor: { Feature: string; Community: string };
+  booking_link: string; episode_link: string;
+};
 
 const money = (n: number) => "$" + Math.round(Number(n) || 0).toLocaleString("en-US");
 
@@ -36,7 +42,7 @@ export default function SpotlightBoard() {
 
   const gold = "#ffb81c";
   const wrap: React.CSSProperties = { minHeight: "100vh", background: "#0a1322", color: "#f4f7fc", fontFamily: "'Archivo', Arial, sans-serif", padding: "40px 16px 72px" };
-  const col: React.CSSProperties = { width: 760, maxWidth: "100%", margin: "0 auto" };
+  const col: React.CSSProperties = { width: 820, maxWidth: "100%", margin: "0 auto" };
   const card: React.CSSProperties = { background: "#101d33", border: "1px solid #24385c", padding: "22px 24px", marginTop: 18 };
   const h2: React.CSSProperties = { fontSize: 12, letterSpacing: ".18em", textTransform: "uppercase", color: "#8ea3c4", margin: "0 0 12px", fontWeight: 700 };
   const p: React.CSSProperties = { color: "#c9d6ea", fontSize: 15, lineHeight: 1.65, margin: "0 0 10px" };
@@ -46,41 +52,44 @@ export default function SpotlightBoard() {
 
   if (err) return <div style={wrap}><div style={{ ...col, color: "#8ea3c4" }}>{err}</div></div>;
   if (!b) return <div style={wrap}><div style={{ ...col, color: "#5c7096" }}>Loading the board…</div></div>;
-  const claimed = Math.max(0, b.perMonth - b.open);
+
+  const tierBlock = (tier: "Feature" | "Community") => {
+    const spots = b.spots.filter((s) => s.tier === tier);
+    if (!spots.length) return null;
+    const first = spots[0].n, last = spots[spots.length - 1].n;
+    return (
+      <div style={card}>
+        <div style={h2}>{tier} spots · {first === last ? first : `${first}–${last}`}</div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(118px, 1fr))", gap: 8 }}>
+          {spots.map((s) => (
+            <div key={s.n} style={{ border: `1px solid ${s.claimed ? "#33455f" : gold}`, background: s.claimed ? "#1a2640" : "transparent", padding: "12px 8px", textAlign: "center" }}>
+              <div style={{ fontSize: 11, letterSpacing: ".14em", color: s.claimed ? "#5c7096" : "#8ea3c4", fontWeight: 700 }}>SPOT {s.n}{s.n === 1 ? " · LEAD" : ""}</div>
+              <div style={{ fontSize: 22, fontWeight: 900, color: s.claimed ? "#5c7096" : gold, marginTop: 4, textDecoration: s.claimed ? "line-through" : "none" }}>{money(s.price)}</div>
+              <div style={{ fontSize: 11, color: s.claimed ? "#5c7096" : "#c9d6ea", marginTop: 2 }}>{s.claimed ? "CLAIMED" : "open"}</div>
+            </div>
+          ))}
+        </div>
+        <ul style={{ ...p, paddingLeft: 20, marginTop: 16 }}>
+          {b.scope[tier].map((x) => <li key={x}>{x.replace(/ — included$/, "")}</li>)}
+        </ul>
+      </div>
+    );
+  };
 
   return (
     <div style={wrap}>
       <div style={col}>
         <div style={{ fontSize: 12, letterSpacing: ".22em", color: gold, textTransform: "uppercase" }}>Creative Impact · The Charlotte Spotlight</div>
-        <h1 style={{ fontSize: "clamp(34px, 7vw, 56px)", lineHeight: 1, margin: "12px 0 14px", fontWeight: 900 }}>The {b.month} board</h1>
-        <p style={{ ...p, fontSize: 17 }}>Think Diners, Drive-Ins and Dives — but for businesses. Every month we film up to ten Charlotte businesses for a series of short films about the people behind them, and put the episode in front of the city.</p>
+        <h1 style={{ fontSize: "clamp(34px, 7vw, 56px)", lineHeight: 1, margin: "12px 0 14px", fontWeight: 900 }}>The founding season board</h1>
+        <p style={{ ...p, fontSize: 17 }}>One season, up to ten Charlotte businesses, one episode the city sees — short films about the people behind everyday businesses. Think Diners, Drive-Ins and Dives, but for businesses.</p>
+        <p style={{ ...p, marginTop: 6 }}><b style={{ color: "#f4f7fc" }}>{b.open} of {b.total} spots open.</b> Every spot is paid in full at booking, and it’s assigned — off the board with your name on it — the moment payment clears. Nobody holds one.</p>
+
+        {tierBlock("Feature")}
+        {tierBlock("Community")}
 
         <div style={card}>
-          <div style={h2}>{b.open} of {b.perMonth} spots open</div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 8 }}>
-            {Array.from({ length: b.perMonth }, (_, i) => (
-              <div key={i} style={{ border: `1px solid ${i < claimed ? "#33455f" : gold}`, background: i < claimed ? "#1a2640" : "transparent", color: i < claimed ? "#5c7096" : gold, textAlign: "center", padding: "12px 0", fontWeight: 800, fontSize: 13 }}>
-                {i < claimed ? "CLAIMED" : `SPOT ${i + 1}`}
-              </div>
-            ))}
-          </div>
-          <p style={{ ...p, marginTop: 14, marginBottom: 0 }}>Spots assign the moment a deposit clears. Nobody holds one.</p>
-        </div>
-
-        <div style={card}>
-          <div style={h2}>What a spot is</div>
-          <ul style={{ ...p, paddingLeft: 20 }}>
-            <li>Your own short film, shot at your business — you sit down and talk about it; nothing to memorize.</li>
-            <li>A produced commercial you own and run anywhere: your page, your ads, your website.</li>
-            <li>Your place in the episode, published on YouTube and as a blog post.</li>
-            <li>The episode run as a Facebook ad for a month, so the city actually sees it.</li>
-            <li>Your numbers afterward — what the promotion actually reached, walked through with Emmanuel.</li>
-          </ul>
-          <div style={{ display: "flex", alignItems: "baseline", gap: 14, flexWrap: "wrap", marginTop: 6 }}>
-            <div style={{ fontSize: 40, fontWeight: 900, color: gold }}>{money(b.price)}</div>
-            <div style={{ ...p, margin: 0 }}>a spot. A {money(b.deposit)} deposit claims it; the {money(b.balance)} balance is due on film day.</div>
-          </div>
-          <p style={{ ...p, marginTop: 12, marginBottom: 0 }}>The safety line: if the episode doesn’t reach its filming floor, you choose — roll to the next episode at the same spot and price, or every dollar back. It’s in the agreement.</p>
+          <div style={h2}>The floor</div>
+          <p style={{ ...p, marginBottom: 0 }}>If fewer than three businesses are filmed by {b.floorDate}, the season episode won’t assemble, and the agreement’s rollover-or-refund terms apply — your money is never stranded against an undelivered season.</p>
         </div>
 
         <div style={card}>
@@ -98,7 +107,7 @@ export default function SpotlightBoard() {
         <div style={card}>
           <div style={h2}>Rather start with a few questions?</div>
           {state === "done" ? (
-            <p style={{ ...p, margin: 0 }}>Got it — thanks. You’ll get a note from us shortly, and Emmanuel may just call you.  If a Charlotte number rings, that’s him.</p>
+            <p style={{ ...p, margin: 0 }}>Got it — thanks. You’ll get a note from us shortly, and Emmanuel may just call you. If a Charlotte number rings, that’s him.</p>
           ) : (
             <>
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", columnGap: 12 }}>

@@ -118,7 +118,7 @@ function todoFor(p, cfg) {
   if (isMember && p.agreement && p.agreement.status !== 'signed') t.push({ tone: 'watch', text: 'Agreement sent, not signed yet.' });
   if (isMember && !p.agreement) t.push({ tone: 'watch', text: 'No agreement on file.' });
   if (p.stage === 'member' && !p.film_date) t.push({ tone: 'watch', text: 'Lock the film date (two to four days out).' });
-  if (p.deposit && p.deposit.status !== 'paid' && !isMember) t.push({ tone: 'watch', text: `Deposit ${p.deposit.number} sent, not paid.` });
+  if (p.deposit && p.deposit.status !== 'paid' && !isMember) t.push({ tone: 'watch', text: `Invoice ${p.deposit.number} sent, not paid.` });
   if (['prospect', 'contacted', 'call_booked'].includes(p.stage) && (p.reviews == null || p.years == null)) t.push({ tone: 'watch', text: 'Fill reviews + years — the opener runs on them.' });
   if (p.next_touch && ['prospect', 'contacted'].includes(p.stage) && p.next_touch.due && p.next_touch.due <= today()) t.push({ tone: 'watch', text: `${p.next_touch.label} is due${p.next_touch.due < today() ? ' (overdue)' : ' today'}.` });
   if (p.stage === 'not_now' && p.not_now_month && new RegExp(new Date().toLocaleString('en-US', { month: 'long' }), 'i').test(p.not_now_month)) t.push({ tone: 'watch', text: `They said “${p.not_now_month}” — that’s now. Call.` });
@@ -186,7 +186,7 @@ function Board({ prospects, stages, cfg, onOpen }) {
 
 function Card({ p, onOpen }) {
   const line = [p.vertical ? p.vertical.toUpperCase() : null, p.suburb].filter(Boolean).join(' · ');
-  const status = p.q_returned_at ? '★ answers back' : p.q_sent_at ? 'questions sent' : p.agreement?.status === 'signed' ? 'signed' : p.deposit?.status === 'paid' ? 'deposit paid' : p.next_touch ? `next: ${p.next_touch.label.split(' —')[0]}` : '';
+  const status = p.q_returned_at ? '★ answers back' : p.q_sent_at ? 'questions sent' : p.agreement?.status === 'signed' ? 'signed' : p.deposit?.status === 'paid' ? 'paid' : p.next_touch ? `next: ${p.next_touch.label.split(' —')[0]}` : '';
   return (
     <div onClick={() => onOpen(p.id)} style={{ ...S.panel, padding: '11px 13px', marginBottom: '8px', cursor: 'pointer', borderLeft: '3px solid ' + (p.q_returned_at ? 'var(--good)' : 'var(--line2)') }}>
       <div style={{ fontFamily: 'var(--cond)', fontWeight: 900, fontSize: '15px', textTransform: 'uppercase' }}>{p.business || '(no name)'}</div>
@@ -343,7 +343,7 @@ function Contracts({ prospects, cfg, onOpen }) {
   const pill = (x, paidWord) => !x ? <span style={{ color: 'var(--dim)' }}>—</span> : <span style={{ color: x.status === 'paid' || x.status === 'signed' ? 'var(--good)' : 'var(--gold)' }}>{x.number} · {x.status === 'paid' || x.status === 'signed' ? paidWord : x.status}</span>;
   return (
     <div>
-      {!cfg.attorneyReviewed ? <div style={S.warn}><b>Agreements are locked.</b> Your agreement template says it’s <b>required before first use</b> that a North Carolina attorney reviews it — and the template (Aug 21) still describes the tiered, paid-in-full offer, not the $997 / $250-deposit offer the call script (Sep 19) sells. Update it in Settings, get the attorney pass, then tick “attorney reviewed” to unlock. Deposits work now.</div> : null}
+      {!cfg.attorneyReviewed ? <div style={S.warn}><b>Agreements are locked.</b> Your agreement template says it’s <b>required before first use</b> that a North Carolina attorney reviews it — The template is the Aug 21 agreement, which matches the price board. Get the attorney pass, then tick “attorney reviewed” in Settings to unlock. Invoices work now (cards once Stripe is connected).</div> : null}
       <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1.3fr 1.3fr 1.3fr', gap: '10px', padding: '6px 4px', fontSize: '9.5px', letterSpacing: '.16em', color: 'var(--dim)', textTransform: 'uppercase', borderBottom: '1px solid var(--line)' }}>
         <span>Business</span><span>Stage</span><span>Agreement</span><span>Deposit</span><span>Balance</span>
       </div>
@@ -355,7 +355,7 @@ function Contracts({ prospects, cfg, onOpen }) {
         </div>
       ))}
       {!rows.length ? <div style={{ ...S.note, padding: '12px 0' }}>Nothing to paper yet — contracts appear once someone books a call or becomes a member.</div> : null}
-      <div style={{ ...S.note, marginTop: '12px' }}>A paid deposit makes them a member automatically — which sends their pre-shoot questions. Agreements are signed on the same e-sign page as your proposals; a signature adds a Signed deal to the pipeline.</div>
+      <div style={{ ...S.note, marginTop: '12px' }}>A paid invoice (paid in full at booking) makes them a member automatically — which sends their pre-shoot questions and starts EDITH’s client emails. Agreements are signed on the same e-sign page as your proposals; a signature adds a Signed deal to the pipeline.</div>
     </div>
   );
 }
@@ -369,14 +369,20 @@ function Settings({ cfg, defaultAgreement, act, busy }) {
   return (
     <div>
       <div style={S.warn}>
-        <b>The offer: $997 a spot — $250 deposit claims it, $747 on film day,</b> ten businesses a month (the Sep 19 call script; EDITH’s emails quote it too). The agreement below was rewritten on Sep 29 to match — the client owns their commercial, and the refund-or-roll floor EDITH promises is in Section 6. It still needs the <b>North Carolina attorney review</b> before it can be sent; tick the box below once that’s done.
+        <b>The offer is the Aug 21 price board:</b> ten spots, two tiers — Feature 1–4, Community 5–10 — <b>paid in full at booking</b>, one founding season with a floor (the Invoice Template; confirmed Sep 29). Invoices, the public board, the agreement, and EDITH’s emails all read the prices below. The agreement is the Aug 21 template; it still needs the <b>North Carolina attorney review</b> before it can be sent — tick the box once that’s done.
       </div>
       <div style={S.panel}>
         <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', marginBottom: '12px' }}>
-          <Field label="Slot price ($)" grow="0 1 130px"><input style={S.inp} value={c.price ?? ''} inputMode="numeric" onChange={(e) => set({ price: e.target.value.replace(/[^\d.]/g, '') })} /></Field>
-          <Field label="Deposit ($)" grow="0 1 130px"><input style={S.inp} value={c.deposit ?? ''} inputMode="numeric" onChange={(e) => set({ deposit: e.target.value.replace(/[^\d.]/g, '') })} /></Field>
-          <Field label="Balance at filming ($)" grow="0 1 150px"><input style={S.inp} value={c.balance ?? ''} inputMode="numeric" onChange={(e) => set({ balance: e.target.value.replace(/[^\d.]/g, '') })} /></Field>
-          <Field label="Slots per month" grow="0 1 120px"><input style={S.inp} value={c.perMonth ?? ''} inputMode="numeric" onChange={(e) => set({ perMonth: e.target.value.replace(/\D/g, '') })} /></Field>
+          {(c.prices || []).map((v, i) => (
+            <Field key={i} label={`Spot ${i + 1} · ${i < (Number(c.featureSpots) || 0) ? 'Feature' : 'Community'}${i === 0 ? ' (lead)' : ''}`} grow="0 1 118px">
+              <input style={S.inp} value={v ?? ''} inputMode="numeric" onChange={(e) => set({ prices: (c.prices || []).map((x, j) => (j === i ? e.target.value.replace(/\D/g, '') : x)) })} />
+            </Field>
+          ))}
+        </div>
+        <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', marginBottom: '12px' }}>
+          <Field label="Feature spots (1 through…)" grow="0 1 170px"><input style={S.inp} value={c.featureSpots ?? ''} inputMode="numeric" onChange={(e) => set({ featureSpots: e.target.value.replace(/\D/g, '') })} /></Field>
+          <Field label="Season floor date (3 filmed by)" grow="0 1 220px"><input style={S.inp} value={c.floorDate || ''} placeholder="October 10, 2026" onChange={(e) => set({ floorDate: e.target.value })} /></Field>
+          <div style={{ ...S.note, flex: '1 1 260px', alignSelf: 'flex-end' }}>Paid in full at booking — the spot is assigned the moment payment clears. The floor date also appears in the agreement’s Section 6 text; change both together.</div>
         </div>
         <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', marginBottom: '12px' }}>
           <Field label="Month being sold"><input style={S.inp} value={c.month || ''} placeholder="October" onChange={(e) => set({ month: e.target.value })} /></Field>
@@ -396,13 +402,13 @@ function Settings({ cfg, defaultAgreement, act, busy }) {
           <input type="checkbox" checked={!!c.attorneyReviewed} onChange={(e) => { if (e.target.checked && !window.confirm('Confirm: a North Carolina attorney has reviewed THIS agreement text, and it matches the offer you are selling?')) return; set({ attorneyReviewed: e.target.checked }); }} />
           The agreement below has had its North Carolina attorney review (unlocks sending agreements)
         </label>
-        <Field label="Agreement template — {{business}} {{contact}} {{emailPhone}} {{spot}} {{fee}} {{filmDate}} {{month}} {{deposit}} {{balance}} fill in automatically">
+        <Field label="Agreement template — {{business}} {{contact}} {{emailPhone}} {{spot}} {{tier}} {{fee}} {{filmDate}} fill in automatically">
           <textarea style={{ ...S.inp, minHeight: '320px', lineHeight: 1.55, fontFamily: 'var(--mono)', fontSize: '11.5px' }} value={c.agreementTemplate || ''} onChange={(e) => set({ agreementTemplate: e.target.value, attorneyReviewed: false })} />
         </Field>
-        <div style={{ ...S.note, marginTop: '6px' }}>Editing the text un-ticks attorney review — changed terms need a fresh look. Any {'{{token}}'} not listed above stays blank and blocks the agreement until you remove or replace it. {'{{spot}}'} fills from the spot number logged on the call.</div>
+        <div style={{ ...S.note, marginTop: '6px' }}>Editing the text un-ticks attorney review — changed terms need a fresh look. Any {'{{token}}'} not listed above stays blank and blocks the agreement until you remove or replace it. {'{{spot}}'}, {'{{tier}}'} and {'{{fee}}'} fill from the spot number logged on the call (price from the board above).</div>
         <div style={{ display: 'flex', gap: '10px', marginTop: '14px' }}>
           <button style={S.btn(true)} disabled={!dirty || !!busy} onClick={() => act({ op: 'save_config', patch: c }, 'SPOTLIGHT SETTINGS SAVED ✓')}>Save settings</button>
-          <button style={S.btn(false)} onClick={() => { if (window.confirm('Reset the agreement text to the current template (v5, Sep 29)?')) set({ agreementTemplate: defaultAgreement, attorneyReviewed: false }); }}>Reset agreement text</button>
+          <button style={S.btn(false)} onClick={() => { if (window.confirm('Reset the agreement text to the Aug 21 template?')) set({ agreementTemplate: defaultAgreement, attorneyReviewed: false }); }}>Reset agreement text</button>
           {dirty ? <span style={{ ...S.note, color: 'var(--gold)', alignSelf: 'center' }}>Unsaved changes</span> : null}
         </div>
       </div>
@@ -523,20 +529,26 @@ function Detail({ p, d, act, busy, flash, reload, onClose }) {
         {p.profile && Object.keys(p.profile).length ? <ProfileBox pr={p.profile} /> : <div style={{ ...S.note, marginTop: '6px' }}>Import fills only empty fields — nothing you typed gets overwritten. It also feeds the tailored questions.</div>}
 
         <div style={S.sec}>Money</div>
-        <div style={{ ...S.panel, display: 'flex', gap: '18px', flexWrap: 'wrap' }}>
-          {[['deposit', p.deposit, cfg.deposit], ['balance', p.balance, cfg.balance]].map(([kind, x, amt]) => (
-            <div key={kind} style={{ flex: '1 1 260px' }}>
-              <div style={S.lbl}>{kind === 'deposit' ? 'Deposit — holds the slot' : 'Balance — due at filming'} · ${amt}</div>
+        {(() => {
+          const n = Number(p.spot_number) || 0;
+          const price = n ? Number((cfg.prices || [])[n - 1]) || 0 : 0;
+          const tier = n ? (n <= (Number(cfg.featureSpots) || 0) ? 'Feature' : 'Community') : '';
+          const x = p.deposit; // the spot's one invoice (paid in full)
+          return (
+            <div style={S.panel}>
+              <div style={S.lbl}>{n ? `${tier} Spot ${n}${n === 1 ? ' (lead)' : ''} · ${price.toLocaleString('en-US')} · paid in full at booking` : 'The invoice · paid in full at booking'}</div>
               {x ? (
                 <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
                   <span style={{ fontSize: '12.5px', color: x.status === 'paid' ? 'var(--good)' : 'var(--gold)' }}>{x.number} · {x.status}</span>
                   {x.status !== 'paid' ? <button style={S.btn(false)} onClick={() => copy(x.link, flash)}>Copy pay link</button> : null}
                 </div>
-              ) : <button style={S.btn(false)} disabled={!!busy} onClick={() => act({ op: 'invoice', id: p.id, kind }, kind.toUpperCase() + ' INVOICE CREATED ✓')}>Create {kind} invoice</button>}
+              ) : n ? <button style={S.btn(false)} disabled={!!busy} onClick={() => act({ op: 'invoice', id: p.id }, 'INVOICE CREATED ✓')}>Create the {tier} Spot {n} invoice</button>
+                : <div style={S.note}>Set their spot number first — in the EDITH section above, or by logging the call outcome. The price comes from the board.</div>}
+              {p.balance ? <div style={{ ...S.note, marginTop: '6px' }}>An older balance invoice is on file ({p.balance.number} · {p.balance.status}) from the retired deposit model.</div> : null}
+              <div style={{ ...S.note, marginTop: '8px' }}>Send the pay link while they’re on the call. When it’s paid they become a member automatically — EDITH’s welcome and the pre-shoot questions follow. Pay links take cards once Stripe is connected.</div>
             </div>
-          ))}
-          <div style={{ ...S.note, flexBasis: '100%' }}>Text the pay link while they’re on the phone (script §4, move 3). When the deposit clears they become a member automatically. Pay links need Stripe set up in Vercel.</div>
-        </div>
+          );
+        })()}
 
         <div style={S.sec}>The agreement</div>
         <div style={S.panel}>

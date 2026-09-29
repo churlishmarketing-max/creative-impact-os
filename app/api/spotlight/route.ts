@@ -102,7 +102,14 @@ export async function POST(req: Request) {
   if (op === "save_config") {
     const patch = (b.patch || {}) as Partial<SpotlightConfig>;
     const allowed: Partial<SpotlightConfig> = {};
-    for (const k of ["price", "deposit", "balance", "perMonth"] as const) if (k in patch) allowed[k] = Math.max(0, Number(patch[k]) || 0);
+    if (Array.isArray(patch.prices)) {
+      const prices = (patch.prices as unknown[]).slice(0, 30).map((v) => Math.max(0, Math.round(Number(v)) || 0));
+      if (!prices.length || prices.some((v) => !v)) return fail("Every spot on the board needs a price.");
+      allowed.prices = prices;
+      allowed.perMonth = prices.length;
+    }
+    if ("featureSpots" in patch) allowed.featureSpots = Math.max(0, Math.min(30, Math.round(Number(patch.featureSpots)) || 0));
+    if ("floorDate" in patch) allowed.floorDate = String(patch.floorDate || "").slice(0, 60);
     for (const k of ["month", "episodeDate", "episodeUrl", "crewReelUrl", "caller", "callerPhone"] as const) if (k in patch) allowed[k] = String(patch[k] ?? "").slice(0, 300);
     for (const k of ["autoSendQuestions", "attorneyReviewed"] as const) if (k in patch) allowed[k] = !!patch[k];
     if ("agreementTemplate" in patch) allowed.agreementTemplate = String(patch.agreementTemplate || DEFAULT_AGREEMENT).slice(0, 40000);
@@ -264,10 +271,10 @@ export async function POST(req: Request) {
   }
 
   if (op === "invoice") {
-    const kind = b.kind === "balance" ? "balance" : "deposit";
-    if (kind === "deposit" && p.deposit_invoice_id) return fail("A deposit invoice already exists for this prospect.");
-    if (kind === "balance" && p.balance_invoice_id) return fail("A balance invoice already exists for this prospect.");
-    const inv = await createInvoice(a.admin, p, cfg, kind);
+    // Paid in full at booking — one invoice per spot, no balance invoice.
+    if (b.kind === "balance") return fail("Spots are paid in full at booking — there's no balance invoice.");
+    if (p.deposit_invoice_id) return fail("This prospect already has an invoice.");
+    const inv = await createInvoice(a.admin, p, cfg);
     if (inv.ok) await edithTouch(a.admin, uid, p.id); // releases a 5-x / 6-3 held for a missing pay link
     return NextResponse.json(inv);
   }

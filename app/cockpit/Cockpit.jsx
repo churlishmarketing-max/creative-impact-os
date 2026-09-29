@@ -61,7 +61,7 @@ class Cockpit extends React.Component {
     { num: '05', label: 'Money', items: [{ id: 'invoices', label: 'Invoices' }, { id: 'proposals', label: 'Proposals' }, { id: 'expenses', label: 'Expenses' }, { id: 'kpis', label: 'KPIs' }] },
     { num: '06', label: 'Strategy', items: [{ id: 'strategy', label: 'Strategy' }, { id: 'plans', label: 'Plans' }, { id: 'partners', label: 'Partners' }] },
     { num: '07', label: 'Fleet', items: [{ id: 'agents', label: 'Agent Fleet' }, { id: 'automations', label: 'Automations' }] },
-    { num: '08', label: 'Jarvis', items: [{ id: 'rookie', label: 'Jarvis' }] },
+    { num: '08', label: 'EDITH', items: [{ id: 'rookie', label: 'EDITH' }] },
   ];
 
   // Local-dev demo data only. Real (Supabase) mode starts EMPTY — the DB is the
@@ -2190,9 +2190,9 @@ Signed: {{signer}}      Date: {{date}}`;
       const j = await res.json();
       if (j.ok) {
         this.setState(s => ({ rookieMsgs: [...s.rookieMsgs, { role: 'assistant', content: j.reply, actions: j.actions || [] }], rookieBusy: false }));
-        if (j.actions && j.actions.length) { this.flash('JARVIS: ' + j.actions.length + ' ACTION' + (j.actions.length > 1 ? 'S' : '') + ' EXECUTED'); this.loadStore(); }
+        if (j.actions && j.actions.length) { this.flash('EDITH: ' + j.actions.length + ' ACTION' + (j.actions.length > 1 ? 'S' : '') + ' EXECUTED'); this.loadStore(); }
       } else {
-        const msg = j.error === 'no_api_key' ? 'ANTHROPIC_API_KEY missing in Vercel — Jarvis is offline.' : j.error === 'no_service_role' ? 'SUPABASE_SERVICE_ROLE_KEY missing — Jarvis cannot act.' : 'Error: ' + (j.error || 'unknown') + '. Try again.';
+        const msg = j.error === 'no_api_key' ? 'ANTHROPIC_API_KEY missing in Vercel — EDITH is offline.' : j.error === 'no_service_role' ? 'SUPABASE_SERVICE_ROLE_KEY missing — EDITH cannot act.' : 'Error: ' + (j.error || 'unknown') + '. Try again.';
         this.setState(s => ({ rookieMsgs: [...s.rookieMsgs, { role: 'assistant', content: msg, actions: [] }], rookieBusy: false }));
       }
     } catch (e) {
@@ -2200,7 +2200,7 @@ Signed: {{signer}}      Date: {{date}}`;
     }
   }
 
-  // --- 17: Automations (operator- and Jarvis-created recurring work) ---
+  // --- 17: Automations (operator- and EDITH-created recurring work) ---
   async loadAutomations() {
     try {
       const res = await fetch('/api/automations');
@@ -2243,7 +2243,7 @@ Signed: {{signer}}      Date: {{date}}`;
         <div style={{ marginBottom: "6px" }}>
           <div style={{ fontSize: "10px", letterSpacing: ".26em", color: "var(--red)" }}>// THE AUTOMATIONS DESK</div>
           <h1 style={{ fontFamily: "var(--cond)", fontWeight: 900, fontSize: "48px", lineHeight: ".92", margin: "6px 0 0", letterSpacing: ".005em" }}>AUTO<span style={{ display: "inline-block", background: "var(--red)", color: "var(--golddark)", padding: "0 12px" }}>MATIONS</span></h1>
-          <div style={{ fontSize: "12px", letterSpacing: ".04em", color: "var(--muted)", marginTop: "9px", maxWidth: "660px", lineHeight: "1.6" }}>Recurring work the OS runs on its own. Every run posts to the AGENT FLEET feed and the sys.log, so nothing happens invisibly. Jarvis can create these too - just ask him.</div>
+          <div style={{ fontSize: "12px", letterSpacing: ".04em", color: "var(--muted)", marginTop: "9px", maxWidth: "660px", lineHeight: "1.6" }}>Recurring work the OS runs on its own. Every run posts to the AGENT FLEET feed and the sys.log, so nothing happens invisibly. EDITH can create these too — just ask her.</div>
         </div>
         <div style={{ height: "1px", background: "linear-gradient(90deg,var(--red),transparent 55%)", margin: "16px 0 22px" }}></div>
 
@@ -2253,7 +2253,7 @@ Signed: {{signer}}      Date: {{date}}`;
 
         <div style={{ fontSize: "10px", letterSpacing: ".2em", color: "var(--dim)", textTransform: "uppercase", marginBottom: "10px" }}>Live automations ({autos.length})</div>
         {autos.length === 0 ? (
-          <div style={{ color: "var(--dim)", fontSize: "12.5px", padding: "16px 0", borderTop: "1px solid var(--line)", borderBottom: "1px solid var(--line)", marginBottom: "26px" }}>Nothing scheduled yet. Create one below, or tell Jarvis "every Monday run the leak sweep".</div>
+          <div style={{ color: "var(--dim)", fontSize: "12.5px", padding: "16px 0", borderTop: "1px solid var(--line)", borderBottom: "1px solid var(--line)", marginBottom: "26px" }}>Nothing scheduled yet. Create one below, or tell EDITH "every Monday run the leak sweep".</div>
         ) : (
           <div style={{ borderTop: "1px solid var(--line)", marginBottom: "26px" }}>
             {autos.map((a) => (
@@ -2261,7 +2261,7 @@ Signed: {{signer}}      Date: {{date}}`;
                 <div style={{ width: "8px", height: "8px", borderRadius: "50%", background: a.enabled ? "var(--good)" : "var(--line2)", flexShrink: 0 }}></div>
                 <div style={{ flex: "1 1 260px", minWidth: 0 }}>
                   <div style={{ fontSize: "13.5px", color: "var(--cream)", fontWeight: 700 }}>{a.name}</div>
-                  <div style={{ fontSize: "11px", color: "var(--dim)", marginTop: "3px" }}>{cadenceLabel(a)} · {a.action}{a.created_by === 'jarvis' ? ' · created by Jarvis' : ''}</div>
+                  <div style={{ fontSize: "11px", color: "var(--dim)", marginTop: "3px" }}>{cadenceLabel(a)} · {a.action}{a.created_by === 'jarvis' || a.created_by === 'edith' ? ' · created by EDITH' : ''}</div>
                   {a.description ? <div style={{ fontSize: "11px", color: "var(--muted)", marginTop: "4px", lineHeight: 1.5 }}>{a.description}</div> : null}
                 </div>
                 <div style={{ flex: "0 0 auto", fontSize: "10.5px", color: "var(--dim)", textAlign: "right", minWidth: "130px" }}>
@@ -2325,13 +2325,13 @@ Signed: {{signer}}      Date: {{date}}`;
   renderRookieTab() {
     const msgs = this.state.rookieMsgs || [];
     const inp = { background: "var(--deep)", border: "1px solid var(--line2)", color: "var(--cream)", fontFamily: "var(--mono)", fontSize: "13px", padding: "11px 13px" };
-    const chips = ['Log my box score: 3 calls, 2 audits, $3500 signed, $2400 collected', 'Add a deal: Queen City HVAC, Authority Engine · 3-mo term, $10500', "Create an invoice for Steele Creek Roofing: Story Capture Pilot, $2400", "Draft a proposal for Queen City HVAC: Authority Engine, $3500/mo, 3-mo min", "Reschedule the Elite Sales Training call to Saturday 10am", 'Log expense: Adobe $60/mo recurring'];
+    const chips = ["What's EDITH sending today, and what's she holding?", "Log Queen City Roasters' call: undecided, Spot 4", 'Log my box score: 3 calls, 2 audits, $3500 signed, $2400 collected', "Create an invoice for Steele Creek Roofing: Story Capture Pilot, $2400", "Draft a proposal for Queen City HVAC: Authority Engine, $3500/mo, 3-mo min", "Reschedule the Elite Sales Training call to Saturday 10am", 'Log expense: Adobe $60/mo recurring'];
     return (
       <div style={{ padding: "28px 26px 96px", maxWidth: "900px", margin: "0 auto", width: "100%" }}>
         <div style={{ marginBottom: "6px" }}>
-          <div style={{ fontSize: "10px", letterSpacing: ".26em", color: "var(--red)" }}>// THE JARVIS DESK</div>
-          <h1 style={{ fontFamily: "var(--cond)", fontWeight: 900, fontSize: "48px", lineHeight: ".92", margin: "6px 0 0", letterSpacing: ".005em" }}>JAR<span style={{ display: "inline-block", background: "var(--red)", color: "var(--golddark)", padding: "0 12px", transform: "skewX(0deg)" }}>VIS</span></h1>
-          <div style={{ fontSize: "12px", letterSpacing: ".04em", color: "var(--muted)", marginTop: "9px", maxWidth: "620px", lineHeight: "1.6" }}>Give the order; Jarvis executes it against the OS — deals, clients, the box score, expenses, KPIs, invoices, proposals, and calls — and reports back with the numbers. Every action hits the database and the sys.log.</div>
+          <div style={{ fontSize: "10px", letterSpacing: ".26em", color: "var(--red)" }}>// THE EDITH DESK</div>
+          <h1 style={{ fontFamily: "var(--cond)", fontWeight: 900, fontSize: "48px", lineHeight: ".92", margin: "6px 0 0", letterSpacing: ".005em" }}>ED<span style={{ display: "inline-block", background: "var(--red)", color: "var(--golddark)", padding: "0 12px", transform: "skewX(0deg)" }}>ITH</span></h1>
+          <div style={{ fontSize: "12px", letterSpacing: ".04em", color: "var(--muted)", marginTop: "9px", maxWidth: "620px", lineHeight: "1.6" }}>Creative Impact’s assistant — the AI kind. Give the order; EDITH executes it against the OS — deals, clients, the box score, expenses, KPIs, invoices, proposals, calls, and the Spotlight emails she sends — and reports back with the numbers. Every action hits the database and the sys.log.</div>
         </div>
         <div style={{ height: "1px", background: "linear-gradient(90deg,var(--red),transparent 55%)", margin: "16px 0 22px" }}></div>
 
@@ -2339,7 +2339,7 @@ Signed: {{signer}}      Date: {{date}}`;
           <div style={{ flex: 1, overflowY: "auto", padding: "18px 20px" }}>
             {msgs.length === 0 ? (
               <div>
-                <div style={{ color: "var(--dim)", fontSize: "12.5px", lineHeight: 1.7, marginBottom: "14px" }}>Jarvis online. Standing by for orders. Try:</div>
+                <div style={{ color: "var(--dim)", fontSize: "12.5px", lineHeight: 1.7, marginBottom: "14px" }}>EDITH online. Standing by. Try:</div>
                 <div style={{ display: "flex", flexDirection: "column", gap: "8px", alignItems: "flex-start" }}>
                   {chips.map((c, i) => (
                     <button key={i} onClick={() => this.setState({ rookieInput: c }, () => this.sendRookie())} style={{ background: "transparent", border: "1px dashed var(--line2)", color: "var(--muted)", fontFamily: "var(--mono)", fontSize: "11px", padding: "8px 12px", cursor: "pointer", textAlign: "left" }}>▸ {c}</button>
@@ -2348,7 +2348,7 @@ Signed: {{signer}}      Date: {{date}}`;
               </div>
             ) : msgs.map((m, i) => (
               <div key={i} style={{ marginBottom: "14px" }}>
-                <div style={{ fontSize: "9px", letterSpacing: ".18em", color: m.role === 'user' ? 'var(--cream)' : 'var(--red)', textTransform: "uppercase", marginBottom: "4px" }}>{m.role === 'user' ? '> YOU' : '◉ JARVIS'}</div>
+                <div style={{ fontSize: "9px", letterSpacing: ".18em", color: m.role === 'user' ? 'var(--cream)' : 'var(--red)', textTransform: "uppercase", marginBottom: "4px" }}>{m.role === 'user' ? '> YOU' : '◉ EDITH'}</div>
                 <div style={{ fontSize: "13px", color: m.role === 'user' ? "var(--cream)" : "var(--muted)", lineHeight: 1.65, whiteSpace: "pre-wrap", borderLeft: "2px solid " + (m.role === 'user' ? 'var(--line2)' : 'var(--red)'), paddingLeft: "12px" }}>{m.content}{m.fileName ? <span style={{ display: "inline-block", marginLeft: "8px", border: "1px solid var(--line2)", color: "var(--dim)", fontSize: "9.5px", padding: "2px 7px", letterSpacing: ".06em" }}>📎 {m.fileName}</span> : null}</div>
                 {m.actions && m.actions.length ? (
                   <div style={{ marginTop: "6px", paddingLeft: "14px" }}>
@@ -2363,7 +2363,7 @@ Signed: {{signer}}      Date: {{date}}`;
             <div style={{ borderTop: "1px solid var(--line)", padding: "8px 14px", display: "flex", alignItems: "center", gap: "10px", fontSize: "11px", color: "var(--muted)" }}>
               📎 {this.state.rookieFile.name}
               <button onClick={() => this.setState({ rookieFile: null })} style={{ background: "none", border: "none", color: "var(--dim)", cursor: "pointer", fontSize: "12px" }}>✕</button>
-              <span style={{ color: "var(--dim)", fontSize: "10px" }}>— tell Jarvis what to do with it (e.g. "log these as expenses")</span>
+              <span style={{ color: "var(--dim)", fontSize: "10px" }}>— tell EDITH what to do with it (e.g. "log these as expenses")</span>
             </div>
           ) : null}
           <div style={{ borderTop: "1px solid var(--line)", padding: "12px 14px", display: "flex", gap: "10px" }}>
@@ -2373,14 +2373,14 @@ Signed: {{signer}}      Date: {{date}}`;
             <input
               style={Object.assign({}, inp, { flex: 1 })}
               value={this.state.rookieInput}
-              placeholder={this.state.rookieFile ? "What should Jarvis do with the file?" : "Give an order — Jarvis writes it to the OS"}
+              placeholder={this.state.rookieFile ? "What should EDITH do with the file?" : "Give an order — EDITH writes it to the OS"}
               onChange={(e) => this.setState({ rookieInput: e.target.value })}
               onKeyDown={(e) => { if (e.key === 'Enter') this.sendRookie(); }}
             />
             <button onClick={() => this.sendRookie()} disabled={this.state.rookieBusy} style={{ background: "var(--red)", border: "1px solid var(--red)", color: "var(--golddark)", fontFamily: "var(--mono)", fontWeight: 700, fontSize: "11px", letterSpacing: ".12em", padding: "11px 20px", cursor: this.state.rookieBusy ? "default" : "pointer", textTransform: "uppercase", opacity: this.state.rookieBusy ? .5 : 1 }}>Execute →</button>
           </div>
         </div>
-        <div style={{ fontSize: "10px", color: "var(--dim)", marginTop: "10px", lineHeight: 1.5 }}>Write-safe: Jarvis can add and update — deals, clients, box score, expenses, KPIs, invoices, proposals, calls, the sprint target, THE ONE THING, goals, and strategy — but cannot delete anything, and never sends an invoice, proposal, or client email without your explicit approval. 📎 attach a receipt, statement, PDF, or CSV and it'll extract + log the expenses. Conversation resets on refresh (persistence later).</div>
+        <div style={{ fontSize: "10px", color: "var(--dim)", marginTop: "10px", lineHeight: 1.5 }}>Write-safe: EDITH can add and update — deals, clients, box score, expenses, KPIs, invoices, proposals, calls, the sprint target, THE ONE THING, goals, and strategy — but cannot delete anything, and never sends an invoice, proposal, or client email without your explicit approval. 📎 attach a receipt, statement, PDF, or CSV and it'll extract + log the expenses. Conversation resets on refresh (persistence later).</div>
       </div>
     );
   }

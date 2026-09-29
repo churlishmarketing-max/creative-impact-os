@@ -7,7 +7,7 @@ export const CONTENT: EdithContent = {
     "version": 1,
     "sender": {
       "name": "EDITH at Creative Impact",
-      "from": "edith@creativeimpactmedia.co",
+      "from": "hello@creativeimpactmedia.co",
       "reply_to": "hello@creativeimpactmedia.co",
       "signature_block": "EDITH\nCreative Impact · Emmanuel's assistant — the AI kind. A human reads every reply.\nhello@creativeimpactmedia.co\n"
     },
@@ -962,7 +962,7 @@ export const CONTENT: EdithContent = {
     }
   },
   "signature": "EDITH\nCreative Impact · Emmanuel's assistant — the AI kind. A human reads every reply.\nhello@creativeimpactmedia.co",
-  "source_hash": "02e6c63959081fa1",
+  "source_hash": "b5d880ae08c6811f",
   "warnings": [
     "2-1: 2 links in the body (gate: one CTA)",
     "2-3: 2 links in the body (gate: one CTA)",

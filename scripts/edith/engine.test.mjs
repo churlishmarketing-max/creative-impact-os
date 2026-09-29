@@ -239,6 +239,17 @@ test("variants: 2-4-full when the board is full; 6-3 (balance) vs 6-3-paid", asy
   assert.equal(w2.mem.steps.find((x) => x.contact_id === "c" && x.step === "6-3").template_id, "6-3-paid");
 });
 
+test("deliverability guard: only N new cold first-touches per day; the rest go out tomorrow", async () => {
+  const people = ["a", "b", "c"].map((id) => ({ id, tags: ["cold_prospect"], fields: { specific_detail: "x." } }));
+  const w = world(people, { cold_daily_cap: 2 });
+  for (const p of people) await emit(w.env, { contact_id: p.id, type: "contact.created", payload: {} });
+  assert.deepEqual(["a", "b", "c"].map((id) => w.status(id, "1-1")), ["logged", "logged", "scheduled"]);
+  const held = w.mem.steps.find((s) => s.contact_id === "c" && s.step === "1-1");
+  assert.equal(et(held.due_at), "Wed 10/7 08:00");
+  await w.at(ET(2026, 10, 7, 8, 5));
+  assert.equal(w.status("c", "1-1"), "logged");
+});
+
 /* ------------------------------------------------------- replies */
 
 test("reply keywords: stop / later / yes / everything else", () => {

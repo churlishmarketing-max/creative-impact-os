@@ -25,23 +25,31 @@ export const missingTable = (m?: string) => !!m && /does not exist|schema cache/
 export function defaultConfig(): Config {
   const s = CONTENT.manifest.sender;
   return {
-    edith_live: false, // the kill switch — off until a human reviews the log
+    // The kill switch. Turned ON 2026-09-29 at Brandon's instruction ("go ahead
+    // and turn her on"). Turning her off in the cockpit stores false, which wins.
+    edith_live: true,
     from: `${s.name} <${s.from}>`,
     reply_to: s.reply_to,
     digest_to: process.env.EMAIL_BCC || "hello@creativeimpactmedia.co",
     digest: true,
     physical_address: "",
     booking_link: `${SITE}/go/spotlight`,
-    board_link: "",
+    board_link: `${SITE}/spotlight/board`, // the public board: prices, spots left, the interest form
     call_link: "",
-    debrief_link: "",
+    debrief_link: `${SITE}/go/debrief`,
     episode_link: "https://youtu.be/wNylbkgS1mQ", // the Omaha original, per 2-3's note, until Charlotte Ep 1 exists
     next_board_date: "",
     current_episode: 1,
     paused: {},
     episodes: {},
+    cold_daily_cap: 20,
+    deposit_pay_link: "",
+    balance_pay_link: "",
   };
 }
+
+// The OS's own /pay pages only take cards once Stripe is connected.
+export const stripeConnected = () => !!process.env.STRIPE_SECRET_KEY;
 
 async function loadOps(admin: Admin, uid: string) {
   const { data } = await admin.from("app_state").select("ops").eq("user_id", uid).maybeSingle();
@@ -90,7 +98,7 @@ export function toContact(row: Row, links: { deposit: string | null; balance: st
 
 /* ------------------------------------------------------------------ store */
 
-export function supabaseStore(admin: Admin, uid: string): Store {
+export function supabaseStore(admin: Admin, uid: string, cfg?: Config): Store {
   const must = (r: { error: { message: string } | null }) => { if (r.error) throw new Error(r.error.message); };
   const enr = (r: Row): Enrollment => ({ id: r.id, contact_id: r.prospect_id, seq: r.seq, status: r.status, enrolled_at: r.enrolled_at, ended_at: r.ended_at, end_reason: r.end_reason, context: r.context || {} });
   const step = (r: Row): StepRow => ({ id: r.id, enrollment_id: r.enrollment_id, contact_id: r.prospect_id, seq: r.seq, step: r.step, template_id: r.template_id, kind: r.kind, status: r.status, due_at: r.due_at, anchor: r.anchor, hold_reason: r.hold_reason, to_email: r.to_email, subject: r.subject, body: r.body, sent_at: r.sent_at, error: r.error, meta: r.meta || {} });
@@ -102,12 +110,16 @@ export function supabaseStore(admin: Admin, uid: string): Store {
       if (!data) return null;
       const ids = [data.deposit_invoice_id, data.balance_invoice_id].filter(Boolean);
       const links = { deposit: null as string | null, balance: null as string | null };
-      if (ids.length) {
+      // A pay link EDITH quotes has to actually take money: the OS invoice page
+      // when Stripe is connected, otherwise the payment link from settings.
+      if (ids.length && stripeConnected()) {
         const { data: inv } = await admin.from("invoices").select("id,token").in("id", ids);
         const m = new Map((inv || []).map((x) => [x.id, `${SITE}/pay/${x.token}`]));
         links.deposit = m.get(data.deposit_invoice_id) || null;
         links.balance = m.get(data.balance_invoice_id) || null;
       }
+      if (!links.deposit && cfg?.deposit_pay_link) links.deposit = cfg.deposit_pay_link;
+      if (!links.balance && cfg?.balance_pay_link) links.balance = cfg.balance_pay_link;
       return toContact(data, links);
     },
     async listContacts() {
@@ -179,6 +191,10 @@ export function supabaseStore(admin: Admin, uid: string): Store {
       const { data } = await admin.from("edith_steps").select("sent_at,seq").eq("prospect_id", cid).eq("kind", "email").in("status", ["sent", "logged"]).not("sent_at", "is", null).order("sent_at", { ascending: false }).limit(25);
       return (data || []).find((x) => !ignore.includes(x.seq))?.sent_at || null;
     },
+    async countSent(f) {
+      const { count } = await admin.from("edith_steps").select("id", { count: "exact", head: true }).eq("user_id", uid).eq("seq", f.seq).eq("step", f.step).in("status", ["sent", "logged"]).gte("sent_at", f.since);
+      return count || 0;
+    },
     async openTask(t, opts) {
       if (opts?.once) {
         const { data } = await admin.from("ops_tasks").select("id").eq("user_id", uid).eq("key", t.key).limit(1);
@@ -208,7 +224,7 @@ export async function spotsRemaining(admin: Admin, uid: string) {
 export async function edithEnv(admin: Admin, uid: string): Promise<Env> {
   const cfg = await getEdithConfig(admin, uid);
   return {
-    store: supabaseStore(admin, uid),
+    store: supabaseStore(admin, uid, cfg),
     content: CONTENT,
     cfg,
     now: () => new Date(),
@@ -270,19 +286,28 @@ export async function edithSettle(admin: Admin, uid: string, enrollmentId: strin
 // Bookings: a Spotlight booking is call.booked. A booking by someone who is
 // already a client is NOT a fit call — if their debrief invite (6-8) went out,
 // it's debrief.booked; otherwise it's just a call, and EDITH stays out of it.
-export async function edithOnBooking(admin: Admin, uid: string, a: { email: string; start: string; end: string; isSpotlight: boolean }) {
-  if (!a.email) return;
-  const { data: p, error } = await admin.from("spotlight_prospects").select("id,member_at").eq("user_id", uid).ilike("email", a.email).limit(1).maybeSingle();
-  if (error || !p) return;
-  if (p.member_at) {
-    const { data: sent } = await admin.from("edith_steps").select("id").eq("prospect_id", p.id).eq("step", "6-8").in("status", ["sent", "logged"]).limit(1);
-    if (sent?.length) await edithEmit(admin, uid, { prospect_id: p.id, type: "debrief.booked", payload: { call_time: a.start }, source: "booking" });
-    return;
-  }
-  if (a.isSpotlight) await edithEmit(admin, uid, { prospect_id: p.id, type: "call.booked", payload: { call_time: a.start, call_end: a.end }, source: "booking" });
+// Returns true only when EDITH's own confirmation (3-1) was actually SENT —
+// the booking route sends its generic welcome otherwise, so a booker is never
+// left with no confirmation (e.g. 3-1 held for a missing call link).
+export async function edithOnBooking(admin: Admin, uid: string, a: { email: string; start: string; end: string; isSpotlight: boolean }): Promise<boolean> {
+  try {
+    if (!a.email) return false;
+    const { data: p, error } = await admin.from("spotlight_prospects").select("id,member_at").eq("user_id", uid).ilike("email", a.email).limit(1).maybeSingle();
+    if (error || !p) return false;
+    if (p.member_at) {
+      const { data: sent } = await admin.from("edith_steps").select("id").eq("prospect_id", p.id).eq("step", "6-8").in("status", ["sent", "logged"]).limit(1);
+      if (sent?.length) await edithEmit(admin, uid, { prospect_id: p.id, type: "debrief.booked", payload: { call_time: a.start }, source: "booking" });
+      return false;
+    }
+    if (!a.isSpotlight) return false;
+    const since = new Date(Date.now() - 60e3).toISOString();
+    await edithEmit(admin, uid, { prospect_id: p.id, type: "call.booked", payload: { call_time: a.start, call_end: a.end }, source: "booking" });
+    const { data: conf } = await admin.from("edith_steps").select("id").eq("prospect_id", p.id).eq("step", "3-1").eq("status", "sent").gte("sent_at", since).limit(1);
+    return !!conf?.length;
+  } catch (e) { console.error("EDITH booking hook failed", e); return false; }
 }
 
-// A call was rescheduled or cancelled (Jarvis). EDITH follows it only if the
+// A call was rescheduled or cancelled (from the EDITH desk). EDITH follows it only if the
 // call is one she's tracking — the contact's latest call event is a booking.
 export async function edithOnBookingChange(admin: Admin, uid: string, email: string, a: { cancelled?: boolean; start?: string; end?: string }) {
   try {
@@ -290,8 +315,8 @@ export async function edithOnBookingChange(admin: Admin, uid: string, email: str
     if (!p) return;
     const { data: evs } = await admin.from("edith_events").select("type").eq("prospect_id", p.id).in("type", ["call.booked", "call.completed", "call.no_show", "call.cancelled"]).order("at", { ascending: false }).limit(1);
     if (evs?.[0]?.type !== "call.booked") return;
-    if (a.cancelled) await edithEmit(admin, uid, { prospect_id: p.id, type: "call.cancelled", source: "jarvis" });
-    else await edithEmit(admin, uid, { prospect_id: p.id, type: "call.booked", payload: { call_time: a.start, call_end: a.end }, source: "jarvis" });
+    if (a.cancelled) await edithEmit(admin, uid, { prospect_id: p.id, type: "call.cancelled", source: "edith-desk" });
+    else await edithEmit(admin, uid, { prospect_id: p.id, type: "call.booked", payload: { call_time: a.start, call_end: a.end }, source: "edith-desk" });
   } catch (e) { console.error("EDITH booking change failed", e); }
 }
 

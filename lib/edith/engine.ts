@@ -175,6 +175,13 @@ export type Config = {
   current_episode: number;
   paused: Record<string, boolean>;
   episodes: Record<string, EpisodeInfo>;
+  // Deliverability guard (not in the manifest): at most this many NEW cold
+  // first-touches (SEQ1's first email) per Eastern day. 0 = no cap.
+  cold_daily_cap?: number;
+  // Where a deposit / balance gets paid when the OS's own pay pages can't take
+  // cards yet (Stripe not connected) — e.g. a HoneyBook or Stripe Payment Link.
+  deposit_pay_link?: string;
+  balance_pay_link?: string;
 };
 
 export type OutMsg = {
@@ -207,6 +214,8 @@ export interface Store {
   claimStep(id: string): Promise<boolean>;
   // Latest EDITH email (sent, or logged while EDITH is off), ignoring the given sequences.
   lastSendAt(contactId: string, ignoreSeqs: string[]): Promise<string | null>;
+  // How many emails of this sequence step went out (sent or logged) since a time.
+  countSent(f: { seq: string; step: string; since: string }): Promise<number>;
   openTask(t: Task, opts?: { once?: boolean }): Promise<void>;
   closeTask(key: string): Promise<void>;
 }
@@ -262,8 +271,8 @@ export const FIELD_LABELS: Record<string, string> = {
   call_link: "the call link (a standing meeting link in EDITH settings, or on the contact)",
   rebook_link: "the rebook link",
   spot_number: "the spot number (log the call outcome)",
-  deposit_link: "a deposit invoice (Spotlight → Money → create deposit invoice)",
-  balance_link: "a balance invoice (Spotlight → Money → create balance invoice)",
+  deposit_link: "a way to pay the deposit — Stripe isn't connected, so add a deposit payment link in EDITH settings (or connect Stripe and create the deposit invoice)",
+  balance_link: "a way to pay the balance — add a balance payment link in EDITH settings (or connect Stripe and create the balance invoice)",
   film_date: "the film date",
   cut_link: "the cut link",
   episode_number: "the episode number",
@@ -820,6 +829,18 @@ async function runStep(env: Env, s: StepRow): Promise<boolean> {
   const r = renderEmail(env, tplId, enr.seq, c, enr.context, spots);
   if (r.missing.length) { await hold(env, s, c, tplId, `missing ${r.missing.map((k) => FIELD_LABELS[k] || k).join("; ")}`, true); return false; }
 
+  // Deliverability guard (not in the manifest — protects the sending domain):
+  // only so many NEW cold first-touches a day; the rest wait for tomorrow.
+  const cap = Number(env.cfg.cold_daily_cap) || 0;
+  if (cap > 0 && enr.seq === "SEQ1" && s.step === seqDef(env, "SEQ1")?.steps[0]?.step) {
+    const p = etParts(now);
+    const sentToday = await env.store.countSent({ seq: "SEQ1", step: s.step, since: iso(etToUtc(p.y, p.mo, p.d, 0, 0)) });
+    if (sentToday >= cap) {
+      await env.store.updateStep(s.id, { due_at: iso(nextOpen(etToUtc(p.y, p.mo, p.d + 1, 0, 0), w)), hold_reason: `today's cold-email cap (${cap}) reached — goes out tomorrow` });
+      return false;
+    }
+  }
+
   if (!(await env.store.claimStep(s.id))) return false;
   const base = { to_email: c.email, subject: r.subject, body: r.text, hold_reason: null, template_id: tplId };
   if (!env.cfg.edith_live) {
@@ -921,6 +942,9 @@ export function createMemoryStore(seed: Contact[] = []) {
     async lastSendAt(cid, ignoreSeqs) {
       const t = steps.filter((s) => s.contact_id === cid && s.kind === "email" && !ignoreSeqs.includes(s.seq) && (s.status === "sent" || s.status === "logged") && s.sent_at).map((s) => ms(s.sent_at));
       return t.length ? iso(new Date(Math.max(...t))) : null;
+    },
+    async countSent(f) {
+      return steps.filter((s) => s.seq === f.seq && s.step === f.step && (s.status === "sent" || s.status === "logged") && s.sent_at && ms(s.sent_at) >= ms(f.since)).length;
     },
     async openTask(t, opts) {
       if (tasks.some((x) => x.key === t.key && (opts?.once || x.status === "open"))) return;

@@ -6,7 +6,7 @@
 version: 1
 sender:
   name: "EDITH at Creative Impact"
-  from: edith@creativeimpactmedia.co
+  from: hello@creativeimpactmedia.co          # Brandon 2026-09-29: EDITH sends from hello@
   reply_to: hello@creativeimpactmedia.co       # confirmed by Brandon 2026-09-24 (Google Workspace inbox)
   signature_block: |
     EDITH

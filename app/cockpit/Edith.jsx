@@ -93,10 +93,13 @@ export function EdithDesk({ flash, onOpen }) {
   const next48 = queue.filter((s) => s.status === 'scheduled' && s.due_at && new Date(s.due_at).getTime() < Date.now() + 48 * 3600e3);
   const who = (id) => <button onClick={() => onOpen && onOpen(id)} style={{ background: 'none', border: 0, padding: 0, color: 'var(--cream)', fontFamily: 'var(--mono)', fontSize: '12.5px', fontWeight: 700, cursor: 'pointer', textAlign: 'left' }}>{names[id] || '—'}</button>;
 
+  const stripe = !!(d.payments && d.payments.stripe);
   const missing = [
     !cfg.physical_address && 'Mailing address — required in the cold (SEQ1) footer; cold emails HOLD without it.',
+    !cfg.call_link && 'Call link — 3-1/3-2/3-3 say “Join here”. A standing Zoom/Meet link, or set one per contact. Until then EDITH holds them and bookers get the regular welcome email instead.',
+    !stripe && !cfg.deposit_pay_link && 'Deposit payments — Stripe isn’t connected, so the OS pay pages can’t take cards. Add a deposit payment link (HoneyBook, Stripe Payment Link…) or 5-1/5-2/5-3 HOLD.',
+    !stripe && !cfg.balance_pay_link && 'Balance payments — same: add a balance payment link or 6-3 (day-before) HOLDS.',
     !cfg.board_link && 'Board link — 2-1 and 3-1 point to the public board with prices; they HOLD without it.',
-    !cfg.call_link && 'Call link — 3-1/3-2/3-3 say “Join here”. A standing Zoom/Meet link, or set one per contact.',
     !cfg.debrief_link && 'Debrief link — 6-8 asks clients to book the 20-minute debrief.',
     !cfg.next_board_date && 'Next board date — only used when the board is full (2-4-full).',
   ].filter(Boolean);
@@ -288,7 +291,7 @@ function InboundForm({ act, busy }) {
 }
 
 function Settings({ cfg, sequences, act, busy }) {
-  const KEYS = ['from', 'reply_to', 'digest_to', 'physical_address', 'booking_link', 'board_link', 'call_link', 'debrief_link', 'episode_link', 'next_board_date', 'current_episode'];
+  const KEYS = ['from', 'reply_to', 'digest_to', 'physical_address', 'booking_link', 'board_link', 'call_link', 'debrief_link', 'episode_link', 'next_board_date', 'current_episode', 'cold_daily_cap', 'deposit_pay_link', 'balance_pay_link'];
   const [f, setF] = useState({});
   const [paused, setPaused] = useState({});
   const [digest, setDigest] = useState(true);
@@ -320,6 +323,13 @@ function Settings({ cfg, sequences, act, busy }) {
         {inp('next_board_date', 'Next board opens', 'November 2', '0 1 160px')}
         {inp('current_episode', 'New deposits join episode', '1', '0 1 120px')}
       </div>
+      <div style={S.sec}>Payments + deliverability</div>
+      <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', marginBottom: '6px' }}>
+        {inp('deposit_pay_link', 'Deposit payment link (used until Stripe is connected)', 'https://…')}
+        {inp('balance_pay_link', 'Balance payment link (used until Stripe is connected)', 'https://…')}
+        {inp('cold_daily_cap', 'New cold emails per day (0 = no cap)', '20', '0 1 190px')}
+      </div>
+      <div style={{ ...S.note, marginBottom: '6px' }}>A payment made through an outside link doesn’t reach the OS by itself — when it lands, mark them a member in Spotlight (that’s the deposit.paid EDITH listens for). The daily cap protects hello@’s sending reputation: past it, new cold emails wait for tomorrow; follow-ups aren’t capped.</div>
       <div style={S.sec}>Pause a sequence (its emails hold until un-paused)</div>
       <div style={{ display: 'flex', gap: '14px', flexWrap: 'wrap' }}>
         {sequences.map((s) => (

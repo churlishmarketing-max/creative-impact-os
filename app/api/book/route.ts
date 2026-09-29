@@ -3,7 +3,7 @@ import { createClient } from "@supabase/supabase-js";
 import { sendEmail, emailShell, esc } from "@/lib/email";
 import { buildIcs } from "@/lib/ics";
 import { getAdminClient } from "@/lib/supabase/admin";
-import { edithEmit, edithOnBooking, getEdithConfig } from "@/lib/edith/server";
+import { edithEmit, edithOnBooking } from "@/lib/edith/server";
 
 export const runtime = "nodejs";
 
@@ -30,15 +30,18 @@ export async function POST(req: Request) {
   // booked" — updating the prospect if we already have them (matched by email),
   // never duplicating. Best-effort: the booking itself already succeeded.
   const isSpotlight = /spotlight/i.test(det.reason || "") || /spotlight/i.test(String(title || ""));
-  // When EDITH is live, her 3-1 confirmation (with the invite) replaces the
-  // generic welcome for Spotlight bookings — never both.
-  let edithLive = false;
+  // A member booking their debrief (/go/debrief) is not a new lead.
+  const isDebrief = /debrief/i.test(det.reason || "") || /debrief/i.test(String(title || ""));
+  // EDITH's 3-1 confirmation (with the invite) replaces the generic welcome for
+  // Spotlight bookings — but only when it actually SENT. If she held it (e.g.
+  // no call link yet) the booker still gets the welcome. Never both, never none.
+  let edithConfirmed = false;
   try {
     const admin = getAdminClient();
     if (admin) {
       const { data: owner } = await admin.from("app_state").select("user_id").filter("ops->__booking->>token", "eq", token).limit(1).maybeSingle();
       const uid = owner?.user_id;
-      if (uid && isSpotlight) {
+      if (uid && isSpotlight && !isDebrief) {
         const { data: client } = email ? await admin.from("clients").select("id").eq("user_id", uid).ilike("email", email).limit(1).maybeSingle() : { data: null };
         const { data: existing } = email ? await admin.from("spotlight_prospects").select("id,stage").eq("user_id", uid).ilike("email", email).limit(1).maybeSingle() : { data: null };
         const note = `Booked a Spotlight call for ${whenText || start}.${notes ? " Notes: " + notes : ""}`;
@@ -56,11 +59,10 @@ export async function POST(req: Request) {
           }
         }
         await admin.from("log_entries").insert({ user_id: uid, tag: "CS", color: "var(--gold)", message: `spotlight · call booked · ${det.business || name || email}` });
-        edithLive = (await getEdithConfig(admin, uid)).edith_live;
       }
       // EDITH: a Spotlight fit call starts SEQ3; a client booking after their
       // debrief invite counts as the debrief. Everything else: EDITH stays out.
-      if (uid && email) await edithOnBooking(admin, uid, { email, start, end, isSpotlight });
+      if (uid && email) edithConfirmed = await edithOnBooking(admin, uid, { email, start, end, isSpotlight: isSpotlight && !isDebrief });
     }
   } catch (e) { console.error("spotlight booking hook failed", e); }
 
@@ -78,7 +80,17 @@ export async function POST(req: Request) {
     alarmMinutes: 60,
   });
   const when = whenText || new Date(start).toUTCString();
-  if (email && !(isSpotlight && edithLive)) {
+  if (email && isDebrief) {
+    // Members booking the debrief get a plain confirmation, not the new-lead welcome.
+    const firstName = String(name || "").trim().split(/\s+/)[0] || "there";
+    await sendEmail({
+      to: email,
+      bcc: null,
+      subject: `Your Spotlight debrief is booked — ${when}`,
+      text: `${firstName} — you're on Emmanuel's calendar for your Charlotte Spotlight debrief: ${when}.\n\nTwenty minutes: what the season reached, what it did for your business, and one recommendation. The calendar invite is attached.\n\nCreative Impact\nhello@creativeimpactmedia.co`,
+      ics,
+    });
+  } else if (email && !(isSpotlight && edithConfirmed)) {
     // Welcome-and-set-expectations email, in the founders' voice. Copy is
     // Brandon's; the confirmed slot and the invite ride along with it so the
     // booker has the time in writing as well as on their calendar.

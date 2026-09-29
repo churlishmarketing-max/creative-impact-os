@@ -5,7 +5,7 @@ import { getAdminClient } from "@/lib/supabase/admin";
 import { draftAgentEmail, sendQueuedEmail } from "@/lib/agent";
 import { runAutomation } from "@/lib/automations-engine";
 import { gradeLead as laneGrade, computeWeek as laneComputeWeek, scalingVerdict as laneScaling, fallbackStatus as laneFallbacks, PLAN as LANE_PLAN, FALLBACKS as LANE_FALLBACKS, type Week as LaneWeek } from "@/lib/nationwide";
-import { edithEmit, edithOnBookingChange } from "@/lib/edith/server";
+import { edithEmit, edithOnBookingChange, getEdithConfig } from "@/lib/edith/server";
 import { STAGES as SPOT_STAGES, STAGE_KEYS as SPOT_KEYS, VERTICALS, makeMember, importWebsite, type Prospect } from "@/lib/spotlight";
 
 export const runtime = "nodejs";
@@ -58,6 +58,8 @@ const TOOLS = [
   { name: "lane_add_lead", description: "Log a lead for the Nationwide Hardscape & Landscape lane (the $3K/mo remote ad engine) from its five qualifier-form answers. The OS grades it A-D deterministically: A = $1M+ owner hardscape/design-build (call in 5 min, Brandon on the close); B = $500K-$1M owner install work (call in 5 min); C = $250K-$500K (no call, one reapply email); D = under $250K, maintenance only, or not the owner (filtered). Never send a calendar link to a C or D.", input_schema: { type: "object", properties: { full_name: { type: "string" }, phone: { type: "string" }, email: { type: "string" }, state: { type: "string" }, company: { type: "string" }, web: { type: "string", description: "website or Instagram" }, ad: { type: "string" }, q_install: { type: "string", enum: ["hardscape", "designbuild", "both", "maintenance"] }, q_revenue: { type: "string", enum: ["under250", "250to500", "500to1m", "1mto3m", "3mplus"] }, q_owner: { type: "string", enum: ["yes", "marketing", "no"] }, q_adspend: { type: "string", enum: ["0", "under1k", "1kto3k", "3kplus"] }, notes: { type: "string" } } } },
   { name: "lane_status", description: "Status of the Nationwide Hardscape & Landscape lane: plan progress and anything overdue, A/B leads waiting on a first call, this week's constraint from the Friday tracker and its fix, what the scaling rule says about budget, and any pre-committed fallback that has tripped.", input_schema: { type: "object", properties: {} } },
   { name: "lane_log_week", description: "Log (or update) one Friday row of the Nationwide lane constraint tracker, then report the week's constraint and the scaling-rule verdict. week_of is the Friday (YYYY-MM-DD). Spend, impressions, 3-second views, and frequency come from Ads Manager; leads/qualified($500K+)/booked/held/closed and median minutes to first call come from the lead log. Only provided fields change.", input_schema: { type: "object", properties: { week_of: { type: "string" }, spend: { type: "number" }, impressions: { type: "number" }, views3s: { type: "number" }, frequency: { type: "number" }, leads: { type: "number" }, qualified: { type: "number" }, booked: { type: "number" }, held: { type: "number" }, closed: { type: "number" }, median_call_min: { type: "number" } }, required: ["week_of"] } },
+  { name: "edith_status", description: "Status of EDITH's Spotlight email engine (the automated sequences you send): whether sending is live, what went out in the last 24 hours, what's HELD and why (a missing field a human must fill), what's scheduled in the next 48 hours, and the open tasks waiting on a human.", input_schema: { type: "object", properties: {} } },
+  { name: "edith_log", description: "Record something that happened that the OS can't see, for a Charlotte Spotlight business matched by (partial) name. It drives EDITH's emails, and when EDITH is live the next one can go out right away, so restate what you're logging first. Events: call_completed (needs outcome: undecided | not_fit | closed; spot_number unless not_fit; for not_fit also not_fit_reason and what_would_change — both are quoted word for word in the email), no_show, call_cancelled, replied (keyword: later | yes | stop | other — stop unsubscribes them for good), cut_delivered (cut_link, an https link), debrief_booked.", input_schema: { type: "object", properties: { business: { type: "string" }, event: { type: "string", enum: ["call_completed", "no_show", "call_cancelled", "replied", "cut_delivered", "debrief_booked"] }, outcome: { type: "string", enum: ["undecided", "not_fit", "closed"] }, spot_number: { type: "number" }, not_fit_reason: { type: "string" }, what_would_change: { type: "string" }, keyword: { type: "string", enum: ["later", "yes", "stop", "other"] }, text: { type: "string" }, cut_link: { type: "string" } }, required: ["business", "event"] } },
   { name: "run_automation_now", description: "Fire an existing automation immediately, ignoring its cadence, matched by (partial) name. Use to test one or to get a leak sweep on demand.", input_schema: { type: "object", properties: { name: { type: "string" } }, required: ["name"] } },
 ];
 
@@ -157,7 +159,7 @@ async function runTool(admin: NonNullable<ReturnType<typeof getAdminClient>>, ui
   }
 
   if (name === "add_client") {
-    const { error } = await admin.from("clients").insert({ user_id: uid, name: String(input.name), contact_name: (input.contact as string) || null, email: (input.email as string) || null, phone: (input.phone as string) || null, industry: (input.industry as string) || null, status: STAGES.includes(String(input.status)) ? "Lead" : String(input.status || "Lead"), source: "Jarvis" });
+    const { error } = await admin.from("clients").insert({ user_id: uid, name: String(input.name), contact_name: (input.contact as string) || null, email: (input.email as string) || null, phone: (input.phone as string) || null, industry: (input.industry as string) || null, status: STAGES.includes(String(input.status)) ? "Lead" : String(input.status || "Lead"), source: "EDITH" });
     if (error) return "ERROR: " + error.message;
     await log(`client added · ${input.name}`);
     return `Client added: ${input.name}${input.email ? " (" + input.email + ")" : ""}.`;
@@ -437,7 +439,7 @@ async function runTool(admin: NonNullable<ReturnType<typeof getAdminClient>>, ui
       action,
       action_config: input.note ? { note: String(input.note) } : {},
       enabled: input.enabled == null ? true : !!input.enabled,
-      created_by: "jarvis",
+      created_by: "edith",
     };
     const { error } = await admin.from("automations").insert(row);
     if (error) return missingAutoTable(error.message) ? AUTO_MIGRATION : "ERROR: " + error.message;
@@ -480,7 +482,7 @@ async function runTool(admin: NonNullable<ReturnType<typeof getAdminClient>>, ui
     return data.map((p) => `${p.business}${p.owner_name ? " (" + p.owner_name + ")" : ""} · ${stageLabel(p.stage)} · ${p.reviews ?? "—"} reviews · ${p.years ?? "—"} yrs${p.film_date ? " · films " + p.film_date : ""}${p.q_returned_at ? " · ★ answers back" : p.q_sent_at ? " · questions sent" : ""}`).join("\n");
   }
   if (name === "spotlight_add") {
-    const row: Record<string, unknown> = { user_id: uid, stage: "prospect", source: "jarvis", business: String(input.business).slice(0, 200) };
+    const row: Record<string, unknown> = { user_id: uid, stage: "prospect", source: "edith", business: String(input.business).slice(0, 200) };
     for (const k of ["owner_name", "email", "phone", "website", "suburb", "notes"]) if (input[k]) row[k] = String(input[k]).slice(0, 1000);
     if (input.vertical && VERTICALS[String(input.vertical)]) row.vertical = String(input.vertical);
     if (input.reviews != null) row.reviews = Math.max(0, Math.round(Number(input.reviews)) || 0);
@@ -500,7 +502,7 @@ async function runTool(admin: NonNullable<ReturnType<typeof getAdminClient>>, ui
     const { data: added, error } = await admin.from("spotlight_prospects").insert(row).select("id").maybeSingle();
     if (error) return spotMissing(error.message) ? SPOT_MIGRATION : "ERROR: " + error.message;
     await log(`spotlight · added ${row.business}`);
-    if (added?.id) await edithEmit(admin, uid, { prospect_id: added.id, type: "contact.created", source: "jarvis" });
+    if (added?.id) await edithEmit(admin, uid, { prospect_id: added.id, type: "contact.created", source: "edith-desk" });
     return `Added ${row.business} to the Spotlight pipeline as a Prospect.${filled.length ? " From their site: " + filled.join(", ") + "." : ""}${row.reviews == null || row.years == null ? " Still missing reviews/years — the call opener needs both." : ""}`;
   }
   if (name === "spotlight_move") {
@@ -585,6 +587,65 @@ async function runTool(admin: NonNullable<ReturnType<typeof getAdminClient>>, ui
     return `Week of ${weekOf} logged. ${res.constraint ? `Constraint: ${res.constraint.label} (line: ${res.constraint.line}). Fix: ${res.constraint.fix}` : "No stage with data is below its line."} Scaling: ${laneScaling(next).text}`;
   }
 
+  // --- EDITH's own email engine (Charlotte Spotlight) ---
+  if (name === "edith_status") {
+    const cfg = await getEdithConfig(admin, uid);
+    const since = new Date(Date.now() - 86400e3).toISOString();
+    const soon = new Date(Date.now() + 48 * 3600e3).toISOString();
+    const [q, held, sent, tasks, names] = await Promise.all([
+      admin.from("edith_steps").select("prospect_id,template_id,due_at").eq("user_id", uid).eq("status", "scheduled").lte("due_at", soon).order("due_at").limit(20),
+      admin.from("edith_steps").select("prospect_id,template_id,hold_reason").eq("user_id", uid).eq("status", "held").limit(20),
+      admin.from("edith_steps").select("prospect_id,template_id,status").eq("user_id", uid).in("status", ["sent", "logged", "failed"]).gte("sent_at", since).limit(40),
+      admin.from("ops_tasks").select("title").eq("user_id", uid).eq("status", "open").order("due_at", { ascending: true, nullsFirst: false }).limit(12),
+      admin.from("spotlight_prospects").select("id,business").eq("user_id", uid),
+    ]);
+    if (q.error) return /does not exist|schema cache/i.test(q.error.message) ? "EDITH's tables aren't set up yet — run supabase/24_edith.sql." : "ERROR: " + q.error.message;
+    const who = new Map((names.data || []).map((x) => [x.id, x.business]));
+    const et = (iso: string) => new Intl.DateTimeFormat("en-US", { timeZone: "America/New_York", weekday: "short", hour: "numeric", minute: "2-digit" }).format(new Date(iso)) + " ET";
+    const list = <T,>(rows: T[] | null, f: (r: T) => string, none: string) => (rows && rows.length ? rows.map(f).join("; ") : none);
+    return [
+      `Sending is ${cfg.edith_live ? "LIVE" : "OFF (logging only)"}; from ${cfg.from}, replies to ${cfg.reply_to}.`,
+      `Last 24h: ${list(sent.data, (s) => `${who.get(s.prospect_id)} · ${s.template_id} (${s.status})`, "nothing went out")}.`,
+      `HELD: ${list(held.data, (s) => `${who.get(s.prospect_id)} · ${s.template_id} — ${s.hold_reason}`, "nothing")}.`,
+      `Next 48h: ${list(q.data, (s) => `${who.get(s.prospect_id)} · ${s.template_id} at ${et(s.due_at)}`, "nothing scheduled")}.`,
+      `Waiting on a human: ${list(tasks.data, (t) => t.title, "nothing")}.`,
+    ].join("\n");
+  }
+  if (name === "edith_log") {
+    const term = String(input.business || "").replace(/[%,()]/g, " ").trim();
+    const { data: matches, error } = await admin.from("spotlight_prospects").select("id,business,stage").eq("user_id", uid).ilike("business", `%${term}%`);
+    if (error) return spotMissing(error.message) ? SPOT_MIGRATION : "ERROR: " + error.message;
+    if (!matches?.length) return `No Spotlight business matching "${term}".`;
+    if (matches.length > 1) return `Ambiguous — matches: ${matches.map((m) => m.business).join(", ")}. Which one?`;
+    const p = matches[0];
+    const TYPE: Record<string, string> = { call_completed: "call.completed", no_show: "call.no_show", call_cancelled: "call.cancelled", replied: "email.replied", cut_delivered: "cut.delivered", debrief_booked: "debrief.booked" };
+    const type = TYPE[String(input.event || "")];
+    if (!type) return "Unknown event.";
+    const payload: Record<string, unknown> = {};
+    if (type === "call.completed") {
+      const outcome = String(input.outcome || "");
+      if (!["undecided", "not_fit", "closed"].includes(outcome)) return "Which outcome — undecided, not a fit, or closed?";
+      payload.outcome = outcome;
+      if (outcome !== "not_fit") { if (!Number(input.spot_number)) return "Which spot did Emmanuel recommend? The recap and welcome emails quote it."; payload.spot_number = Math.round(Number(input.spot_number)); }
+      else {
+        payload.not_fit_reason = String(input.not_fit_reason || "").slice(0, 600);
+        payload.what_would_change = String(input.what_would_change || "").slice(0, 600);
+        if (!payload.not_fit_reason || !payload.what_would_change) return "For a not-a-fit, I need the reason and what would change it — the email quotes both word for word.";
+      }
+    }
+    if (type === "email.replied") { payload.keyword = ["later", "yes", "stop", "other"].includes(String(input.keyword)) ? input.keyword : "other"; payload.text = String(input.text || "").slice(0, 2000); }
+    if (type === "cut.delivered") {
+      const link = String(input.cut_link || "");
+      if (!/^https?:\/\//.test(link)) return "I need the cut link (https://…) — it's the whole point of that email.";
+      payload.cut_link = link;
+      if (["member", "filming", "filmed"].includes(p.stage)) await admin.from("spotlight_prospects").update({ stage: "delivered", stage_at: new Date().toISOString() }).eq("id", p.id);
+    }
+    const r = await edithEmit(admin, uid, { prospect_id: p.id, type, payload, source: "edith-desk" });
+    if (!r.ok) return "ERROR: " + r.error;
+    await log(`EDITH · ${type} · ${p.business}`);
+    return `Logged ${type} for ${p.business}. The sequences take it from here — edith_status or Spotlight → EDITH · Email shows what's queued or held.`;
+  }
+
   return "Unknown tool.";
 }
 
@@ -608,12 +669,13 @@ export async function POST(req: Request) {
   const history: { role: string; content: unknown }[] = Array.isArray(body.messages) ? body.messages.slice(-14) : [];
   if (!history.length) return NextResponse.json({ ok: false, error: "empty" }, { status: 400 });
 
-  // Persona voice: prefer a "Jarvis" agent row, fall back to the legacy
-  // "Showrunner" row so an existing seed still supplies the voice.
-  let { data: agent } = await admin.from("agents").select("voice_prompt").eq("user_id", user.id).eq("name", "Jarvis").maybeSingle();
-  if (!agent) ({ data: agent } = await admin.from("agents").select("voice_prompt").eq("user_id", user.id).eq("name", "Showrunner").maybeSingle());
+  // Persona voice: an "EDITH" agent row if one exists. The old Jarvis /
+  // Showrunner rows are NOT used — their voice prompts introduce a different
+  // name. (Jarvis became EDITH on 2026-09-29: one assistant for the OS and
+  // the Spotlight emails.)
+  const { data: agent } = await admin.from("agents").select("voice_prompt").eq("user_id", user.id).eq("name", "EDITH").maybeSingle();
   const board = await boardSummary(admin, user.id);
-  const system = `${agent?.voice_prompt || "You are Jarvis, the Creative Impact OS operator copilot."}\n\nYou are Jarvis. You are an AI and say so plainly if asked; you never pose as Brandon, Emmanuel, or a client.\n\nLIVE BOARD CONTEXT (as of this message):\n${JSON.stringify(board)}\n\nToday: ${new Date().toDateString()}. Current ISO week: ${weekKey()}.\n\nCAPABILITIES NOTE: You can change mission-level settings (set_sprint: target, dates, THE ONE THING), manage Founder OS goals (add_goal/complete_goal), rewrite the working strategy (set_strategy), set KPIs, and ingest uploaded receipts/statements/CSVs — extract each line item and log via add_expenses_bulk (use the document's dates; ask before logging if any line is unreadable or ambiguous). Changing the sprint target or dates is a big lever — restate the change and act only when the instruction is explicit.\n\nINVOICES & PROPOSALS: create_invoice and create_proposal DRAFT the document and generate its client link — they never email the client. Sending an invoice or proposal is an outbound, money-adjacent action that stays with a human: after drafting, show the operator the number, amount, and link, and tell them to send it from the Invoices/Proposals tab. Do not claim anything was sent.\n\nAUTOMATIONS: you can set up recurring work yourself. create_automation makes a scheduled job the OS runs on its own (leak_sweep = Black Widow's revenue leak sweep computed off the live board; board_digest = a numbers snapshot; log_marker = a heartbeat for testing). list_automations shows what exists, toggle_automation turns one on/off (they are never deleted), run_automation_now fires one immediately. The OS dispatches due automations once a day, so day-level cadences are real and sub-daily timing is not. When the operator describes recurring work ("every Monday sweep for money we're leaving on the table"), offer to create the automation rather than just doing it once.\n\nNATIONWIDE LANE (Hardscape & Landscape): a $3,000/mo remote ad engine sold nationwide to hardscape/landscape companies doing $500K+ (Emmanuel fronts every ad; the client films on a phone). lane_add_lead logs and grades a lead from the five form answers; lane_status reads the plan, leads waiting, the week's constraint, the scaling verdict, and tripped fallbacks; lane_log_week records a Friday tracker row. The planning numbers are assumptions, not benchmarks; never present them as results.\n\nCHARLOTTE SPOTLIGHT: the local video series (ten businesses a month, filmed like Diners, Drive-Ins and Dives). spotlight_list shows the pipeline; spotlight_add adds a prospect (set import_site=true with a website to pull facts off their site); spotlight_move moves a stage. Moving someone to 'member' can email them their pre-shoot questions immediately; say so before you do it. You never send the cold sequence emails; those are drafted and sent from the SPOTLIGHT tab.\n\nCALLS: update_booking reschedules or cancels an upcoming booked call. Rescheduling needs an explicit new start time. Cancelling frees the slot on the public booker; restate the call before cancelling.\n\nCLIENT EMAIL: draft_client_email hands the writing to Anchor (the client producer) — client-facing mail is his voice, not yours. Drafts queue for approval by default; pass send_now=true ONLY on an explicit send order. When the operator approves a draft you just showed them ("send it"), use send_pending_email — never redraft. Show the operator the draft body after creating it. Use list_clients to see or disambiguate the roster; client matching covers names, contact names, and emails.\n\nYou can add and update, but you NEVER delete anything, and you never send an invoice, proposal, or client email without the operator's explicit go-ahead.`;
+  const system = `${agent?.voice_prompt || "You are EDITH, Creative Impact's assistant — the AI kind. You run the Creative Impact OS alongside Brandon and Emmanuel: warm, direct, brief — the sharpest assistant in a small shop, never a marketing department."}\n\nYou are EDITH. You are an AI and say so plainly if asked; you never pose as Brandon, Emmanuel, or a client. The same EDITH signs the Charlotte Spotlight emails, so the operator may ask you about those too.\n\nLIVE BOARD CONTEXT (as of this message):\n${JSON.stringify(board)}\n\nToday: ${new Date().toDateString()}. Current ISO week: ${weekKey()}.\n\nCAPABILITIES NOTE: You can change mission-level settings (set_sprint: target, dates, THE ONE THING), manage Founder OS goals (add_goal/complete_goal), rewrite the working strategy (set_strategy), set KPIs, and ingest uploaded receipts/statements/CSVs — extract each line item and log via add_expenses_bulk (use the document's dates; ask before logging if any line is unreadable or ambiguous). Changing the sprint target or dates is a big lever — restate the change and act only when the instruction is explicit.\n\nINVOICES & PROPOSALS: create_invoice and create_proposal DRAFT the document and generate its client link — they never email the client. Sending an invoice or proposal is an outbound, money-adjacent action that stays with a human: after drafting, show the operator the number, amount, and link, and tell them to send it from the Invoices/Proposals tab. Do not claim anything was sent.\n\nAUTOMATIONS: you can set up recurring work yourself. create_automation makes a scheduled job the OS runs on its own (leak_sweep = Black Widow's revenue leak sweep computed off the live board; board_digest = a numbers snapshot; log_marker = a heartbeat for testing). list_automations shows what exists, toggle_automation turns one on/off (they are never deleted), run_automation_now fires one immediately. The OS dispatches due automations once a day, so day-level cadences are real and sub-daily timing is not. When the operator describes recurring work ("every Monday sweep for money we're leaving on the table"), offer to create the automation rather than just doing it once.\n\nNATIONWIDE LANE (Hardscape & Landscape): a $3,000/mo remote ad engine sold nationwide to hardscape/landscape companies doing $500K+ (Emmanuel fronts every ad; the client films on a phone). lane_add_lead logs and grades a lead from the five form answers; lane_status reads the plan, leads waiting, the week's constraint, the scaling verdict, and tripped fallbacks; lane_log_week records a Friday tracker row. The planning numbers are assumptions, not benchmarks; never present them as results.\n\nCHARLOTTE SPOTLIGHT: the local video series (ten businesses a month, filmed like Diners, Drive-Ins and Dives). spotlight_list shows the pipeline; spotlight_add adds a prospect (set import_site=true with a website to pull facts off their site); spotlight_move moves a stage. Moving someone to 'member' can email them their pre-shoot questions immediately, and starts your client emails (SEQ6); say so before you do it.\n\nYOUR SPOTLIGHT EMAILS: you also run the Spotlight's automated sequences (cold, inbound, booked-to-show, no-show, post-call, client lifecycle, monthly episode). edith_status reports what's live, sent, HELD (and the field a human must fill), queued, and waiting on a human. edith_log records what the OS can't see — a call outcome with the spot number, a no-show, a cancellation, a reply that landed in the inbox, a delivered cut, a booked debrief — and can send the next email right away, so restate it first. You never turn sending on or off, never edit the email copy (it's locked in the repo), and never hand-send cold email: cold goes out only through the sequence, to tagged cold prospects with a specific detail, under the daily cap.\n\nCALLS: update_booking reschedules or cancels an upcoming booked call. Rescheduling needs an explicit new start time. Cancelling frees the slot on the public booker; restate the call before cancelling.\n\nCLIENT EMAIL: draft_client_email hands the writing to Anchor (the client producer) — client-facing mail is his voice, not yours. Drafts queue for approval by default; pass send_now=true ONLY on an explicit send order. When the operator approves a draft you just showed them ("send it"), use send_pending_email — never redraft. Show the operator the draft body after creating it. Use list_clients to see or disambiguate the roster; client matching covers names, contact names, and emails.\n\nYou can add and update, but you NEVER delete anything, and you never send an invoice, proposal, or client email without the operator's explicit go-ahead.`;
 
   const convo: { role: string; content: unknown }[] = history.map((m) => ({ role: m.role === "assistant" ? "assistant" : "user", content: m.content }));
 

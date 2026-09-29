@@ -6,7 +6,7 @@ import { CONTENT } from "@/lib/edith/content.generated";
 import { renderEmail, findDef, runDue, FIELD_LABELS, type Config } from "@/lib/edith/engine";
 import {
   EDITH_MIGRATION, missingTable, getEdithConfig, saveEdithConfig, edithEnv, edithEmit, edithTouch, edithRetryAll,
-  edithSettle, spotsRemaining, sendDigest,
+  edithSettle, spotsRemaining, sendDigest, stripeConnected,
 } from "@/lib/edith/server";
 
 export const runtime = "nodejs";
@@ -39,7 +39,7 @@ export async function GET(req: Request) {
   if ("error" in a) return fail(a.error, a.error === "unauthorized" ? 401 : 400);
   const uid = a.user.id;
   const cfg = await getEdithConfig(a.admin, uid);
-  const base = { ok: true, config: cfg, templates: TEMPLATES, sequences: SEQUENCES, warnings: CONTENT.warnings, source_hash: CONTENT.source_hash, tasksForHumans: CONTENT.manifest.tasks_for_humans, labels: FIELD_LABELS };
+  const base = { ok: true, config: cfg, payments: { stripe: stripeConnected() }, templates: TEMPLATES, sequences: SEQUENCES, warnings: CONTENT.warnings, source_hash: CONTENT.source_hash, tasksForHumans: CONTENT.manifest.tasks_for_humans, labels: FIELD_LABELS };
 
   // ?prospect=<id> narrows everything to one contact (the Spotlight drawer).
   const pid = new URL(req.url).searchParams.get("prospect") || "";
@@ -88,7 +88,9 @@ export async function POST(req: Request) {
       if (p.edith_live && b.confirm !== "EDITH LIVE") return fail("To turn EDITH on, type EDITH LIVE to confirm.");
       next.edith_live = !!p.edith_live;
     }
-    for (const k of ["from", "reply_to", "digest_to", "physical_address", "booking_link", "board_link", "call_link", "debrief_link", "episode_link", "next_board_date"] as const) if (k in p) next[k] = str(p[k], 400);
+    for (const k of ["from", "reply_to", "digest_to", "physical_address", "booking_link", "board_link", "call_link", "debrief_link", "episode_link", "next_board_date", "deposit_pay_link", "balance_pay_link"] as const) if (k in p) next[k] = str(p[k], 400);
+    for (const k of ["deposit_pay_link", "balance_pay_link", "call_link", "board_link", "debrief_link", "booking_link"] as const) if (next[k] && !/^https:\/\//.test(next[k]!)) return fail(`${k.replace(/_/g, " ")} needs to be a full https:// link.`);
+    if ("cold_daily_cap" in p) next.cold_daily_cap = Math.max(0, Math.min(500, Math.round(Number(p.cold_daily_cap)) || 0));
     if ("digest" in p) next.digest = !!p.digest;
     if ("current_episode" in p) next.current_episode = Math.max(1, Math.round(Number(p.current_episode)) || 1);
     if ("paused" in p && p.paused && typeof p.paused === "object") next.paused = Object.fromEntries(Object.entries(p.paused as Record<string, unknown>).filter(([k]) => /^SEQ\w+$/.test(k)).map(([k, v]) => [k, !!v]));

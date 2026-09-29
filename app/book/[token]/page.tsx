@@ -37,6 +37,8 @@ function localHint(utc: number, businessTz: string): string {
 // What the visitor needs help with — not our offer names. The operator can
 // override the list with the booking config's "reasons" array.
 const SPOTLIGHT_REASON = "Charlotte Spotlight — get my business featured";
+// /go/debrief (EDITH 6-8): Spotlight members booking their 20-minute debrief.
+const DEBRIEF_REASON = "Charlotte Spotlight — member debrief";
 const DEFAULT_REASONS = [
   "Lead generation — I need more customers",
   "Marketing help — I don't know what to do next",
@@ -82,6 +84,7 @@ export default function BookPage() {
   const [picked, setPicked] = useState<Slot | null>(null);
   const [form, setForm] = useState({ name: "", email: "", phone: "", business: "", website: "", socials: "", reason: "", notes: "" });
   const [spot, setSpot] = useState(false); // /book/<token>?for=spotlight (or /go/spotlight)
+  const [debrief, setDebrief] = useState(false); // /book/<token>?for=debrief (or /go/debrief)
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState(false);
 
@@ -95,9 +98,14 @@ export default function BookPage() {
       const { data } = await sb.rpc("get_booking", { p_token: tk });
       if (!data || !data.config) { setErr("This booking page could not be found."); setLoading(false); return; }
       setCfg(data.config as Config);
-      if (new URLSearchParams(window.location.search).get("for") === "spotlight") {
+      const forWhat = new URLSearchParams(window.location.search).get("for");
+      if (forWhat === "spotlight") {
         setSpot(true);
         setForm((f) => ({ ...f, reason: SPOTLIGHT_REASON }));
+      } else if (forWhat === "debrief") {
+        setSpot(true);
+        setDebrief(true);
+        setForm((f) => ({ ...f, reason: DEBRIEF_REASON }));
       }
       const t = new Set<number>((data.taken || []).map((iso: string) => new Date(iso).getTime()));
       setTaken(t);
@@ -155,7 +163,7 @@ export default function BookPage() {
     const whenText = new Date(picked.utc).toLocaleString("en-US", { timeZone: tz, weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) + " (" + tz + ")";
     let data: any = null;
     try {
-      const res = await fetch("/api/book", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ token, name: form.name, email: form.email, phone: form.phone, notes: form.notes, details: { business: form.business, website: form.website, socials: form.socials, reason: form.reason }, start, end, whenText, title: spot ? "Charlotte Spotlight call" : cfg?.title }) });
+      const res = await fetch("/api/book", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ token, name: form.name, email: form.email, phone: form.phone, notes: form.notes, details: { business: form.business, website: form.website, socials: form.socials, reason: form.reason }, start, end, whenText, title: debrief ? "Charlotte Spotlight debrief" : spot ? "Charlotte Spotlight call" : cfg?.title }) });
       data = await res.json();
     } catch {}
     setBusy(false);
@@ -184,7 +192,7 @@ export default function BookPage() {
             <div style={{ width: 0, height: 0, borderTop: "6px solid transparent", borderBottom: "6px solid transparent", borderLeft: "10px solid #ffb81c", marginLeft: 3 }} />
           </div>
           <div>
-            <div style={{ fontFamily: "'Oswald', sans-serif", fontWeight: 900, fontSize: 19, lineHeight: 0.86 }}>{spot ? "Charlotte Spotlight" : (cfg?.title || "Book a call")}</div>
+            <div style={{ fontFamily: "'Oswald', sans-serif", fontWeight: 900, fontSize: 19, lineHeight: 0.86 }}>{debrief ? "Spotlight debrief" : spot ? "Charlotte Spotlight" : (cfg?.title || "Book a call")}</div>
             <div style={{ fontSize: 8.5, letterSpacing: ".28em", color: "#5c7096", marginTop: 3 }}>CI/OS · {slotMins} MIN · {tz}</div>
           </div>
         </div>
@@ -197,7 +205,7 @@ export default function BookPage() {
                 {picked && localHint(picked.utc, tz) ? <div style={{ color: "#8ea3c4", fontSize: 11, marginTop: 6 }}>That's {localHint(picked.utc, tz)}.</div> : null}
               </div>
               {picked ? (() => {
-                const title = spot ? "Charlotte Spotlight call — Creative Impact" : (cfg?.title || "Call with Creative Impact");
+                const title = debrief ? "Charlotte Spotlight debrief — Creative Impact" : spot ? "Charlotte Spotlight call — Creative Impact" : (cfg?.title || "Call with Creative Impact");
                 const ev = {
                   start: picked.utc,
                   end: picked.utc + slotMins * 60000,
@@ -229,7 +237,7 @@ export default function BookPage() {
               <input style={inp} placeholder="Socials — IG / Facebook / YouTube handles" value={form.socials} onChange={(e) => setForm({ ...form, socials: e.target.value })} />
               <select style={{ ...inp, cursor: "pointer" }} value={form.reason} onChange={(e) => setForm({ ...form, reason: e.target.value })}>
                 <option value="">What are you reaching out for?</option>
-                {((cfg?.reasons || []).filter(Boolean).length ? (cfg?.reasons as string[]).filter(Boolean) : DEFAULT_REASONS).map((o) => <option key={o} value={o}>{o}</option>)}
+                {(debrief ? [DEBRIEF_REASON] : []).concat((cfg?.reasons || []).filter(Boolean).length ? (cfg?.reasons as string[]).filter(Boolean) : DEFAULT_REASONS).map((o) => <option key={o} value={o}>{o}</option>)}
               </select>
               <textarea style={{ ...inp, minHeight: 60, resize: "vertical" }} placeholder="Anything else we should know before the call?" value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
               <div style={{ display: "flex", gap: 10 }}>

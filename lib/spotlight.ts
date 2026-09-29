@@ -76,6 +76,11 @@ export const VERTICALS: Record<string, { label: string; gap: string; season: str
 // --- Config (app_state.ops.__spotlight) --------------------------------------
 // Defaults are the NEWEST document (Sep 19 call script). The Aug 21 agreement
 // and invoice templates describe a different offer — see HANDOFF.md.
+// v5, Sep 29 2026: rewritten to the offer actually being sold (Sep 19 script +
+// EDITH's emails) — $997 = deposit at booking + balance on film day, one monthly
+// episode, the client OWNS their commercial, and the refund-or-roll floor that
+// EDITH's 5-1 promises is "in the agreement". Still DRAFT: needs the NC
+// attorney pass before first use (attorneyReviewed stays false until then).
 export const DEFAULT_AGREEMENT = `CHARLOTTE SPOTLIGHT VIDEO SERIES AGREEMENT
 
 This Agreement ("the Agreement") is entered into between Emmanuel Impressions ("the Company") and the client specified below ("the Client"). It contains the entire understanding between the Company and the Client. All prior agreements, understandings, and representations, whether oral or written, are superseded by this Agreement. This Agreement may not be modified or amended except in writing executed by both parties.
@@ -84,42 +89,44 @@ This Agreement ("the Agreement") is entered into between Emmanuel Impressions ("
 Client business name: {{business}}
 Client contact name: {{contact}}
 Email / phone: {{emailPhone}}
-Spot number (1–10): {{spot}}      Tier (Feature / Community): {{tier}}
-Total fee (per the published board): {{fee}}      Film date (set at close): {{filmDate}}
+Spot: {{spot}} on the {{month}} Charlotte Spotlight episode
+Fee: {{fee}}, paid as a {{deposit}} deposit at booking and a {{balance}} balance on the film date
+Film date: {{filmDate}}
 
 2. SCOPE OF SERVICES
-Feature spots (1–4) include: (a) a dedicated video of approximately one minute, produced from on-site filming including an owner interview, delivered as a standalone commercial; (b) a segment of approximately 20–25 seconds featuring the Client, included in the season episode; (c) one promoted-distribution week for the Client's dedicated video on Meta platforms, media cost included; (d) inclusion in the season's promoted-distribution month; and (e) one post-season debrief session reviewing the promotion's delivered metrics.
-
-Community spots (5–10) include: (a) a produced segment of approximately 15–20 seconds featuring the Client (no interview), included in the season episode and delivered as a standalone cut; (b) inclusion in the season's promoted-distribution month; and (c) one post-season debrief session reviewing the promotion's delivered metrics.
-
-The season episode will include up to ten (10) businesses. Promotion metrics (including reach) depend on platform delivery and are not guaranteed; the Company's promotion obligations are defined by the media budgets it commits, not by any audience outcome.
+For the fee, the Company will provide: (a) on-site filming at the Client's business on the film date, including a conversation with the owner or a representative; (b) one fully produced commercial featuring the Client's business, delivered as a standalone video file (the "Client Commercial"); (c) a segment featuring the Client in the Charlotte Spotlight episode for {{month}} (the "Episode"), which will feature up to ten (10) businesses; (d) publication of the Episode as a YouTube video and a blog post, and promotion of the Episode as a paid advertisement on Meta platforms (Facebook and Instagram) for approximately one (1) month after publication, media cost included; and (e) a mid-promotion reach update and one (1) debrief session reviewing the promotion's delivered metrics.
+Additional cuts, longer pieces, and other services are not included and will be quoted separately.
+Promotion metrics (including reach) depend on platform delivery and are not guaranteed. The Company does not guarantee any audience, lead, sales, or other business outcome; its promotion obligations are defined by the placements and media budget it commits.
 
 3. PAYMENT
-The full fee is due at booking. The Client's spot is assigned upon payment in full; unpaid spots remain available to other businesses. Refund terms are governed exclusively by Section 6.
+A deposit of {{deposit}} is due at booking. The Client's spot is assigned when the deposit is received; spots are not held without a deposit, and unassigned spots remain available to other businesses. The balance of {{balance}} is due on the film date. The Company may withhold delivery of the Client Commercial until the fee is paid in full. Refunds are governed exclusively by Section 6.
 
 4. SCHEDULING & FILMING
-The Client's film date is scheduled at booking, at a time mutually agreed. The Client will make the filming location and, for Feature spots, the interviewed owner or representative available on the scheduled date. If the Client reschedules within 48 hours of the scheduled film date more than once, the Company may charge a rescheduling fee of $150.
+The film date is scheduled by mutual agreement and confirmed in writing. The Client will make the filming location and the owner or a representative available on the film date. If the Client reschedules within 48 hours of the scheduled film date more than once, the Company may charge a rescheduling fee of $150.
 
 5. APPROVAL & REVISIONS
-The Client's standalone cut(s) will be delivered for approval before episode assembly. The Client is entitled to one (1) round of revisions per video, requested within five (5) days of delivery, limited to factual corrections, requested trims, and on-screen text changes. If no revision is requested within five (5) days of delivery, the cut is deemed approved. After the episode is assembled, revisions apply to standalone cuts only; the published episode is final. Creative direction, structure, and final cut remain with the Company.
+The Client Commercial will be delivered for approval before the Episode is assembled. The Client is entitled to one (1) round of revisions, requested within five (5) days of delivery, limited to factual corrections, requested trims, and on-screen text changes. If no revision is requested within five (5) days of delivery, the Client Commercial is deemed approved. After the Episode is assembled, revisions apply to the Client Commercial only; the published Episode is final. Creative direction, structure, and final cut remain with the Company.
 
-6. SEASON FLOOR, ROLLOVER & REFUNDS
-Filming is scheduled per Client at booking. If fewer than three (3) businesses have been filmed by October 10, 2026, the season-one episode will not be assembled, and: (a) Community-spot Clients may elect in writing either to roll their paid spot to the next season at the same position and price, or to receive a full refund within five (5) business days of election; (b) Feature-spot Clients retain their delivered dedicated video and promoted week, and their episode segment will be included in the next season's episode at no additional charge. Once the Client's film date is calendared, payments are otherwise non-refundable. Before the Client's film date, the Client may transfer their spot to another business with written notice to the Company.
+6. EPISODE FLOOR, ROLLOVER & REFUNDS
+If fewer than three (3) businesses have been filmed for the Episode and the Company therefore does not publish it, the Client may elect in writing either (a) to roll the Client's spot to the next Charlotte Spotlight episode at the same spot and price, with all amounts paid credited in full, or (b) to receive a full refund of all amounts paid, issued within five (5) business days of the Client's written election. Except as provided in this Section, amounts paid are non-refundable once the Client's film date is scheduled. Before the film date, the Client may transfer the spot to another business with written notice to the Company.
 
-7. COPYRIGHT & LICENSE
-The Company retains all copyright and ownership of the videos produced under this Agreement, including the episode and all raw footage. Upon payment in full, the Company grants the Client a perpetual, non-exclusive, royalty-free license to use the Client's produced video(s) — including, for Feature spots, both the dedicated video and the episode segment's standalone cut — for the Client's own business marketing across any channel, including paid advertising. No additional fee applies to the Client's use of their own video(s). All music and third-party assets in the Client's video(s) are licensed for this use. This license does not extend to the full episode or to other businesses' segments, and may not be sold or transferred to a third party.
+7. OWNERSHIP & LICENSE
+Upon payment of the fee in full, the Company assigns to the Client the copyright in the final Client Commercial as delivered, so the Client owns it and may use it for any purpose and in any channel, including paid advertising, with no additional fee. Music, stock footage, and other third-party assets in the Client Commercial are licensed, not owned; the Company warrants that they are licensed for the Client's commercial use of the Client Commercial, including paid advertising. The Company retains all rights in the Episode, in all raw and unused footage, and in all other businesses' segments. The Client grants the Company a perpetual, non-exclusive, royalty-free license to use the Client Commercial and the Client's segment in the Episode, the Charlotte Spotlight series, and the Company's marketing and portfolio.
 
 8. RESULTS REFERENCE & BOARD DISPLAY
-The Client grants the Company permission to display the Client's business name on the season board upon booking, and to reference the Client's feature and its campaign metrics in the Company's marketing and case studies. The Client may opt out of either use with written notice.
+The Client grants the Company permission to display the Client's business name on the Charlotte Spotlight board once the spot is assigned, and to reference the Client's feature and its campaign metrics in the Company's marketing and case studies. The Client may opt out of either use with written notice.
 
 9. INDEMNIFICATION
-The Client is responsible for the accuracy of all claims, statements, and materials about the Client's business supplied for or appearing in the Client's video(s), and shall indemnify and hold harmless the Company from third-party claims arising from them. The Company is responsible for its production, its licensing of music and stock assets, and delivery of the Services as described in this Agreement.
+The Client is responsible for the accuracy of all claims, statements, and materials about the Client's business supplied for or appearing in the Client Commercial or the Episode, and shall indemnify and hold harmless the Company from third-party claims arising from them. The Company is responsible for its production, its licensing of music and stock assets, and delivery of the Services as described in this Agreement.
 
 10. GENERAL TERMS
 This Agreement is governed by and construed in accordance with the laws of the State of North Carolina, and any disputes arising out of it shall be resolved in the jurisdiction of the State of North Carolina. If any provision is held unenforceable, the remainder of the Agreement remains in effect. This Agreement may be executed electronically.
 
 11. SIGNATURES
 By signing, the Client affirms that they have read, understood, and agreed to the terms contained herein. Typing your name below and accepting constitutes your electronic signature.`;
+// The Aug 21 two-tier template used {{tier}}, which nothing can fill — a stored
+// template that still has it is that old text, so the current one replaces it.
+const isLegacyAgreement = (t: unknown) => typeof t === "string" && t.includes("{{tier}}");
 
 export type SpotlightConfig = {
   price: number; deposit: number; balance: number; perMonth: number;
@@ -144,12 +151,15 @@ export const DEFAULT_CONFIG: SpotlightConfig = {
 export async function getConfig(admin: Admin, userId: string) {
   const { data } = await admin.from("app_state").select("ops").eq("user_id", userId).maybeSingle();
   const ops = (data?.ops || {}) as Record<string, unknown>;
-  return { ...DEFAULT_CONFIG, ...((ops.__spotlight as Partial<SpotlightConfig>) || {}) } as SpotlightConfig;
+  const cfg = { ...DEFAULT_CONFIG, ...((ops.__spotlight as Partial<SpotlightConfig>) || {}) } as SpotlightConfig;
+  if (isLegacyAgreement(cfg.agreementTemplate)) cfg.agreementTemplate = DEFAULT_AGREEMENT;
+  return cfg;
 }
 export async function saveConfig(admin: Admin, userId: string, patch: Partial<SpotlightConfig>) {
   const { data } = await admin.from("app_state").select("ops").eq("user_id", userId).maybeSingle();
   const ops = (data?.ops || {}) as Record<string, unknown>;
-  const next = { ...DEFAULT_CONFIG, ...((ops.__spotlight as object) || {}), ...patch };
+  const next = { ...DEFAULT_CONFIG, ...((ops.__spotlight as object) || {}), ...patch } as SpotlightConfig;
+  if (isLegacyAgreement(next.agreementTemplate)) next.agreementTemplate = DEFAULT_AGREEMENT;
   await admin.from("app_state").upsert({ user_id: userId, ops: { ...ops, __spotlight: next } }, { onConflict: "user_id" });
   return next as SpotlightConfig;
 }
@@ -489,12 +499,18 @@ export async function createInvoice(admin: Admin, p: Prospect, cfg: SpotlightCon
 }
 
 export function agreementText(p: Prospect, cfg: SpotlightConfig) {
+  const spot = (p as Prospect & { spot_number?: number | null }).spot_number;
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(p.film_date || ""));
+  const film = m ? new Intl.DateTimeFormat("en-US", { timeZone: "UTC", weekday: "long", month: "long", day: "numeric", year: "numeric" }).format(new Date(Date.UTC(+m[1], +m[2] - 1, +m[3]))) : "";
   const f: Record<string, string> = {
     business: p.business || "[Business]",
     contact: p.owner_name || "[Contact name]",
     emailPhone: [p.email, p.phone].filter(Boolean).join(" / ") || "[Email / phone]",
+    spot: spot != null ? `Spot ${spot}` : "[Spot number — log the call outcome]",
     fee: money(cfg.price),
-    filmDate: p.film_date || "[Film date]",
+    // The film date is often locked after the deposit (script: "the team calls
+    // you to lock the date"), so an open date doesn't block the agreement.
+    filmDate: film || "to be scheduled by mutual agreement and confirmed in writing",
     month: p.slot_month || cfg.month,
     deposit: money(cfg.deposit), balance: money(cfg.balance),
   };

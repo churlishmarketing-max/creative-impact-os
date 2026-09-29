@@ -8,6 +8,7 @@
  * ========================================================================== */
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { EdithDesk, EdithPanel } from './Edith';
+import SheetImport from './SheetImport';
 
 const api = async (body) => {
   const r = await fetch('/api/spotlight', body ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) } : undefined);
@@ -203,6 +204,7 @@ function Prospects({ prospects, stages, verticals, act, busy, onOpen, flash }) {
   const [f, setF] = useState(EMPTY);
   const [profile, setProfile] = useState(null);
   const [filter, setFilter] = useState('all');
+  const [sheet, setSheet] = useState(false);
   const set = (patch) => setF((x) => ({ ...x, ...patch }));
 
   const importSite = async () => {
@@ -231,8 +233,12 @@ function Prospects({ prospects, stages, verticals, act, busy, onOpen, flash }) {
   const rows = prospects.filter((p) => filter === 'all' ? p.stage !== 'no' : p.stage === filter);
   return (
     <div>
-      <div style={{ ...S.sec, marginTop: 0 }}>Add a prospect</div>
-      <div style={S.panel}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', ...S.sec, marginTop: 0 }}>
+        <span>{sheet ? 'Import a spreadsheet of leads' : 'Add a prospect'}</span>
+        <button style={S.btn(sheet)} onClick={() => setSheet((x) => !x)}>{sheet ? '← Add one by hand' : 'Import a spreadsheet'}</button>
+      </div>
+      {sheet ? <div style={S.panel}><SheetImport verticals={verticals} act={act} flash={flash} /></div> : null}
+      <div style={{ ...S.panel, display: sheet ? 'none' : 'block' }}>
         <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'flex-end', marginBottom: '10px' }}>
           <Field label="Website — the OS reads it and fills what it can" grow="3 1 320px"><input style={S.inp} value={f.website} placeholder="theirbusiness.com" onChange={(e) => set({ website: e.target.value })} onKeyDown={(e) => { if (e.key === 'Enter') importSite(); }} /></Field>
           <button style={S.gold} disabled={!!busy || !f.website.trim()} onClick={importSite}>{busy === 'import' ? 'Reading…' : 'Import from website'}</button>
@@ -363,7 +369,7 @@ function Settings({ cfg, defaultAgreement, act, busy }) {
   return (
     <div>
       <div style={S.warn}>
-        <b>Your documents disagree on the offer.</b> The Canonical Kit, Agreement, and Invoice templates (Aug 21) sell ten spots in two tiers — $1,750 down to $750 — paid in full, one season locking Oct 10. The Call Script (Sep 19, newest) sells a flat <b>$997, $250 deposit + $747 at filming</b>, ten businesses a month. These settings default to the Sep 19 script. The agreement template below is still the Aug 21 text, so it can’t be sent until it matches what’s being sold.
+        <b>The offer: $997 a spot — $250 deposit claims it, $747 on film day,</b> ten businesses a month (the Sep 19 call script; EDITH’s emails quote it too). The agreement below was rewritten on Sep 29 to match — the client owns their commercial, and the refund-or-roll floor EDITH promises is in Section 6. It still needs the <b>North Carolina attorney review</b> before it can be sent; tick the box below once that’s done.
       </div>
       <div style={S.panel}>
         <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', marginBottom: '12px' }}>
@@ -390,13 +396,13 @@ function Settings({ cfg, defaultAgreement, act, busy }) {
           <input type="checkbox" checked={!!c.attorneyReviewed} onChange={(e) => { if (e.target.checked && !window.confirm('Confirm: a North Carolina attorney has reviewed THIS agreement text, and it matches the offer you are selling?')) return; set({ attorneyReviewed: e.target.checked }); }} />
           The agreement below has had its North Carolina attorney review (unlocks sending agreements)
         </label>
-        <Field label="Agreement template — {{business}} {{contact}} {{emailPhone}} {{fee}} {{filmDate}} {{month}} {{deposit}} {{balance}} fill in automatically">
+        <Field label="Agreement template — {{business}} {{contact}} {{emailPhone}} {{spot}} {{fee}} {{filmDate}} {{month}} {{deposit}} {{balance}} fill in automatically">
           <textarea style={{ ...S.inp, minHeight: '320px', lineHeight: 1.55, fontFamily: 'var(--mono)', fontSize: '11.5px' }} value={c.agreementTemplate || ''} onChange={(e) => set({ agreementTemplate: e.target.value, attorneyReviewed: false })} />
         </Field>
-        <div style={{ ...S.note, marginTop: '6px' }}>Editing the text un-ticks attorney review — changed terms need a fresh look. Any {'{{token}}'} not listed above (the Aug 21 text has {'{{spot}}'} and {'{{tier}}'}) stays blank and blocks the agreement until you remove or replace it.</div>
+        <div style={{ ...S.note, marginTop: '6px' }}>Editing the text un-ticks attorney review — changed terms need a fresh look. Any {'{{token}}'} not listed above stays blank and blocks the agreement until you remove or replace it. {'{{spot}}'} fills from the spot number logged on the call.</div>
         <div style={{ display: 'flex', gap: '10px', marginTop: '14px' }}>
           <button style={S.btn(true)} disabled={!dirty || !!busy} onClick={() => act({ op: 'save_config', patch: c }, 'SPOTLIGHT SETTINGS SAVED ✓')}>Save settings</button>
-          <button style={S.btn(false)} onClick={() => { if (window.confirm('Reset the agreement text to the Aug 21 template?')) set({ agreementTemplate: defaultAgreement, attorneyReviewed: false }); }}>Reset agreement text</button>
+          <button style={S.btn(false)} onClick={() => { if (window.confirm('Reset the agreement text to the current template (v5, Sep 29)?')) set({ agreementTemplate: defaultAgreement, attorneyReviewed: false }); }}>Reset agreement text</button>
           {dirty ? <span style={{ ...S.note, color: 'var(--gold)', alignSelf: 'center' }}>Unsaved changes</span> : null}
         </div>
       </div>
@@ -545,7 +551,7 @@ function Detail({ p, d, act, busy, flash, reload, onClose }) {
                 <button style={S.btn(false)} onClick={async () => { const j = await act({ op: 'agreement_preview', id: p.id }); if (j.ok) setAgree(j); }}>Preview filled agreement</button>
                 <button style={S.btn(!!cfg.attorneyReviewed)} disabled={!!busy || !cfg.attorneyReviewed} title={cfg.attorneyReviewed ? '' : 'Locked until the template is marked attorney-reviewed in Settings'} onClick={() => act({ op: 'agreement', id: p.id }, 'AGREEMENT CREATED ✓')}>Create agreement for signature</button>
               </div>
-              {!cfg.attorneyReviewed ? <div style={{ ...S.note, marginTop: '8px', color: 'var(--gold)' }}>Locked: the template hasn’t been marked attorney-reviewed, and it still describes the Aug 21 offer. See Settings.</div> : null}
+              {!cfg.attorneyReviewed ? <div style={{ ...S.note, marginTop: '8px', color: 'var(--gold)' }}>Locked until the NC attorney review is done and ticked in Settings.</div> : null}
               {agree ? (
                 <div style={{ marginTop: '10px' }}>
                   {agree.unresolved && agree.unresolved.length ? <div style={{ ...S.note, color: 'var(--red)', marginBottom: '6px' }}>Can’t fill: {agree.unresolved.join(', ')}</div> : null}

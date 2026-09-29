@@ -47,7 +47,7 @@ The capture days are the wedge, not the number.
   01 Command · 02 Sales (Pipeline, Audits, Clients, Scheduling) · 03 Spotlight ·
   04 Production (Shoots, Documents) · 05 Money (Invoices, Proposals, Expenses,
   KPIs) · 06 Strategy (Strategy, Plans, Partners) · 07 Fleet (Agent Fleet,
-  Automations) · 08 Jarvis. Groups with several screens show a sub-tab row.
+  Automations) · 08 EDITH (was Jarvis). Groups with several screens show a sub-tab row.
   Screen ids (`state.view`) are unchanged; the grouping lives in `NAV` in
   `app/cockpit/Cockpit.jsx`. Adding a screen = add it to `NAV` too, or it's
   unreachable.
@@ -114,73 +114,95 @@ $500K+. Plan · Leads · Tracker · Math · Ads · The Call · Form & Build.
   Oct 6.
 - The OS sends no SMS: the ladder texts (T1–T3) are merged and copy-ready.
 
-## EDITH — the Spotlight email engine (2026-09-24) · OFF until reviewed
+## EDITH — the assistant AND the Spotlight emails (LIVE since 2026-09-29)
 
-Spotlight → **EDITH · Email**. Implements `automations/edith/edith-automations.yaml`
-(sequences, exits, holds) with the copy in `automations/edith/EDITH_Email_Sequences.md`
-— both verbatim from Downloads, never edited by code. `npm run edith:build`
-compiles them to `lib/edith/content.generated.ts`; `edith:check` fails if stale.
+**One assistant.** Jarvis became EDITH on 2026-09-29 (Brandon: "I thought we
+were changing Jarvis into EDITH"). Nav 08 is EDITH — the same console
+(`/api/rookie`, `rookie` screen id kept) with the same tools, plus
+`edith_status` (what's sent / held / queued / waiting on a human) and
+`edith_log` (call outcome, no-show, cancel, reply, cut delivered, debrief). Her
+persona is built in; an `agents` row named "EDITH" overrides it (old Jarvis /
+Showrunner rows are deliberately ignored — their prompts say another name).
 
-- **`edith_live` is FALSE.** EDITH runs every sequence and writes each email to
-  the log (`edith_steps`, status `logged`) — nothing sends. Turning her on
-  takes a typed "EDITH LIVE" in the cockpit. Do not flip it for Brandon.
-- **Run, in order:** `supabase/22_spotlight.sql` (if not yet), `24_edith.sql`
-  (contact fields on spotlight_prospects + events / enrollments / steps /
-  ops_tasks / edith_runtime), `25_edith_clock.sql` (pg_cron + pg_net: every
-  minute, pings `/api/edith/tick` ONLY if an email is due or it's 7:30 AM ET).
-  Vercel Hobby's one daily cron (`/api/cron/daily`) is only the fallback.
-- Engine: `lib/edith/engine.ts` (pure; no I/O) · `lib/edith/server.ts` (Supabase
-  store, Resend delivery, digest, hooks `edithEmit`/`edithTouch`) ·
-  `app/api/edith/` (operator API; `tick` + `unsubscribe` are public, in proxy) ·
-  `app/cockpit/Edith.jsx` (desk + the drawer panel) · `app/e/unsubscribe/[token]`.
-- Proof: `npm run edith:test` (20 unit tests) and `npm run edith:dry-run`
-  (5 fake contacts × 45 days, fails on any blank merge field).
-- **Emitters:** contact.created (Spotlight add, Jarvis add, booking) ·
-  call.booked (Spotlight bookings; Jarvis reschedule) · call.cancelled (Jarvis) ·
+**The emails.** Spotlight → **EDITH · Email**. Implements
+`automations/edith/edith-automations.yaml` with the copy in
+`automations/edith/EDITH_Email_Sequences.md` (copy locked; only the sender lines
+were changed, at Brandon's instruction). `npm run edith:build` compiles them to
+`lib/edith/content.generated.ts`; `edith:check` fails if stale.
+
+- **LIVE.** `edith_live` defaults to true in `lib/edith/server.ts` (Brandon,
+  2026-09-29: "go ahead and turn her on"). "Turn EDITH off" in the cockpit stores
+  false, which wins over the default.
+- **Sender:** from AND reply-to are **hello@creativeimpactmedia.co** (Google
+  Workspace inbox; the apex is Resend-verified). The daily digest goes there too.
+- **Migrations 22–25 were run 2026-09-29** (pg_cron job `edith-tick` scheduled).
+- **Holds, not blanks:** any email with an empty merge field waits and becomes a
+  task. As of 9/29 still unset → **mailing address** (cold SEQ1 holds),
+  **call link** (3-1/3-2/3-3 hold; the booking route then sends the regular
+  welcome so a booker is never left without a confirmation), and — while Stripe
+  isn't connected — **deposit/balance payment links** (5-x / 6-3 hold; the OS
+  /pay pages can't take cards without STRIPE_SECRET_KEY).
+- **Defaults filled 9/29:** board link = `/spotlight/board` (NEW public page:
+  price, spots open, the Omaha receipt, fit-call link, and the interest form that
+  emits lead.form_submitted → SEQ2; rate-limited, honeypot, ops notified by
+  email), debrief link = `/go/debrief` (booking page in member-debrief mode; a
+  member booking is logged as debrief.booked and gets a plain confirmation).
+- **Deliverability guard (not in the manifest):** at most `cold_daily_cap`
+  (default 20, EDITH settings) NEW cold first-touches per Eastern day; the rest
+  wait for tomorrow. Follow-ups aren't capped.
+- **Spreadsheet import:** Spotlight → Prospects → "Import a spreadsheet" (.xlsx /
+  .csv / .tsv / pasted rows, parsed in the browser — `app/cockpit/SheetImport.jsx`,
+  op `import_rows`). Dedupes by email then business name; existing people only
+  get EMPTY fields filled. "Cold prospects" tick = cold_prospect tag = SEQ1
+  eligible once a specific detail exists.
+- The hand-sent cold emails (The Sequence tab) refuse to send while EDITH's SEQ1
+  is running for that prospect.
+- Engine: `lib/edith/engine.ts` (pure) · `lib/edith/server.ts` (store, Resend,
+  digest, hooks) · `app/api/edith/` (operator API; `tick` + `unsubscribe` public)
+  · `app/cockpit/Edith.jsx` · `app/e/unsubscribe/[token]`. Proof:
+  `npm run edith:test` (21) and `npm run edith:dry-run` (5 contacts × 45 days).
+- **Emitters:** contact.created (Spotlight add, import, EDITH console, booking,
+  board form) · call.booked (Spotlight bookings; console reschedule) ·
+  call.cancelled (console) · lead.form_submitted (board form; "Log a form") ·
   deposit.paid (`makeMember`) · balance.paid (payment + reconcile) ·
-  email.replied (Resend inbound webhook, once configured; else logged by hand) ·
-  contact.unsubscribed (link, "stop" reply, Do-not-contact, stage No) ·
-  cut.approved (EDITH, 5 days of silence) · debrief.booked (client books after 6-8).
-  **Logged by a human in the cockpit** (the OS can't observe them):
-  call.completed, call.no_show, cut.delivered, episode.published,
-  promo.started/ended. **TODO:** lead.form_submitted has no public form yet —
-  build the Spotlight interest form (the board page) and emit it there; until
-  then forms are logged by hand (EDITH → Log a form). call.no_show has no
-  auto-detect (manifest says "or auto after 15 min" — no meeting integration).
-- **Before going live, Brandon/Emmanuel must set** (EDITH → Settings): mailing
-  address (CAN-SPAM; cold emails HOLD without it), board link (2-1, 3-1),
-  call link (3-x), debrief link (6-8). Reply-to is hello@creativeimpactmedia.co
-  (confirmed by Brandon 2026-09-24). For replies to stop sequences
-  automatically, reply-to must be a Resend-inbound address + RESEND_WEBHOOK_SECRET.
-- Interpretations (all commented INTERPRETATION in engine.ts): SEQ3/SEQ6 ignore
-  the global reply-stop; SEQ3/SEQ4 neither wait on nor count toward the
-  1-per-24h cap; "enroll: SEQ7" = tag nurture (joins the next episode drop);
-  release_spot is a no-op (spots are claimed at deposit); reminders whose moment
-  passed are skipped, never sent late; SEQ1 runs once per contact, ever, and
-  starts when a tagged cold prospect's specific detail is written.
+  email.replied (Resend inbound, once configured; else logged by hand) ·
+  contact.unsubscribed (link, "stop", Do-not-contact, stage No) · cut.approved
+  (5 days of silence) · debrief.booked (member books via /go/debrief after 6-8).
+  **Logged by a human** (drawer, console, or desk): call.completed, call.no_show,
+  cut.delivered, episode.published, promo.started/ended. No auto no-show.
+- **Replies aren't seen automatically yet.** Until reply-to points at a
+  Resend-inbound address (+ RESEND_WEBHOOK_SECRET), someone logs replies ("They
+  replied") or EDITH keeps following up.
+- Interpretations (commented INTERPRETATION in engine.ts): SEQ3/SEQ6 ignore the
+  global reply-stop; SEQ3/SEQ4 neither wait on nor count toward the 1-per-24h cap;
+  "enroll: SEQ7" = tag nurture; release_spot is a no-op; reminders whose moment
+  passed are skipped; SEQ1 runs once per contact, ever.
 
-## ⚠️ CHARLOTTE SPOTLIGHT — two things waiting on Brandon (2026-09-24)
+## CHARLOTTE SPOTLIGHT — the offer and the agreement (2026-09-29)
 
-1. **Run `supabase/22_spotlight.sql`** in the Supabase SQL editor. Until then
-   the Spotlight screen shows a "table doesn't exist" notice. Safe to re-run;
-   touches no other table.
-2. **Decide the offer.** The source docs disagree: the Aug 21 Canonical Kit,
-   Agreement and Invoice templates sell 10 spots in two tiers ($1,750→$750) paid
-   in full, one season locking Oct 10; the Sep 19 Call Script sells a flat
-   **$997 = $250 deposit + $747 at filming**, ten businesses a month. The module
-   defaults to Sep 19. Price/deposit/month/episode date are **Settings**, not
-   code. The agreement template is still the Aug 21 text — agreements stay
-   locked until it's rewritten to match the real offer, gets the NC attorney
-   pass, and "attorney reviewed" is ticked in Spotlight → Settings.
+- **Offer: $997 = $250 deposit at booking + $747 on film day**, ten a month (Sep 19
+  script; EDITH's emails quote it). Settings, not code.
+- **Agreement v5** (`DEFAULT_AGREEMENT` in `lib/spotlight.ts`, rewritten 9/29):
+  client OWNS their commercial (script: "you own it forever"); refund-or-roll
+  floor (fewer than 3 filmed → roll or full refund in 5 business days — EDITH 5-1
+  promises it); film date may follow the deposit; no filming-speed promise.
+  Tokens: {{business}} {{contact}} {{emailPhone}} {{spot}} {{fee}} {{filmDate}}
+  {{month}} {{deposit}} {{balance}}. A stored template still containing the
+  Aug 21 {{tier}} token is replaced automatically.
+- **Still locked:** needs the NC attorney pass, then "attorney reviewed" ticked in
+  Spotlight → Settings. The attorney copy with 8 open questions (legal entity —
+  "Emmanuel Impressions" vs Creative Impact — ownership, deposit refund window,
+  floor + delivered cut, promo wording, e-sign, on-premises releases, Section 8):
+  `docs/spotlight/Charlotte_Spotlight_Agreement_v5_DRAFT_for_attorney.docx`.
 
 **How it works:** prospect → contacted → call booked → **member** (deposit
-paid; that auto-emails the pre-shoot questions) → filming → filmed → delivered
-→ published, plus Not now / No lanes. `/go/spotlight` is the fit-call booking
-link. Cold emails never auto-send (drafts with a [bracket] send-blocker; for
-volume use a dedicated outreach sender, not hello@). Code: `lib/spotlight.ts`,
-`app/api/spotlight/`, `app/cockpit/Spotlight.jsx`, `app/spotlight/q/[token]`.
-**The script's "October" lines expire Oct 1** — roll the month and episode date
-forward in Settings (script §11 has the swap list).
+paid; that auto-emails the pre-shoot questions and starts EDITH's SEQ6) →
+filming → filmed → delivered → published, plus Not now / No lanes.
+`/go/spotlight` = fit call · `/spotlight/board` = public board + form ·
+`/go/debrief` = member debrief. Code: `lib/spotlight.ts`, `app/api/spotlight/`,
+`app/cockpit/Spotlight.jsx`, `app/spotlight/q/[token]`, `app/spotlight/board`.
+**Roll the month + episode date forward in Spotlight → Settings on Oct 1** (the
+script's "October" lines expire; script §11 has the swap list).
 
 ## What changed most recently (through 2026-08-16)
 
